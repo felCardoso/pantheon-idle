@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { TopBar } from './components/layout/TopBar';
 import { SideMenu } from './components/layout/SideMenu';
 import { StagePanel } from './components/layout/StagePanel';
@@ -7,10 +7,10 @@ import { BattleStage } from './components/battle/BattleStage';
 import { WikiModal } from './components/wiki/WikiModal';
 import { Toast } from './components/common/Toast';
 import { Icon } from './components/common/Icon';
-import { ALLY_UNITS, ENEMY_UNITS } from './data/mock/units';
-import { PLAYER_STATE, STAGE_INFO } from './data/mock/player';
+import { PLAYER_STATE } from './data/mock/player';
 import { MENU_ITEMS } from './data/mock/menu';
 import { CHAT_MESSAGES } from './data/mock/chat';
+import { useBattleSimulation } from './hooks/useBattleSimulation';
 import type { MenuItem } from './types';
 
 export default function App() {
@@ -19,6 +19,9 @@ export default function App() {
   const [stageOpen, setStageOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+
+  const battle = useBattleSimulation();
+  const chatMessages = useMemo(() => [...CHAT_MESSAGES, ...battle.logFeed], [battle.logFeed]);
 
   useEffect(() => {
     if (!toast) return;
@@ -48,12 +51,27 @@ export default function App() {
         <SideMenu items={MENU_ITEMS} activeId={activeMenuId} onSelect={handleMenuSelect} />
 
         <div className="flex min-h-0 flex-1 flex-col pb-16 lg:pb-0">
-          <BattleStage allies={ALLY_UNITS} enemies={ENEMY_UNITS} stage={STAGE_INFO} />
+          <BattleStage
+            allies={battle.allies}
+            enemies={battle.enemies}
+            stage={battle.stage}
+            playing={battle.playing}
+            onSetPlaying={battle.setPlaying}
+            finished={battle.finished}
+            winner={battle.winner}
+            onNextBattle={battle.startNewBattle}
+          />
         </div>
 
         <div className="lg:flex lg:w-72 lg:min-h-0 lg:shrink-0 lg:flex-col">
-          <StagePanel stage={STAGE_INFO} open={stageOpen} onClose={() => setStageOpen(false)} />
-          <ChatPanel messages={CHAT_MESSAGES} open={chatOpen} onClose={() => setChatOpen(false)} />
+          <StagePanel
+            stage={battle.stage}
+            open={stageOpen}
+            onClose={() => setStageOpen(false)}
+            onAdvance={battle.startNewBattle}
+            onRepeat={battle.repeatBattle}
+          />
+          <ChatPanel messages={chatMessages} open={chatOpen} onClose={() => setChatOpen(false)} />
         </div>
 
         {/* floating handles (mobile + collapsed-desktop convenience) */}

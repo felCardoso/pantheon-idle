@@ -85,6 +85,8 @@ export function applyStatus(
 export interface StatusTick {
   status: StatusType;
   amount: number;
+  kind: 'damage' | 'heal';
+  shieldAbsorbed: number;
 }
 
 export interface EndOfRoundResult {
@@ -103,18 +105,19 @@ export function endOfRoundTick(c: Combatant): EndOfRoundResult {
   for (const s of c.statuses) {
     if (DAMAGE_OVER_TIME.has(s.status)) {
       const dmg = s.value;
+      let fromShield = 0;
       if (s.ignoresShield) {
         c.hp = Math.max(0, c.hp - dmg);
       } else {
-        const fromShield = Math.min(c.shield, dmg);
+        fromShield = Math.min(c.shield, dmg);
         c.shield -= fromShield;
         c.hp = Math.max(0, c.hp - (dmg - fromShield));
       }
-      ticks.push({ status: s.status, amount: dmg });
+      ticks.push({ status: s.status, amount: dmg, kind: 'damage', shieldAbsorbed: fromShield });
     } else if (s.status === 'regeneracao') {
       const heal = Math.min(s.value, c.maxHp - c.hp);
       c.hp += heal;
-      ticks.push({ status: s.status, amount: heal });
+      ticks.push({ status: s.status, amount: heal, kind: 'heal', shieldAbsorbed: 0 });
     }
 
     if (s.remainingRounds === null) {

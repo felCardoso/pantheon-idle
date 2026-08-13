@@ -57,10 +57,17 @@ export type BattleLogEntry =
   | { kind: 'attack'; result: AttackResult }
   | { kind: 'dodge'; attacker: string; defender: string }
   | { kind: 'statusApplied'; target: string; status: StatusType; source: string; rounds: number | null }
-  | { kind: 'statusTick'; target: string; status: StatusType; amount: number }
+  | {
+      kind: 'statusTick';
+      target: string;
+      status: StatusType;
+      amount: number;
+      tickKind: 'damage' | 'heal';
+      shieldAbsorbed: number;
+    }
   | { kind: 'statusExpired'; target: string; status: StatusType }
   | { kind: 'heal'; target: string; amount: number; source: string }
   | { kind: 'shieldGranted'; target: string; amount: number; source: string }
   | { kind: 'death'; unit: string }
-  | { kind: 'enrage'; round: number; percent: number }
+  | { kind: 'enrage'; round: number; percent: number; damages: { target: string; amount: number }[] }
   | { kind: 'battleEnd'; winner: 'allies' | 'enemies' | 'draw'; reason: 'elimination' | 'roundLimit' };

@@ -123,7 +123,16 @@ export function runBattle(allies: Combatant[], enemies: Combatant[], options: Ba
     for (const unit of allUnits) {
       if (unit.hp <= 0) continue;
       const { ticks, expired } = endOfRoundTick(unit);
-      for (const tick of ticks) pushLog({ kind: 'statusTick', target: unit.name, status: tick.status, amount: tick.amount });
+      for (const tick of ticks) {
+        pushLog({
+          kind: 'statusTick',
+          target: unit.name,
+          status: tick.status,
+          amount: tick.amount,
+          tickKind: tick.kind,
+          shieldAbsorbed: tick.shieldAbsorbed,
+        });
+      }
       for (const status of expired) pushLog({ kind: 'statusExpired', target: unit.name, status });
       if (unit.hp <= 0) pushLog({ kind: 'death', unit: unit.name });
     }
@@ -134,7 +143,10 @@ export function runBattle(allies: Combatant[], enemies: Combatant[], options: Ba
     const { roundLimit, enrageStartRound, enrageBasePercent } = CONSTANTS.antiInfiniteRound;
     if (round >= enrageStartRound) {
       const percent = enrageBasePercent * Math.pow(2, round - enrageStartRound);
-      pushLog({ kind: 'enrage', round, percent });
+      const damages = allUnits
+        .filter((unit) => unit.hp > 0)
+        .map((unit) => ({ target: unit.name, amount: Math.min(unit.hp, Math.round(unit.maxHp * percent)) }));
+      pushLog({ kind: 'enrage', round, percent, damages });
       for (const unit of allUnits) {
         if (unit.hp <= 0) continue;
         const trueDamage = Math.round(unit.maxHp * percent);

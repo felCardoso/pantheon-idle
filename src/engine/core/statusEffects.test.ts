@@ -77,7 +77,7 @@ describe('endOfRoundTick', () => {
 
     const { ticks } = endOfRoundTick(c);
 
-    expect(ticks).toEqual([{ status: 'virus', amount: 30 }]);
+    expect(ticks).toEqual([{ status: 'virus', amount: 30, kind: 'damage', shieldAbsorbed: 10 }]);
     expect(c.shield).toBe(0);
     expect(c.hp).toBe(c.maxHp - 20);
   });
@@ -98,7 +98,7 @@ describe('endOfRoundTick', () => {
 
     const { ticks } = endOfRoundTick(c);
 
-    expect(ticks).toEqual([{ status: 'regeneracao', amount: 10 }]);
+    expect(ticks).toEqual([{ status: 'regeneracao', amount: 10, kind: 'heal', shieldAbsorbed: 0 }]);
     expect(c.hp).toBe(c.maxHp);
   });
 
