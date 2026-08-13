@@ -64,12 +64,7 @@ export function UnitCard({ unit, delay = 0, floatingTexts = [] }: UnitCardProps)
         }}
       >
         {unit.portraitUrl ? (
-          <img
-            src={unit.portraitUrl}
-            alt={unit.name}
-            className="h-full w-full object-contain p-0.5"
-            style={{ imageRendering: 'pixelated' }}
-          />
+          <img src={unit.portraitUrl} alt={unit.name} className="h-full w-full object-cover" />
         ) : (
           <PixelFigure className="h-[85%] w-[85%]" style={{ color: elementColor }} />
         )}
