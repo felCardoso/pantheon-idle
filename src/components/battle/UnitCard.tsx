@@ -1,18 +1,38 @@
 import { Icon } from '../common/Icon';
-import { ELEMENT_COLOR, ELEMENT_GLYPH, FACTION_COLOR } from '../../data/theme';
+import { PixelFigure } from './PixelFigure';
+import { StatusBadge } from './StatusBadge';
+import { ELEMENT_COLOR, FACTION_COLOR, NEGATIVE_STATUSES } from '../../data/theme';
 import type { BattleUnit } from '../../types';
+import type { FloatingText } from '../../hooks/useBattleSimulation';
 
 interface UnitCardProps {
   unit: BattleUnit;
   delay?: number;
+  floatingTexts?: FloatingText[];
 }
 
-export function UnitCard({ unit, delay = 0 }: UnitCardProps) {
+const FLOATER_STYLE: Record<FloatingText['kind'], string> = {
+  damage: 'text-white',
+  crit: 'text-signal-red text-base sm:text-lg',
+  heal: 'text-code-400',
+  shield: 'text-signal-cyan',
+};
+
+const FLOATER_PREFIX: Record<FloatingText['kind'], string> = {
+  damage: '-',
+  crit: '-',
+  heal: '+',
+  shield: '+',
+};
+
+export function UnitCard({ unit, delay = 0, floatingTexts = [] }: UnitCardProps) {
   const elementColor = ELEMENT_COLOR[unit.element];
   const factionColor = FACTION_COLOR[unit.faction];
   const isDead = unit.hp <= 0;
   const hpPct = Math.max(0, Math.min(100, (unit.hp / unit.maxHp) * 100));
+  const shieldPct = Math.max(0, Math.min(100, (unit.shield / unit.maxHp) * 100));
   const isCritical = !isDead && hpPct <= 25;
+  const negativeStatuses = unit.statuses.filter((s) => NEGATIVE_STATUSES.has(s.type));
 
   return (
     <div
@@ -20,21 +40,35 @@ export function UnitCard({ unit, delay = 0 }: UnitCardProps) {
       style={{ animationDelay: `${delay}ms` }}
       title={`${unit.name} · Nv.${unit.level} · ${unit.faction} · ${unit.element}${isDead ? ' · derrotado' : ''}`}
     >
+      {/* negative status effects — above the character */}
+      <div className="flex h-4 items-center gap-0.5 sm:h-5">
+        {negativeStatuses.map((status) => (
+          <StatusBadge key={status.type} status={status} />
+        ))}
+      </div>
+
       <div className="flex h-5 w-5 items-center justify-center rounded-[4px] border border-white/20 bg-void-800 font-mono text-[10px] font-bold text-white/90 sm:h-6 sm:w-6 sm:text-[11px]">
         {unit.level}
       </div>
 
       <div
-        className="relative flex h-10 w-10 items-center justify-center rounded-lg sm:h-16 sm:w-16 sm:rounded-xl"
+        className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg sm:h-16 sm:w-16 sm:rounded-xl"
         style={{
           background: `linear-gradient(150deg, ${factionColor}22, #0a0a12)`,
           border: `1.5px solid ${elementColor}aa`,
           boxShadow: isDead ? 'none' : `0 0 14px -2px ${elementColor}88`,
         }}
       >
-        <span className="font-display text-sm font-bold sm:text-lg" style={{ color: elementColor }}>
-          {ELEMENT_GLYPH[unit.element]}
-        </span>
+        {unit.portraitUrl ? (
+          <img
+            src={unit.portraitUrl}
+            alt={unit.name}
+            className="h-full w-full object-contain p-0.5"
+            style={{ imageRendering: 'pixelated' }}
+          />
+        ) : (
+          <PixelFigure className="h-[85%] w-[85%]" style={{ color: elementColor }} />
+        )}
         {isDead && (
           <span className="absolute inset-0 flex items-center justify-center rounded-lg bg-void-950/60 sm:rounded-xl">
             <Icon name="x" size={18} className="text-signal-red" />
@@ -47,7 +81,22 @@ export function UnitCard({ unit, delay = 0 }: UnitCardProps) {
         )}
       </div>
 
-      <div className="flex w-12 items-center gap-1 sm:w-16">
+      {/* HP bar, with floating combat text anchored just above it */}
+      <div className="relative flex w-12 items-center gap-1 sm:w-16">
+        {floatingTexts.map((f, i) => (
+          <span
+            key={f.id}
+            className="pointer-events-none absolute left-1/2 -translate-x-1/2"
+            style={{ bottom: `${4 + i * 13}px` }}
+          >
+            <span
+              className={`animate-float-up block whitespace-nowrap font-mono text-[10px] font-bold sm:text-xs ${FLOATER_STYLE[f.kind]}`}
+            >
+              {FLOATER_PREFIX[f.kind]}
+              {Math.round(f.amount)}
+            </span>
+          </span>
+        ))}
         <Icon name="heart" size={10} className={isCritical ? 'text-signal-red' : 'text-white/40'} />
         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-void-700">
           <div
@@ -57,6 +106,19 @@ export function UnitCard({ unit, delay = 0 }: UnitCardProps) {
         </div>
       </div>
       <span className="font-mono text-[9px] text-white/50 sm:text-[10px]">{Math.round(unit.hp)}</span>
+
+      {/* shield — below HP */}
+      {unit.shield > 0 && (
+        <>
+          <div className="flex w-12 items-center gap-1 sm:w-16">
+            <Icon name="shield" size={9} className="text-signal-cyan/70" />
+            <div className="h-1 flex-1 overflow-hidden rounded-full bg-void-700">
+              <div className="h-full rounded-full bg-signal-cyan transition-all" style={{ width: `${shieldPct}%` }} />
+            </div>
+          </div>
+          <span className="font-mono text-[8px] text-signal-cyan/80 sm:text-[9px]">{Math.round(unit.shield)}</span>
+        </>
+      )}
     </div>
   );
 }

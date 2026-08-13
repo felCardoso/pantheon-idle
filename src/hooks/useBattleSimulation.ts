@@ -6,12 +6,13 @@ import { formatLogEntry } from '../engine/cli/format';
 import type { BattleLogEntry, Combatant } from '../engine/core/types';
 import {
   DISPLAY_LEVEL_BY_TEMPLATE_ID,
+  DISPLAY_PORTRAIT_BY_TEMPLATE_ID,
   DISPLAY_RARITY_BY_TEMPLATE_ID,
   FALLBACK_ELEMENT,
   FALLBACK_FACTION,
   FALLBACK_RARITY,
 } from '../data/engineDisplay';
-import type { BattleUnit, ChatMessage, StageInfo } from '../types';
+import type { ActiveStatus, BattleUnit, ChatMessage, StageInfo } from '../types';
 
 interface BattleSession {
   seed: number;
@@ -29,24 +30,64 @@ function createSession(seed: number, useBoss: boolean): BattleSession {
   return { seed, useBoss, allies, enemies, log: result.log, nameToId: buildNameToId(allies, enemies) };
 }
 
+export type FloatingTextKind = 'damage' | 'crit' | 'heal' | 'shield';
+
+export interface FloatingText {
+  id: string;
+  unitId: string;
+  amount: number;
+  kind: FloatingTextKind;
+  createdAt: number;
+}
+
+/** How long a floating number stays on screen before being pruned. */
+const FLOATER_LIFETIME_MS = 1100;
+
 interface PlaybackState {
   session: BattleSession;
   replay: ReplayState;
   index: number;
   logFeed: ChatMessage[];
+  floaters: FloatingText[];
   finished: boolean;
   winner: 'allies' | 'enemies' | 'draw' | null;
 }
 
-type Action = { type: 'reset'; session: BattleSession } | { type: 'tick' };
+type Action = { type: 'reset'; session: BattleSession } | { type: 'tick' } | { type: 'pruneFloaters' };
 
 let chatIdCounter = 0;
+let floaterIdCounter = 0;
 
 function toneFor(entry: BattleLogEntry): ChatMessage['tone'] {
   if (entry.kind === 'battleEnd') return entry.winner === 'allies' ? 'success' : entry.winner === 'enemies' ? 'danger' : 'system';
   if (entry.kind === 'enrage') return 'system';
   if (entry.kind === 'attack' && entry.result.crit) return 'success';
   return 'default';
+}
+
+/** What floating numbers (if any) a log entry should spawn, keyed by target unit id. */
+function floatersFor(entry: BattleLogEntry, nameToId: Record<string, string>): Omit<FloatingText, 'id' | 'createdAt'>[] {
+  switch (entry.kind) {
+    case 'attack':
+      if (entry.result.dodged) return [];
+      return [
+        {
+          unitId: entry.result.defender.id,
+          amount: entry.result.finalDamage,
+          kind: entry.result.crit ? 'crit' : 'damage',
+        },
+      ];
+    case 'statusTick':
+      return [{ unitId: nameToId[entry.target], amount: entry.amount, kind: entry.tickKind === 'heal' ? 'heal' : 'damage' }];
+    case 'heal':
+      return [{ unitId: nameToId[entry.target], amount: entry.amount, kind: 'heal' }];
+    case 'shieldGranted':
+      return [{ unitId: nameToId[entry.target], amount: entry.amount, kind: 'shield' }];
+    case 'enrage':
+      return entry.damages.map((d) => ({ unitId: nameToId[d.target], amount: d.amount, kind: 'damage' as const }));
+    default:
+      return [];
+  }
 }
 
 function buildInitialState(seed: number, useBoss: boolean): PlaybackState {
@@ -56,6 +97,7 @@ function buildInitialState(seed: number, useBoss: boolean): PlaybackState {
     replay: createInitialReplayState(session.allies, session.enemies),
     index: 0,
     logFeed: [],
+    floaters: [],
     finished: session.log.length === 0,
     winner: null,
   };
@@ -68,9 +110,16 @@ function reducer(state: PlaybackState, action: Action): PlaybackState {
       replay: createInitialReplayState(action.session.allies, action.session.enemies),
       index: 0,
       logFeed: [],
+      floaters: [],
       finished: action.session.log.length === 0,
       winner: null,
     };
+  }
+
+  if (action.type === 'pruneFloaters') {
+    const now = Date.now();
+    const floaters = state.floaters.filter((f) => now - f.createdAt < FLOATER_LIFETIME_MS);
+    return floaters.length === state.floaters.length ? state : { ...state, floaters };
   }
 
   if (state.finished || state.index >= state.session.log.length) {
@@ -84,10 +133,31 @@ function reducer(state: PlaybackState, action: Action): PlaybackState {
   const logFeed = line
     ? [...state.logFeed, { id: `battle-log-${chatIdCounter}`, tab: 'log' as const, text: line.trim(), time: `R${replay.round}`, tone: toneFor(entry) }]
     : state.logFeed;
+  const now = Date.now();
+  const newFloaters = floatersFor(entry, state.session.nameToId)
+    .filter((f) => f.unitId)
+    .map((f) => {
+      floaterIdCounter += 1;
+      return { ...f, id: `floater-${floaterIdCounter}`, createdAt: now };
+    });
   const winner = entry.kind === 'battleEnd' ? entry.winner : state.winner;
   const index = state.index + 1;
 
-  return { ...state, replay, index, logFeed, winner, finished: index >= state.session.log.length };
+  return {
+    ...state,
+    replay,
+    index,
+    logFeed,
+    floaters: [...state.floaters, ...newFloaters],
+    winner,
+    finished: index >= state.session.log.length,
+  };
+}
+
+function toActiveStatuses(statuses: ReplayState['units'][string]['statuses']): ActiveStatus[] {
+  return Object.entries(statuses)
+    .filter(([, count]) => (count ?? 0) > 0)
+    .map(([type, count]) => ({ type: type as ActiveStatus['type'], count: count ?? 0 }));
 }
 
 function toBattleUnits(templates: Combatant[], replay: ReplayState): BattleUnit[] {
@@ -102,7 +172,10 @@ function toBattleUnits(templates: Combatant[], replay: ReplayState): BattleUnit[
       level: DISPLAY_LEVEL_BY_TEMPLATE_ID[t.templateId] ?? 1,
       hp: snapshot?.hp ?? t.maxHp,
       maxHp: t.maxHp,
+      shield: snapshot?.shield ?? 0,
+      statuses: snapshot ? toActiveStatuses(snapshot.statuses) : [],
       isAlly: t.isAlly,
+      portraitUrl: DISPLAY_PORTRAIT_BY_TEMPLATE_ID[t.templateId],
     };
   });
 }
@@ -118,6 +191,7 @@ export interface BattleSimulation {
   enemies: BattleUnit[];
   stage: StageInfo;
   logFeed: ChatMessage[];
+  floaters: FloatingText[];
   playing: boolean;
   finished: boolean;
   winner: 'allies' | 'enemies' | 'draw' | null;
@@ -138,6 +212,12 @@ export function useBattleSimulation(options: UseBattleSimulationOptions = {}): B
     const id = setInterval(() => dispatch({ type: 'tick' }), tickMs);
     return () => clearInterval(id);
   }, [playing, state.finished, state.session, tickMs]);
+
+  useEffect(() => {
+    if (state.floaters.length === 0) return;
+    const id = setInterval(() => dispatch({ type: 'pruneFloaters' }), 250);
+    return () => clearInterval(id);
+  }, [state.floaters.length]);
 
   const startNewBattle = useCallback(() => {
     dispatch({ type: 'reset', session: createSession(Date.now() >>> 0, useBoss) });
@@ -162,6 +242,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions = {}): B
       turn: state.replay.turnInRound,
     },
     logFeed: state.logFeed,
+    floaters: state.floaters,
     playing,
     finished: state.finished,
     winner: state.winner,

@@ -60,6 +60,7 @@ export default function App() {
             finished={battle.finished}
             winner={battle.winner}
             onNextBattle={battle.startNewBattle}
+            floaters={battle.floaters}
           />
         </div>
 

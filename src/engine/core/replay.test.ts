@@ -26,8 +26,8 @@ describe('replay', () => {
 
     const state = createInitialReplayState([a], [b]);
 
-    expect(state.units[a.id]).toEqual({ id: a.id, hp: 1000, maxHp: 1000, shield: 0 });
-    expect(state.units[b.id]).toEqual({ id: b.id, hp: 500, maxHp: 500, shield: 0 });
+    expect(state.units[a.id]).toEqual({ id: a.id, hp: 1000, maxHp: 1000, shield: 0, statuses: {} });
+    expect(state.units[b.id]).toEqual({ id: b.id, hp: 500, maxHp: 500, shield: 0, statuses: {} });
   });
 
   it('roundStart sets the round and resets the turn counter', () => {
@@ -117,6 +117,43 @@ describe('replay', () => {
 
     expect(state.units[a.id].hp).toBe(980);
     expect(state.units[b.id].hp).toBe(490);
+  });
+
+  it('statusApplied tracks a non-stacking status as present (count 1), and reapplying does not accumulate', () => {
+    const target = makeCombatant({ name: 'T' });
+    const nameToId = buildNameToId([target], []);
+    let state = createInitialReplayState([target], []);
+
+    const entry: BattleLogEntry = { kind: 'statusApplied', target: 'T', status: 'lentidao', source: 'X', rounds: 2 };
+    state = applyReplayEntry(state, entry, nameToId);
+    expect(state.units[target.id].statuses.lentidao).toBe(1);
+
+    // Reapplying (e.g. every round) must not drift the count upward.
+    state = applyReplayEntry(state, entry, nameToId);
+    expect(state.units[target.id].statuses.lentidao).toBe(1);
+  });
+
+  it('statusApplied accumulates a stackable status (Sangramento) across independent applications', () => {
+    const target = makeCombatant({ name: 'T' });
+    const nameToId = buildNameToId([target], []);
+    let state = createInitialReplayState([target], []);
+    const entry: BattleLogEntry = { kind: 'statusApplied', target: 'T', status: 'sangramento', source: 'X', rounds: 3 };
+
+    state = applyReplayEntry(state, entry, nameToId);
+    state = applyReplayEntry(state, entry, nameToId);
+
+    expect(state.units[target.id].statuses.sangramento).toBe(2);
+  });
+
+  it('statusExpired decrements the count and removes the entry once it reaches 0', () => {
+    const target = makeCombatant({ name: 'T' });
+    const nameToId = buildNameToId([target], []);
+    let state = createInitialReplayState([target], []);
+    state = applyReplayEntry(state, { kind: 'statusApplied', target: 'T', status: 'lentidao', source: 'X', rounds: 2 }, nameToId);
+
+    state = applyReplayEntry(state, { kind: 'statusExpired', target: 'T', status: 'lentidao' }, nameToId);
+
+    expect(state.units[target.id].statuses.lentidao).toBeUndefined();
   });
 });
 

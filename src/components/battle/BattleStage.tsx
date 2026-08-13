@@ -1,6 +1,7 @@
 import { UnitCard } from './UnitCard';
 import { Icon } from '../common/Icon';
 import type { BattleUnit, StageInfo } from '../../types';
+import type { FloatingText } from '../../hooks/useBattleSimulation';
 
 interface BattleStageProps {
   allies: BattleUnit[];
@@ -11,6 +12,7 @@ interface BattleStageProps {
   finished: boolean;
   winner: 'allies' | 'enemies' | 'draw' | null;
   onNextBattle: () => void;
+  floaters: FloatingText[];
 }
 
 const WINNER_LABEL: Record<'allies' | 'enemies' | 'draw', string> = {
@@ -19,7 +21,19 @@ const WINNER_LABEL: Record<'allies' | 'enemies' | 'draw', string> = {
   draw: 'Empate',
 };
 
-export function BattleStage({ allies, enemies, stage, playing, onSetPlaying, finished, winner, onNextBattle }: BattleStageProps) {
+export function BattleStage({
+  allies,
+  enemies,
+  stage,
+  playing,
+  onSetPlaying,
+  finished,
+  winner,
+  onNextBattle,
+  floaters,
+}: BattleStageProps) {
+  const floatersFor = (unitId: string) => floaters.filter((f) => f.unitId === unitId);
+
   return (
     <main className="relative flex-1 overflow-hidden bg-void-950">
       {/* atmosphere */}
@@ -76,7 +90,7 @@ export function BattleStage({ allies, enemies, stage, playing, onSetPlaying, fin
       <div className="absolute inset-x-0 bottom-6 z-10 flex items-end justify-center gap-2 overflow-x-auto px-2 sm:bottom-10 sm:gap-10 sm:px-3 md:gap-16">
         <div className="flex items-end gap-1.5 sm:gap-4">
           {allies.map((unit, i) => (
-            <UnitCard key={unit.id} unit={unit} delay={i * 220} />
+            <UnitCard key={unit.id} unit={unit} delay={i * 220} floatingTexts={floatersFor(unit.id)} />
           ))}
         </div>
 
@@ -87,7 +101,7 @@ export function BattleStage({ allies, enemies, stage, playing, onSetPlaying, fin
 
         <div className="flex items-end gap-1.5 sm:gap-4">
           {enemies.map((unit, i) => (
-            <UnitCard key={unit.id} unit={unit} delay={i * 220 + 110} />
+            <UnitCard key={unit.id} unit={unit} delay={i * 220 + 110} floatingTexts={floatersFor(unit.id)} />
           ))}
         </div>
       </div>

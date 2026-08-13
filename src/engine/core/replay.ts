@@ -1,4 +1,5 @@
 import type { BattleLogEntry, Combatant } from './types';
+import type { StatusType } from '../schema';
 
 /**
  * Framework-agnostic playback layer: turns a finished battle's log into a
@@ -12,6 +13,8 @@ export interface UnitSnapshot {
   hp: number;
   maxHp: number;
   shield: number;
+  /** How many instances of each status are currently active, for badge display. */
+  statuses: Partial<Record<StatusType, number>>;
 }
 
 export interface ReplayState {
@@ -21,10 +24,20 @@ export interface ReplayState {
   units: Record<string, UnitSnapshot>;
 }
 
+/**
+ * Statuses that stack into independent instances (docs/combate.md: Sangramento
+ * is explicitly stackable). Everything else replaces its existing instance in
+ * place, so a re-application should reset the visible count to 1 rather than
+ * accumulate — otherwise repeated non-stacking applies (e.g. Lentidão reapplied
+ * every round) would drift upward, since a replace never logs a matching expiry
+ * for the instance it replaced.
+ */
+const STACKABLE_STATUSES: ReadonlySet<StatusType> = new Set(['sangramento']);
+
 export function createInitialReplayState(allies: Combatant[], enemies: Combatant[]): ReplayState {
   const units: Record<string, UnitSnapshot> = {};
   for (const u of [...allies, ...enemies]) {
-    units[u.id] = { id: u.id, hp: u.maxHp, maxHp: u.maxHp, shield: 0 };
+    units[u.id] = { id: u.id, hp: u.maxHp, maxHp: u.maxHp, shield: 0, statuses: {} };
   }
   return { round: 0, turnInRound: 0, units };
 }
@@ -102,9 +115,28 @@ export function applyReplayEntry(state: ReplayState, entry: BattleLogEntry, name
       return next;
     }
 
+    case 'statusApplied': {
+      const id = nameToId[entry.target];
+      const prev = state.units[id];
+      if (!prev) return state;
+      const current = prev.statuses[entry.status] ?? 0;
+      const next = STACKABLE_STATUSES.has(entry.status) ? current + 1 : 1;
+      return withUnit(state, id, { statuses: { ...prev.statuses, [entry.status]: next } });
+    }
+
+    case 'statusExpired': {
+      const id = nameToId[entry.target];
+      const prev = state.units[id];
+      if (!prev) return state;
+      const current = prev.statuses[entry.status] ?? 0;
+      const next = Math.max(0, current - 1);
+      const statuses = { ...prev.statuses };
+      if (next <= 0) delete statuses[entry.status];
+      else statuses[entry.status] = next;
+      return withUnit(state, id, { statuses });
+    }
+
     case 'battleStart':
-    case 'statusApplied':
-    case 'statusExpired':
     case 'death':
     case 'battleEnd':
       return state;

@@ -27,6 +27,14 @@ export const DISPLAY_RARITY_BY_TEMPLATE_ID: Record<string, Rarity> = {
   anhanga: 'Quantum',
 };
 
+/**
+ * Card art per character, keyed by templateId. Empty for now — drop pixel-art
+ * files under `public/portraits/` and register the path here (e.g.
+ * `jurupari: '/portraits/jurupari.png'`) to have UnitCard render them instead
+ * of the placeholder silhouette. No code changes needed beyond this map.
+ */
+export const DISPLAY_PORTRAIT_BY_TEMPLATE_ID: Record<string, string> = {};
+
 export const FALLBACK_FACTION: Faction = 'Malware';
 export const FALLBACK_RARITY: Rarity = 'Alpha';
 export const FALLBACK_ELEMENT: Element = 'Backdoor';

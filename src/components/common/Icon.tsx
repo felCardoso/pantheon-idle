@@ -32,6 +32,14 @@ import {
   Lock,
   Map,
   Heart,
+  Bug,
+  Droplet,
+  FlaskConical,
+  ZapOff,
+  TrendingDown,
+  ShieldOff,
+  Turtle,
+  ImageOff,
   type LucideProps,
 } from 'lucide-react';
 import type { FC } from 'react';
@@ -70,6 +78,14 @@ const REGISTRY: Record<string, FC<LucideProps>> = {
   lock: Lock,
   map: Map,
   heart: Heart,
+  bug: Bug,
+  droplet: Droplet,
+  'flask-conical': FlaskConical,
+  'zap-off': ZapOff,
+  'trending-down': TrendingDown,
+  'shield-off': ShieldOff,
+  turtle: Turtle,
+  'image-off': ImageOff,
 };
 
 interface IconProps extends LucideProps {

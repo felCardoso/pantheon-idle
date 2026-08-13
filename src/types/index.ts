@@ -1,8 +1,16 @@
+import type { StatusType } from '../engine/schema';
+
 export type Faction = 'Firewall' | 'Malware' | 'Crypto-Miner' | 'Exploit';
 
 export type Element = 'Vírus' | 'Brute Force' | 'Nanites' | 'Encryption' | 'Backdoor';
 
 export type Rarity = 'Alpha' | 'Beta' | 'RC' | 'Stable' | 'LTS' | 'Quantum';
+
+export interface ActiveStatus {
+  type: StatusType;
+  /** Number of stacked instances (only >1 for stackable statuses like Sangramento). */
+  count: number;
+}
 
 export interface BattleUnit {
   id: string;
@@ -13,7 +21,11 @@ export interface BattleUnit {
   level: number;
   hp: number;
   maxHp: number;
+  shield: number;
+  statuses: ActiveStatus[];
   isAlly: boolean;
+  /** Pixel-art card image. When unset, UnitCard renders a placeholder silhouette. */
+  portraitUrl?: string;
 }
 
 export type MenuStatus = 'active' | 'soon';
