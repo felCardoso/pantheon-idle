@@ -54,7 +54,13 @@ export function useAuth(): UseAuthResult {
   }, []);
 
   const signUp = useCallback(async (email: string, password: string): Promise<AuthResult> => {
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    // Without this, the confirmation email links back to whatever "Site URL" is set in the
+    // Supabase dashboard (defaults to localhost:3000) instead of wherever this is actually running.
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: window.location.origin },
+    });
     if (error) return { error: translateAuthError(error.message) };
     return { error: null, needsEmailConfirmation: !data.session };
   }, []);
