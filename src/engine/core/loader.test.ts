@@ -37,4 +37,11 @@ describe('loadJurupariComuns / loadJurupariBoss', () => {
     expect(boss.base.atk).toBe(250);
     expect(boss.base.def).toBe(50);
   });
+
+  it('scales comuns stats by the given multiplier (docs/mvp.md per-estágio scaling)', () => {
+    const scaled = loadJurupariComuns(Math.pow(1.15, 4)); // estágio 5 of a fase
+    const caipora = scaled.find((c) => c.name === 'Caipora.sh')!;
+    expect(caipora.maxHp).toBe(Math.round(600 * Math.pow(1.15, 4)));
+    expect(caipora.base.def).toBe(Math.round(30 * Math.pow(1.15, 4)));
+  });
 });

@@ -25,9 +25,19 @@ function synergyBonusFor(teamSize: number): number {
   return CONSTANTS.synergyByCount[String(teamSize)] ?? 0;
 }
 
-function buildCombatant(data: CombatantData, isAlly: boolean, synergyBonus: number, idSuffix?: string): Combatant {
-  const hp = Math.round(data.baseStats.hp * (1 + synergyBonus));
-  const atk = Math.round(data.baseStats.atk * (1 + synergyBonus));
+function buildCombatant(
+  data: CombatantData,
+  isAlly: boolean,
+  synergyBonus: number,
+  statMultiplier: number = 1,
+  idSuffix?: string,
+): Combatant {
+  const scale = (1 + synergyBonus) * statMultiplier;
+  const hp = Math.round(data.baseStats.hp * scale);
+  const atk = Math.round(data.baseStats.atk * scale);
+  const def = Math.round(data.baseStats.def * statMultiplier);
+  const ini = Math.round(data.baseStats.ini * statMultiplier);
+  const esq = data.baseStats.esq * statMultiplier;
 
   return {
     id: idSuffix ? `${data.id}#${idSuffix}` : data.id,
@@ -37,7 +47,7 @@ function buildCombatant(data: CombatantData, isAlly: boolean, synergyBonus: numb
     element: data.element,
     isAlly,
     stars: data.stars ?? 0,
-    base: { hp, atk, def: data.baseStats.def, ini: data.baseStats.ini, esq: data.baseStats.esq },
+    base: { hp, atk, def, ini, esq },
     maxHp: hp,
     hp,
     shield: 0,
@@ -62,9 +72,12 @@ interface JurupariEnemyData {
 
 const enemyData = jurupariEnemies as JurupariEnemyData;
 
-/** The 3 common enemy archetypes (Estágio 4 composition: 1 of each), no synergy bonus. */
-export function loadJurupariComuns(): Combatant[] {
-  return enemyData.comuns.map((e) => buildCombatant(e, false, 0));
+/**
+ * The 3 common enemy archetypes (1 of each), no synergy bonus. `statMultiplier`
+ * applies the docs/mvp.md +15%-per-estágio scaling (see engine/core/progression.ts).
+ */
+export function loadJurupariComuns(statMultiplier: number = 1): Combatant[] {
+  return enemyData.comuns.map((e) => buildCombatant(e, false, 0, statMultiplier));
 }
 
 /** Anhangá.exe, the world boss. */

@@ -53,9 +53,13 @@ export function BattleStage({
 
       {/* HUD overlay */}
       <div className="relative z-10 flex items-start justify-between p-3 sm:p-4">
-        <div className="rounded-lg border border-code-500/25 bg-void-950/50 px-2.5 py-1.5 backdrop-blur-sm">
-          <p className="font-display text-[10px] font-bold uppercase tracking-wider text-code-300 sm:text-xs">
-            {stage.worldName} · Fase {stage.phase} · Onda {stage.stage}/{stage.totalStages}
+        <div
+          className={`rounded-lg border px-2.5 py-1.5 backdrop-blur-sm ${stage.isBoss ? 'border-signal-red/40 bg-signal-red/10' : 'border-code-500/25 bg-void-950/50'}`}
+        >
+          <p
+            className={`font-display text-[10px] font-bold uppercase tracking-wider sm:text-xs ${stage.isBoss ? 'text-signal-red' : 'text-code-300'}`}
+          >
+            {stage.worldName} · Fase {stage.phase} · {stage.isBoss ? 'Chefe de Mundo' : `Onda ${stage.stage}/${stage.totalStages}`}
           </p>
           <p className="text-[10px] text-white/40">{stage.worldSubtitle}</p>
         </div>

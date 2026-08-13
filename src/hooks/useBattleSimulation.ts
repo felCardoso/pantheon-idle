@@ -2,6 +2,7 @@ import { useCallback, useEffect, useReducer, useState } from 'react';
 import { loadJurupariAllies, loadJurupariBoss, loadJurupariComuns } from '../engine/core/loader';
 import { runBattle } from '../engine/core/battle';
 import { applyReplayEntry, buildNameToId, createInitialReplayState, type ReplayState } from '../engine/core/replay';
+import { difficultyMultiplier, ESTAGIOS_PER_FASE, isBossStage, nextStage, type WorldPosition } from '../engine/core/progression';
 import type { BattleLogEntry, Combatant } from '../engine/core/types';
 import {
   DISPLAY_LEVEL_BY_TEMPLATE_ID,
@@ -13,20 +14,21 @@ import {
 } from '../data/engineDisplay';
 import type { ActiveStatus, BattleUnit, ChatMessage, StageInfo } from '../types';
 
-interface BattleSession {
+interface BattleSession extends WorldPosition {
   seed: number;
-  useBoss: boolean;
+  isBoss: boolean;
   allies: Combatant[];
   enemies: Combatant[];
   log: BattleLogEntry[];
   nameToId: Record<string, string>;
 }
 
-function createSession(seed: number, useBoss: boolean): BattleSession {
+function createSession(seed: number, position: WorldPosition): BattleSession {
+  const boss = isBossStage(position);
   const allies = loadJurupariAllies();
-  const enemies = useBoss ? loadJurupariBoss() : loadJurupariComuns();
+  const enemies = boss ? loadJurupariBoss() : loadJurupariComuns(difficultyMultiplier(position));
   const result = runBattle(allies, enemies, { seed });
-  return { seed, useBoss, allies, enemies, log: result.log, nameToId: buildNameToId(allies, enemies) };
+  return { seed, ...position, isBoss: boss, allies, enemies, log: result.log, nameToId: buildNameToId(allies, enemies) };
 }
 
 export type FloatingTextKind = 'damage' | 'crit' | 'heal' | 'shield';
@@ -58,7 +60,7 @@ let chatIdCounter = 0;
 let floaterIdCounter = 0;
 
 // Only Jurupari.iso exists so far; both the world number and the (unimplemented)
-// reward numbers below are placeholders until the real economy/progression lands.
+// reward numbers below are placeholders until the real economy lands.
 const WORLD_NUMBER = 1;
 const WORLD_NAME = 'Jurupari';
 
@@ -67,19 +69,13 @@ const REWARDS: Record<'comuns' | 'boss', { win: { credits: number; xp: number };
   boss: { win: { credits: 80, xp: 40 }, lossOrDraw: { credits: 10 } },
 };
 
-/** Fase/Estágio shown for the current encounter — only Jurupari.iso exists so far. */
-function worldStageOf(useBoss: boolean): { phase: number; stage: number } {
-  return { phase: 1, stage: useBoss ? 10 : 6 };
-}
-
 /** "[1] Jurupari 1-6 / Venceu [+20 C / +15 XP]" — the only line the Log tab shows, once per finished battle. */
-function buildBattleSummary(winner: 'allies' | 'enemies' | 'draw', useBoss: boolean): ChatMessage {
-  const { phase, stage } = worldStageOf(useBoss);
-  const rewards = REWARDS[useBoss ? 'boss' : 'comuns'];
+function buildBattleSummary(winner: 'allies' | 'enemies' | 'draw', session: BattleSession): ChatMessage {
+  const rewards = REWARDS[session.isBoss ? 'boss' : 'comuns'];
   const won = winner === 'allies';
   const resultLabel = won ? 'Venceu' : winner === 'draw' ? 'Empate' : 'Perdeu';
   const rewardText = won ? `+${rewards.win.credits} C / +${rewards.win.xp} XP` : `+${rewards.lossOrDraw.credits} C`;
-  const text = `[${WORLD_NUMBER}] ${WORLD_NAME} ${phase}-${stage} / ${resultLabel} [${rewardText}]`;
+  const text = `[${WORLD_NUMBER}] ${WORLD_NAME} ${session.fase}-${session.estagio} / ${resultLabel} [${rewardText}]`;
 
   chatIdCounter += 1;
   return {
@@ -116,8 +112,8 @@ function floatersFor(entry: BattleLogEntry, nameToId: Record<string, string>): O
   }
 }
 
-function buildInitialState(seed: number, useBoss: boolean): PlaybackState {
-  const session = createSession(seed, useBoss);
+function buildInitialState(seed: number, position: WorldPosition): PlaybackState {
+  const session = createSession(seed, position);
   return {
     session,
     replay: createInitialReplayState(session.allies, session.enemies),
@@ -156,9 +152,7 @@ function reducer(state: PlaybackState, action: Action): PlaybackState {
   const entry = state.session.log[state.index];
   const replay = applyReplayEntry(state.replay, entry, state.session.nameToId);
   const logFeed =
-    entry.kind === 'battleEnd'
-      ? [...state.logFeed, buildBattleSummary(entry.winner, state.session.useBoss)]
-      : state.logFeed;
+    entry.kind === 'battleEnd' ? [...state.logFeed, buildBattleSummary(entry.winner, state.session)] : state.logFeed;
   const now = Date.now();
   const newFloaters = floatersFor(entry, state.session.nameToId)
     .filter((f) => f.unitId)
@@ -207,9 +201,10 @@ function toBattleUnits(templates: Combatant[], replay: ReplayState): BattleUnit[
 }
 
 export interface UseBattleSimulationOptions {
-  useBoss?: boolean;
   /** Milliseconds between revealed log entries while playing. */
   tickMs?: number;
+  /** Pause after Vitória!/Derrota before auto-advancing to the next attempt. */
+  autoAdvanceDelayMs?: number;
 }
 
 export interface BattleSimulation {
@@ -222,16 +217,16 @@ export interface BattleSimulation {
   finished: boolean;
   winner: 'allies' | 'enemies' | 'draw' | null;
   setPlaying: (playing: boolean) => void;
-  /** Starts a brand-new battle with a fresh seed ("Avançar"). */
+  /** Jumps immediately to the next attempt: next estágio on a win, retry this one on a loss/draw ("Avançar"). */
   startNewBattle: () => void;
-  /** Replays the exact same battle from scratch ("Repetir estágio"). */
+  /** Replays this exact estágio with the exact same seed ("Repetir estágio"). */
   repeatBattle: () => void;
 }
 
 export function useBattleSimulation(options: UseBattleSimulationOptions = {}): BattleSimulation {
-  const { useBoss = false, tickMs = 550 } = options;
+  const { tickMs = 550, autoAdvanceDelayMs = 1600 } = options;
   const [playing, setPlaying] = useState(true);
-  const [state, dispatch] = useReducer(reducer, undefined, () => buildInitialState(Date.now() >>> 0, useBoss));
+  const [state, dispatch] = useReducer(reducer, undefined, () => buildInitialState(Date.now() >>> 0, { fase: 1, estagio: 1 }));
 
   useEffect(() => {
     if (!playing || state.finished) return;
@@ -245,15 +240,29 @@ export function useBattleSimulation(options: UseBattleSimulationOptions = {}): B
     return () => clearInterval(id);
   }, [state.floaters.length]);
 
+  // World progression: on a win, move to the next estágio (or loop to 1-1 after the boss);
+  // on a loss/draw, retry the same estágio with a fresh seed. Only while Auto is on.
+  useEffect(() => {
+    if (!state.finished || !playing) return;
+    const position: WorldPosition = { fase: state.session.fase, estagio: state.session.estagio };
+    const target = state.winner === 'allies' ? nextStage(position) : position;
+    const timer = setTimeout(() => {
+      dispatch({ type: 'reset', session: createSession(Date.now() >>> 0, target) });
+    }, autoAdvanceDelayMs);
+    return () => clearTimeout(timer);
+  }, [state.finished, state.winner, state.session, playing, autoAdvanceDelayMs]);
+
   const startNewBattle = useCallback(() => {
-    dispatch({ type: 'reset', session: createSession(Date.now() >>> 0, useBoss) });
+    const position: WorldPosition = { fase: state.session.fase, estagio: state.session.estagio };
+    const target = state.winner === 'allies' ? nextStage(position) : position;
+    dispatch({ type: 'reset', session: createSession(Date.now() >>> 0, target) });
     setPlaying(true);
-  }, [useBoss]);
+  }, [state.session.fase, state.session.estagio, state.winner]);
 
   const repeatBattle = useCallback(() => {
-    dispatch({ type: 'reset', session: createSession(state.session.seed, useBoss) });
+    dispatch({ type: 'reset', session: createSession(state.session.seed, { fase: state.session.fase, estagio: state.session.estagio }) });
     setPlaying(true);
-  }, [state.session.seed, useBoss]);
+  }, [state.session.seed, state.session.fase, state.session.estagio]);
 
   return {
     allies: toBattleUnits(state.session.allies, state.replay),
@@ -261,8 +270,10 @@ export function useBattleSimulation(options: UseBattleSimulationOptions = {}): B
     stage: {
       worldName: 'Jurupari.iso',
       worldSubtitle: 'Folclore Brasileiro',
-      ...worldStageOf(useBoss),
-      totalStages: 10,
+      phase: state.session.fase,
+      stage: state.session.estagio,
+      totalStages: ESTAGIOS_PER_FASE,
+      isBoss: state.session.isBoss,
       round: state.replay.round,
       turn: state.replay.turnInRound,
     },

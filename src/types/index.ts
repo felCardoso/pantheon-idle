@@ -61,6 +61,7 @@ export interface StageInfo {
   phase: number;
   stage: number;
   totalStages: number;
+  isBoss: boolean;
   round: number;
   turn: number;
 }

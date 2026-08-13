@@ -41,10 +41,10 @@ export function StagePanel({ stage, open, onClose, onAdvance, onRepeat }: StageP
           </button>
         </div>
 
-        <div className="rounded-lg border border-void-600 bg-void-800/60 px-3 py-2">
+        <div className={`rounded-lg border px-3 py-2 ${stage.isBoss ? 'border-signal-red/40 bg-signal-red/10' : 'border-void-600 bg-void-800/60'}`}>
           <div className="flex items-center justify-between text-xs">
-            <span className="text-white/50">
-              Fase {stage.phase} · Estágio {stage.stage}/{stage.totalStages}
+            <span className={stage.isBoss ? 'font-bold text-signal-red' : 'text-white/50'}>
+              Fase {stage.phase} · {stage.isBoss ? 'Chefe de Mundo' : `Estágio ${stage.stage}/${stage.totalStages}`}
             </span>
             <span className="font-mono text-code-400">
               Round {stage.round} · T{stage.turn}
