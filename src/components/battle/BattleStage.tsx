@@ -1,16 +1,38 @@
-import { useState } from 'react';
 import { UnitCard } from './UnitCard';
 import { Icon } from '../common/Icon';
 import type { BattleUnit, StageInfo } from '../../types';
+import type { FloatingText } from '../../hooks/useBattleSimulation';
 
 interface BattleStageProps {
   allies: BattleUnit[];
   enemies: BattleUnit[];
   stage: StageInfo;
+  playing: boolean;
+  onSetPlaying: (playing: boolean) => void;
+  finished: boolean;
+  winner: 'allies' | 'enemies' | 'draw' | null;
+  onNextBattle: () => void;
+  floaters: FloatingText[];
 }
 
-export function BattleStage({ allies, enemies, stage }: BattleStageProps) {
-  const [auto, setAuto] = useState(true);
+const WINNER_LABEL: Record<'allies' | 'enemies' | 'draw', string> = {
+  allies: 'Vitória!',
+  enemies: 'Derrota',
+  draw: 'Empate',
+};
+
+export function BattleStage({
+  allies,
+  enemies,
+  stage,
+  playing,
+  onSetPlaying,
+  finished,
+  winner,
+  onNextBattle,
+  floaters,
+}: BattleStageProps) {
+  const floatersFor = (unitId: string) => floaters.filter((f) => f.unitId === unitId);
 
   return (
     <main className="relative flex-1 overflow-hidden bg-void-950">
@@ -31,26 +53,30 @@ export function BattleStage({ allies, enemies, stage }: BattleStageProps) {
 
       {/* HUD overlay */}
       <div className="relative z-10 flex items-start justify-between p-3 sm:p-4">
-        <div className="rounded-lg border border-code-500/25 bg-void-950/50 px-2.5 py-1.5 backdrop-blur-sm">
-          <p className="font-display text-[10px] font-bold uppercase tracking-wider text-code-300 sm:text-xs">
-            {stage.worldName} · Fase {stage.phase} · Onda {stage.stage}/{stage.totalStages}
+        <div
+          className={`rounded-lg border px-2.5 py-1.5 backdrop-blur-sm ${stage.isBoss ? 'border-signal-red/40 bg-signal-red/10' : 'border-code-500/25 bg-void-950/50'}`}
+        >
+          <p
+            className={`font-display text-[10px] font-bold uppercase tracking-wider sm:text-xs ${stage.isBoss ? 'text-signal-red' : 'text-code-300'}`}
+          >
+            {stage.worldName} · Fase {stage.phase} · {stage.isBoss ? 'Chefe de Mundo' : `Onda ${stage.stage}/${stage.totalStages}`}
           </p>
           <p className="text-[10px] text-white/40">{stage.worldSubtitle}</p>
         </div>
 
         <div className="flex items-center gap-1 rounded-full border border-void-600 bg-void-950/50 p-1 backdrop-blur-sm">
           <button
-            onClick={() => setAuto(true)}
+            onClick={() => onSetPlaying(true)}
             className={`rounded-full px-2.5 py-1 font-display text-[10px] font-bold uppercase tracking-wide transition sm:px-3 sm:text-xs ${
-              auto ? 'bg-code-500 text-void-950' : 'text-white/50'
+              playing ? 'bg-code-500 text-void-950' : 'text-white/50'
             }`}
           >
             Auto
           </button>
           <button
-            onClick={() => setAuto(false)}
+            onClick={() => onSetPlaying(false)}
             className={`rounded-full px-2.5 py-1 font-display text-[10px] font-bold uppercase tracking-wide transition sm:px-3 sm:text-xs ${
-              !auto ? 'bg-signal-amber text-void-950' : 'text-white/50'
+              !playing ? 'bg-signal-amber text-void-950' : 'text-white/50'
             }`}
           >
             Pausar
@@ -68,7 +94,7 @@ export function BattleStage({ allies, enemies, stage }: BattleStageProps) {
       <div className="absolute inset-x-0 bottom-6 z-10 flex items-end justify-center gap-2 overflow-x-auto px-2 sm:bottom-10 sm:gap-10 sm:px-3 md:gap-16">
         <div className="flex items-end gap-1.5 sm:gap-4">
           {allies.map((unit, i) => (
-            <UnitCard key={unit.id} unit={unit} delay={i * 220} />
+            <UnitCard key={unit.id} unit={unit} delay={i * 220} floatingTexts={floatersFor(unit.id)} />
           ))}
         </div>
 
@@ -79,10 +105,29 @@ export function BattleStage({ allies, enemies, stage }: BattleStageProps) {
 
         <div className="flex items-end gap-1.5 sm:gap-4">
           {enemies.map((unit, i) => (
-            <UnitCard key={unit.id} unit={unit} delay={i * 220 + 110} />
+            <UnitCard key={unit.id} unit={unit} delay={i * 220 + 110} floatingTexts={floatersFor(unit.id)} />
           ))}
         </div>
       </div>
+
+      {finished && winner && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-void-950/70 backdrop-blur-sm">
+          <p
+            className={`font-display text-2xl font-black uppercase tracking-widest sm:text-4xl ${
+              winner === 'allies' ? 'text-code-400 text-glow-code' : winner === 'enemies' ? 'text-signal-red' : 'text-arcane-300'
+            }`}
+          >
+            {WINNER_LABEL[winner]}
+          </p>
+          <button
+            onClick={onNextBattle}
+            className="flex items-center gap-2 rounded-lg bg-code-500 px-5 py-2.5 font-display text-xs font-bold uppercase tracking-wide text-void-950 transition hover:bg-code-400"
+          >
+            <Icon name="play" size={15} />
+            Nova batalha
+          </button>
+        </div>
+      )}
     </main>
   );
 }
