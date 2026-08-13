@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useReducer, useState } from 'react';
-import { loadJurupariAllies, loadJurupariBoss, loadJurupariComuns } from '../engine/core/loader';
+import { loadCharactersByIds, loadJurupariBoss, loadJurupariComuns } from '../engine/core/loader';
 import { runBattle } from '../engine/core/battle';
 import { applyReplayEntry, buildNameToId, createInitialReplayState, type ReplayState } from '../engine/core/replay';
-import { difficultyMultiplier, ESTAGIOS_PER_FASE, isBossStage, nextStage, type WorldPosition } from '../engine/core/progression';
+import { difficultyMultiplier, ESTAGIOS_PER_FASE, isBossStage, nextStage, teamSizeMultiplier, type WorldPosition } from '../engine/core/progression';
 import type { BattleLogEntry, Combatant } from '../engine/core/types';
 import {
   DISPLAY_LEVEL_BY_TEMPLATE_ID,
@@ -17,18 +17,25 @@ import type { ActiveStatus, BattleUnit, ChatMessage, StageInfo } from '../types'
 interface BattleSession extends WorldPosition {
   seed: number;
   isBoss: boolean;
+  allyIds: string[];
   allies: Combatant[];
   enemies: Combatant[];
   log: BattleLogEntry[];
   nameToId: Record<string, string>;
 }
 
-function createSession(seed: number, position: WorldPosition): BattleSession {
+/**
+ * Enemies are calibrated against the original 4-character team; a player's
+ * owned roster can now be smaller (a solo starter, until Invocação ships), so
+ * scale enemy stats down proportionally on top of the per-estágio difficulty.
+ */
+function createSession(seed: number, position: WorldPosition, allyIds: string[]): BattleSession {
   const boss = isBossStage(position);
-  const allies = loadJurupariAllies();
-  const enemies = boss ? loadJurupariBoss() : loadJurupariComuns(difficultyMultiplier(position));
+  const allies = loadCharactersByIds(allyIds);
+  const sizeFactor = teamSizeMultiplier(allyIds.length);
+  const enemies = boss ? loadJurupariBoss(sizeFactor) : loadJurupariComuns(difficultyMultiplier(position) * sizeFactor);
   const result = runBattle(allies, enemies, { seed });
-  return { seed, ...position, isBoss: boss, allies, enemies, log: result.log, nameToId: buildNameToId(allies, enemies) };
+  return { seed, ...position, isBoss: boss, allyIds, allies, enemies, log: result.log, nameToId: buildNameToId(allies, enemies) };
 }
 
 export type FloatingTextKind = 'damage' | 'crit' | 'heal' | 'shield';
@@ -124,8 +131,8 @@ function floatersFor(entry: BattleLogEntry, nameToId: Record<string, string>): O
   }
 }
 
-function buildInitialState(seed: number, position: WorldPosition, initialCredits: number, initialXp: number): PlaybackState {
-  const session = createSession(seed, position);
+function buildInitialState(seed: number, position: WorldPosition, allyIds: string[], initialCredits: number, initialXp: number): PlaybackState {
+  const session = createSession(seed, position, allyIds);
   return {
     session,
     replay: createInitialReplayState(session.allies, session.enemies),
@@ -230,6 +237,8 @@ function toBattleUnits(templates: Combatant[], replay: ReplayState, order: strin
 }
 
 export interface UseBattleSimulationOptions {
+  /** The player's owned character ids — who actually fights. Always required; there's no fallback team anymore. */
+  initialAllyIds: string[];
   /** Milliseconds between revealed log entries while playing. */
   tickMs?: number;
   /** Pause after Vitória!/Derrota before auto-advancing to the next attempt. */
@@ -260,8 +269,9 @@ export interface BattleSimulation {
   repeatBattle: () => void;
 }
 
-export function useBattleSimulation(options: UseBattleSimulationOptions = {}): BattleSimulation {
+export function useBattleSimulation(options: UseBattleSimulationOptions): BattleSimulation {
   const {
+    initialAllyIds,
     tickMs = 500,
     autoAdvanceDelayMs = 1600,
     initialPosition = { fase: 1, estagio: 1 },
@@ -270,7 +280,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions = {}): B
   } = options;
   const [playing, setPlaying] = useState(true);
   const [state, dispatch] = useReducer(reducer, undefined, () =>
-    buildInitialState(Date.now() >>> 0, initialPosition, initialCredits, initialXp),
+    buildInitialState(Date.now() >>> 0, initialPosition, initialAllyIds, initialCredits, initialXp),
   );
 
   useEffect(() => {
@@ -292,7 +302,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions = {}): B
     const position: WorldPosition = { fase: state.session.fase, estagio: state.session.estagio };
     const target = state.winner === 'allies' ? nextStage(position) : position;
     const timer = setTimeout(() => {
-      dispatch({ type: 'reset', session: createSession(Date.now() >>> 0, target) });
+      dispatch({ type: 'reset', session: createSession(Date.now() >>> 0, target, state.session.allyIds) });
     }, autoAdvanceDelayMs);
     return () => clearTimeout(timer);
   }, [state.finished, state.winner, state.session, playing, autoAdvanceDelayMs]);
@@ -300,14 +310,17 @@ export function useBattleSimulation(options: UseBattleSimulationOptions = {}): B
   const startNewBattle = useCallback(() => {
     const position: WorldPosition = { fase: state.session.fase, estagio: state.session.estagio };
     const target = state.winner === 'allies' ? nextStage(position) : position;
-    dispatch({ type: 'reset', session: createSession(Date.now() >>> 0, target) });
+    dispatch({ type: 'reset', session: createSession(Date.now() >>> 0, target, state.session.allyIds) });
     setPlaying(true);
-  }, [state.session.fase, state.session.estagio, state.winner]);
+  }, [state.session.fase, state.session.estagio, state.session.allyIds, state.winner]);
 
   const repeatBattle = useCallback(() => {
-    dispatch({ type: 'reset', session: createSession(state.session.seed, { fase: state.session.fase, estagio: state.session.estagio }) });
+    dispatch({
+      type: 'reset',
+      session: createSession(state.session.seed, { fase: state.session.fase, estagio: state.session.estagio }, state.session.allyIds),
+    });
     setPlaying(true);
-  }, [state.session.seed, state.session.fase, state.session.estagio]);
+  }, [state.session.seed, state.session.fase, state.session.estagio, state.session.allyIds]);
 
   return {
     allies: toBattleUnits(state.session.allies, state.replay, state.replay.allyOrder),

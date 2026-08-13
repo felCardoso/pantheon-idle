@@ -6,6 +6,7 @@ import { ChatPanel } from './layout/ChatPanel';
 import { BattleStage } from './battle/BattleStage';
 import { TeamPage } from './roster/TeamPage';
 import { CharactersPage } from './roster/CharactersPage';
+import { OnboardingScreen } from './onboarding/OnboardingScreen';
 import { WikiModal } from './wiki/WikiModal';
 import { Toast } from './common/Toast';
 import { Splash } from './common/Splash';
@@ -15,6 +16,7 @@ import { MENU_ITEMS } from '../data/mock/menu';
 import { CHAT_MESSAGES } from '../data/mock/chat';
 import { useBattleSimulation } from '../hooks/useBattleSimulation';
 import { usePlayerProgress } from '../hooks/usePlayerProgress';
+import { useOwnedCharacters } from '../hooks/useOwnedCharacters';
 import type { MenuItem } from '../types';
 
 interface GameShellProps {
@@ -25,8 +27,13 @@ interface GameShellProps {
 
 export function GameShell({ userId, userEmail, onSignOut }: GameShellProps) {
   const { progress, loading: progressLoading, saveProgress } = usePlayerProgress(userId);
+  const { ownedIds, loading: ownedLoading, claimStarter } = useOwnedCharacters(userId);
 
-  if (progressLoading || !progress) return <Splash />;
+  if (progressLoading || !progress || ownedLoading || !ownedIds) return <Splash />;
+
+  if (ownedIds.length === 0) {
+    return <OnboardingScreen onSelect={claimStarter} />;
+  }
 
   return (
     <GameShellReady
@@ -36,6 +43,7 @@ export function GameShell({ userId, userEmail, onSignOut }: GameShellProps) {
       initialEstagio={progress.estagio}
       initialCredits={progress.credits}
       initialXp={progress.xp}
+      ownedIds={ownedIds}
       saveProgress={saveProgress}
     />
   );
@@ -48,6 +56,7 @@ interface GameShellReadyProps {
   initialEstagio: number;
   initialCredits: number;
   initialXp: number;
+  ownedIds: string[];
   saveProgress: (next: { fase: number; estagio: number; credits: number; xp: number }) => void;
 }
 
@@ -55,7 +64,7 @@ interface GameShellReadyProps {
  * Mounted only once the saved progress has loaded, so useBattleSimulation's
  * lazy reducer init reads the real starting point instead of always 1-1/0/0.
  */
-function GameShellReady({ userEmail, onSignOut, initialFase, initialEstagio, initialCredits, initialXp, saveProgress }: GameShellReadyProps) {
+function GameShellReady({ userEmail, onSignOut, initialFase, initialEstagio, initialCredits, initialXp, ownedIds, saveProgress }: GameShellReadyProps) {
   const [activeMenuId, setActiveMenuId] = useState('battle');
   const [wikiOpen, setWikiOpen] = useState(false);
   const [stageOpen, setStageOpen] = useState(false);
@@ -63,6 +72,7 @@ function GameShellReady({ userEmail, onSignOut, initialFase, initialEstagio, ini
   const [toast, setToast] = useState<string | null>(null);
 
   const battle = useBattleSimulation({
+    initialAllyIds: ownedIds,
     initialPosition: { fase: initialFase, estagio: initialEstagio },
     initialCredits,
     initialXp,
@@ -110,9 +120,9 @@ function GameShellReady({ userEmail, onSignOut, initialFase, initialEstagio, ini
 
         <div className="flex min-h-0 flex-1 flex-col pb-16 lg:pb-0">
           {activeMenuId === 'team' ? (
-            <TeamPage />
+            <TeamPage ownedIds={ownedIds} />
           ) : activeMenuId === 'characters' ? (
-            <CharactersPage />
+            <CharactersPage ownedIds={ownedIds} />
           ) : (
             <BattleStage
               allies={battle.allies}

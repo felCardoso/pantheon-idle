@@ -4,34 +4,34 @@
     "name": "Jurupari.exe",
     "faction": "Malware",
     "element": "Backdoor",
-    "rarity": "Quantum",
+    "rarity": "Alpha",
     "mythology": "Folclore Brasileiro",
     "stars": 0,
-    "baseStats": { "hp": 3000, "atk": 300, "def": 0, "ini": 110, "esq": 0.1 },
+    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },
     "statusDurationBonus": 1,
     "abilities": []
   },
   {
-    "id": "boitata",
-    "name": "Boitatá.exe",
+    "id": "curupira",
+    "name": "Curupira.exe",
     "faction": "Firewall",
     "element": "Vírus",
-    "rarity": "LTS",
+    "rarity": "Alpha",
     "mythology": "Folclore Brasileiro",
     "stars": 0,
-    "baseStats": { "hp": 2200, "atk": 220, "def": 0, "ini": 100, "esq": 0.09 },
-    "abilities": ["boitata-counter-virus"]
+    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },
+    "abilities": ["curupira-lentidao-counter"]
   },
   {
-    "id": "iara",
-    "name": "Iara.exe",
+    "id": "caipora",
+    "name": "Caipora.exe",
     "faction": "Crypto-Miner",
     "element": "Brute Force",
-    "rarity": "RC",
+    "rarity": "Alpha",
     "mythology": "Folclore Brasileiro",
     "stars": 0,
-    "baseStats": { "hp": 1300, "atk": 130, "def": 0, "ini": 90, "esq": 0.07 },
-    "abilities": ["iara-lentidao"]
+    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },
+    "abilities": ["caipora-enfraquecimento"]
   },
   {
     "id": "saci",

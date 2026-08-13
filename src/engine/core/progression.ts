@@ -28,6 +28,16 @@ export function difficultyMultiplier(position: WorldPosition): number {
 }
 
 /**
+ * Enemies are calibrated against the original 4-character team. Now that a
+ * player's owned roster can be smaller (a solo starter, until Invocação
+ * ships), scale enemies down proportionally so early game stays winnable.
+ * First-pass number — easy to retune once there's real playtesting data.
+ */
+export function teamSizeMultiplier(teamSize: number): number {
+  return teamSize / 4;
+}
+
+/**
  * Where progression goes after finishing `position` with a win: next estágio,
  * or the next fase's estágio 1 if that was the last one, or back to 1-1 if
  * the boss was just defeated (no further worlds exist yet).
