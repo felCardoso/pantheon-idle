@@ -1,5 +1,6 @@
 import type { AbilityDefinition, CombatantData, CombatConstants } from '../schema';
 import type { Combatant } from './types';
+import { levelForXp, levelMultiplier } from './leveling';
 
 import constantsJson from '../data/constants.json';
 import jurupariAbilities from '../data/abilities/jurupari.json';
@@ -69,6 +70,7 @@ function buildCombatant(
   synergyBonus: number,
   statMultiplier: number = 1,
   idSuffix?: string,
+  level: number = 0,
 ): Combatant {
   const scale = (1 + synergyBonus) * statMultiplier;
   const hp = Math.round(data.baseStats.hp * scale);
@@ -85,6 +87,7 @@ function buildCombatant(
     element: data.element,
     isAlly,
     stars: data.stars ?? 0,
+    level,
     base: { hp, atk, def, ini, esq },
     maxHp: hp,
     hp,
@@ -96,25 +99,33 @@ function buildCombatant(
   };
 }
 
+export interface OwnedCharacterEntry {
+  id: string;
+  /** Accumulated XP — level is always derived from this, never passed independently (see engine/core/leveling.ts). */
+  xp: number;
+}
+
 /**
- * Builds an ally team from whichever character ids are passed (a player's
- * owned roster, of any size/mythology mix), with the same-mythology-team
- * synergy bonus applied by count — see combate.md section 5. Order is
+ * Builds an ally team from whichever characters are passed (a player's owned
+ * roster, of any size/mythology mix), with the same-mythology-team synergy
+ * bonus applied by count (combate.md section 5) and each character's level
+ * (derived from its xp) scaling its stats via levelMultiplier. Order is
  * preserved, and each id may appear at most once (no duplicate/star-up
  * support yet).
  */
-export function loadCharactersByIds(ids: string[]): Combatant[] {
-  const synergyBonus = synergyBonusFor(ids.length);
-  return ids.map((id) => {
+export function loadCharactersByIds(entries: OwnedCharacterEntry[]): Combatant[] {
+  const synergyBonus = synergyBonusFor(entries.length);
+  return entries.map(({ id, xp }) => {
     const data = CHARACTER_REGISTRY[id];
     if (!data) throw new Error(`Unknown character id: ${id}`);
-    return buildCombatant(data, true, synergyBonus);
+    const level = levelForXp(xp);
+    return buildCombatant(data, true, synergyBonus, levelMultiplier(level), undefined, level);
   });
 }
 
-/** The original 4-character Jurupari.iso roster, still used by the CLI demo and existing tests. */
+/** The original 4-character Jurupari.iso roster at level 0, still used by the CLI demo and existing tests. */
 export function loadJurupariAllies(): Combatant[] {
-  return loadCharactersByIds((jurupariCharacters as CombatantData[]).map((c) => c.id));
+  return loadCharactersByIds((jurupariCharacters as CombatantData[]).map((c) => ({ id: c.id, xp: 0 })));
 }
 
 interface JurupariEnemyData {

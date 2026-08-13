@@ -1,4 +1,4 @@
-/** Hand-written to match supabase/migrations/000{1,2}_*.sql — no Supabase CLI access to codegen this. */
+/** Hand-written to match supabase/migrations/000{1,2,3}_*.sql — no Supabase CLI access to codegen this. */
 export interface Database {
   public: {
     Tables: {
@@ -34,16 +34,19 @@ export interface Database {
           user_id: string;
           character_id: string;
           acquired_at: string;
+          xp: number;
         };
         Insert: {
           user_id: string;
           character_id: string;
           acquired_at?: string;
+          xp?: number;
         };
         Update: {
           user_id?: string;
           character_id?: string;
           acquired_at?: string;
+          xp?: number;
         };
         Relationships: [];
       };

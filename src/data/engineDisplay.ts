@@ -3,12 +3,26 @@ import saciArt from '../assets/saci.png';
 import type { Element, Faction, Rarity } from '../types';
 
 /**
- * The combat engine (src/engine) has no concept of "level" or "rarity" for
- * enemies — those are cosmetic display choices, not combat-relevant, so they
- * live here rather than in the engine's data files. (Allies technically carry
- * a `rarity` field in their CombatantData JSON, but the engine's Combatant
- * type drops it when building the runtime unit — this map is the UI's source
- * of truth for both.)
+ * Enemies have no real level system (no XP, they're not owned/progressed) —
+ * this is a cosmetic display number, kept here rather than in the engine's
+ * data files. Allies used to have a matching hardcoded map, but their level
+ * is now real: derived from accumulated XP (see engine/core/leveling.ts) and
+ * carried on the Combatant itself, not looked up by templateId.
+ */
+export const ENEMY_LEVEL_BY_TEMPLATE_ID: Record<string, number> = {
+  'script-kiddie': 12,
+  'firewall-turret': 12,
+  'corrupted-daemon': 12,
+  anhanga: 60,
+};
+
+/**
+ * The combat engine (src/engine) has no concept of "rarity" for enemies —
+ * a cosmetic display choice, not combat-relevant, so it lives here rather
+ * than in the engine's data files. (Allies technically carry a `rarity`
+ * field in their CombatantData JSON, but the engine's Combatant type drops
+ * it when building the runtime unit — this map is the UI's source of truth
+ * for both.)
  *
  * Rarity is not a fixed trait per character — every character can be found
  * at the lowest tier (Alpha) and, once an upgrade system exists, raised up
@@ -17,29 +31,6 @@ import type { Element, Faction, Rarity } from '../types';
  * this map is what a future upgrade feature would update per-owned-instance
  * rather than per-templateId.
  */
-export const DISPLAY_LEVEL_BY_TEMPLATE_ID: Record<string, number> = {
-  // Folclore Brasileiro
-  jurupari: 35,
-  curupira: 35,
-  caipora: 35,
-  saci: 35,
-  // Mitologia Nórdica
-  odin: 35,
-  freya: 35,
-  thor: 35,
-  ratatoskr: 35,
-  // Mitologia Grega
-  zeus: 35,
-  hades: 35,
-  atena: 35,
-  satiro: 35,
-  // Jurupari.iso enemies
-  'script-kiddie': 12,
-  'firewall-turret': 12,
-  'corrupted-daemon': 12,
-  anhanga: 60,
-};
-
 export const DISPLAY_RARITY_BY_TEMPLATE_ID: Record<string, Rarity> = {
   // Folclore Brasileiro
   jurupari: 'Alpha',

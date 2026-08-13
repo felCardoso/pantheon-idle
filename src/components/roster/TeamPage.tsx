@@ -3,9 +3,10 @@ import { RosterChips } from './RosterChips';
 import { Icon } from '../common/Icon';
 import { buildOwnedRoster } from '../../data/roster';
 import { CONSTANTS } from '../../engine/core/loader';
+import type { OwnedCharacter } from '../../hooks/useOwnedCharacters';
 
 interface TeamPageProps {
-  ownedIds: string[];
+  ownedCharacters: OwnedCharacter[];
 }
 
 const STAT_ROWS: { key: 'hp' | 'atk' | 'def' | 'ini' | 'esq'; label: string; icon: string; format: (v: number) => string }[] = [
@@ -16,8 +17,8 @@ const STAT_ROWS: { key: 'hp' | 'atk' | 'def' | 'ini' | 'esq'; label: string; ico
   { key: 'esq', label: 'ESQ', icon: 'wind', format: (v) => `${Math.round(v * 100)}%` },
 ];
 
-export function TeamPage({ ownedIds }: TeamPageProps) {
-  const roster = buildOwnedRoster(ownedIds);
+export function TeamPage({ ownedCharacters }: TeamPageProps) {
+  const roster = buildOwnedRoster(ownedCharacters);
   const synergyPercent = Math.round((CONSTANTS.synergyByCount[String(roster.length)] ?? 0) * 100);
   const mythologies = Array.from(new Set(roster.map((c) => c.mythology)));
 
@@ -54,6 +55,17 @@ export function TeamPage({ ownedIds }: TeamPageProps) {
                   <span className="shrink-0 font-mono text-[10px] text-white/40">Nv.{c.level}</span>
                 </div>
                 <RosterChips faction={c.faction} element={c.element} rarity={c.rarity} />
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-void-900">
+                    <div
+                      className="h-full rounded-full bg-arcane-400 transition-all"
+                      style={{ width: `${Math.round((c.xpIntoLevel / c.xpForNextLevel) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="shrink-0 font-mono text-[9px] text-white/40">
+                    {c.xpIntoLevel}/{c.xpForNextLevel} XP
+                  </span>
+                </div>
               </div>
 
               <div className="grid grid-cols-5 gap-1">
