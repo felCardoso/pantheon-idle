@@ -10,7 +10,7 @@
     },
     {
       "id": "firewall-turret",
-      "name": "Caipora.sh",
+      "name": "Boitatá.sh",
       "faction": "Firewall",
       "element": "Encryption",
       "baseStats": { "hp": 600, "atk": 20, "def": 30, "ini": 40, "esq": 0.02 },
@@ -18,7 +18,7 @@
     },
     {
       "id": "corrupted-daemon",
-      "name": "Curupira.sh",
+      "name": "Iara.sh",
       "faction": "Malware",
       "element": "Vírus",
       "baseStats": { "hp": 350, "atk": 50, "def": 0, "ini": 70, "esq": 0.04 },

@@ -1,0 +1,46 @@
+[
+  {
+    "id": "zeus",
+    "name": "Zeus.exe",
+    "faction": "Malware",
+    "element": "Encryption",
+    "rarity": "Quantum",
+    "mythology": "Mitologia Grega",
+    "stars": 0,
+    "baseStats": { "hp": 3000, "atk": 300, "def": 0, "ini": 110, "esq": 0.1 },
+    "abilities": ["zeus-atordoamento-team"]
+  },
+  {
+    "id": "hades",
+    "name": "Hades.exe",
+    "faction": "Firewall",
+    "element": "Backdoor",
+    "rarity": "LTS",
+    "mythology": "Mitologia Grega",
+    "stars": 0,
+    "baseStats": { "hp": 2200, "atk": 220, "def": 0, "ini": 100, "esq": 0.09 },
+    "abilities": ["hades-self-shield"]
+  },
+  {
+    "id": "atena",
+    "name": "Atena.exe",
+    "faction": "Crypto-Miner",
+    "element": "Encryption",
+    "rarity": "RC",
+    "mythology": "Mitologia Grega",
+    "stars": 0,
+    "baseStats": { "hp": 1300, "atk": 130, "def": 0, "ini": 90, "esq": 0.07 },
+    "abilities": ["atena-corrosao"]
+  },
+  {
+    "id": "satiro",
+    "name": "Sátiro.exe",
+    "faction": "Exploit",
+    "element": "Vírus",
+    "rarity": "Alpha",
+    "mythology": "Mitologia Grega",
+    "stars": 0,
+    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },
+    "abilities": ["satiro-veneno"]
+  }
+]

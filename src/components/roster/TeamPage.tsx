@@ -1,8 +1,12 @@
 import { CharacterPortrait } from './CharacterPortrait';
 import { RosterChips } from './RosterChips';
 import { Icon } from '../common/Icon';
-import { buildRoster } from '../../data/roster';
+import { buildOwnedRoster } from '../../data/roster';
 import { CONSTANTS } from '../../engine/core/loader';
+
+interface TeamPageProps {
+  ownedIds: string[];
+}
 
 const STAT_ROWS: { key: 'hp' | 'atk' | 'def' | 'ini' | 'esq'; label: string; icon: string; format: (v: number) => string }[] = [
   { key: 'hp', label: 'HP', icon: 'heart', format: (v) => Math.round(v).toLocaleString('pt-BR') },
@@ -12,9 +16,10 @@ const STAT_ROWS: { key: 'hp' | 'atk' | 'def' | 'ini' | 'esq'; label: string; ico
   { key: 'esq', label: 'ESQ', icon: 'wind', format: (v) => `${Math.round(v * 100)}%` },
 ];
 
-export function TeamPage() {
-  const roster = buildRoster();
+export function TeamPage({ ownedIds }: TeamPageProps) {
+  const roster = buildOwnedRoster(ownedIds);
   const synergyPercent = Math.round((CONSTANTS.synergyByCount[String(roster.length)] ?? 0) * 100);
+  const mythologies = Array.from(new Set(roster.map((c) => c.mythology)));
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5">
@@ -23,7 +28,9 @@ export function TeamPage() {
           <h1 className="font-display text-sm font-bold uppercase tracking-wide text-white text-glow-code sm:text-base">
             Seu Time
           </h1>
-          <p className="text-xs text-white/50">Jurupari.iso — Folclore Brasileiro · {roster.length} membros</p>
+          <p className="text-xs text-white/50">
+            {mythologies.join(' · ')} · {roster.length} membro{roster.length === 1 ? '' : 's'}
+          </p>
         </div>
         {synergyPercent > 0 && (
           <div className="flex items-center gap-1.5 rounded-full border border-code-500/30 bg-code-500/10 px-3 py-1">

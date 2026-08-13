@@ -1,4 +1,4 @@
-/** Hand-written to match supabase/migrations/0001_player_progress.sql — no Supabase CLI access to codegen this. */
+/** Hand-written to match supabase/migrations/000{1,2}_*.sql — no Supabase CLI access to codegen this. */
 export interface Database {
   public: {
     Tables: {
@@ -26,6 +26,24 @@ export interface Database {
           credits?: number;
           xp?: number;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      player_characters: {
+        Row: {
+          user_id: string;
+          character_id: string;
+          acquired_at: string;
+        };
+        Insert: {
+          user_id: string;
+          character_id: string;
+          acquired_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          character_id?: string;
+          acquired_at?: string;
         };
         Relationships: [];
       };

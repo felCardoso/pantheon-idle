@@ -1,0 +1,56 @@
+[
+  {
+    "id": "zeus-atordoamento-team",
+    "name": "Raio Inaugural",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "allEnemies",
+        "status": "atordoamento",
+        "duration": "default",
+        "magnitude": { "kind": "flat", "value": 0 }
+      }
+    ]
+  },
+  {
+    "id": "hades-self-shield",
+    "name": "Muralha do Submundo",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "grantShield",
+        "target": "self",
+        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.2 }
+      }
+    ]
+  },
+  {
+    "id": "atena-corrosao",
+    "name": "Estratégia Corrosiva",
+    "trigger": "onAttack",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "corrosao",
+        "duration": 2,
+        "magnitude": { "kind": "percent", "value": 0.18 }
+      }
+    ]
+  },
+  {
+    "id": "satiro-veneno",
+    "name": "Zurro Venenoso",
+    "trigger": "onAttack",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "veneno",
+        "duration": "default",
+        "magnitude": { "kind": "percentOfBaseAtk", "basePercent": 0.15 }
+      }
+    ]
+  }
+]

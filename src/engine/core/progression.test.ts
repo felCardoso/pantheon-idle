@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { difficultyMultiplier, ESTAGIOS_PER_FASE, isBossStage, nextStage, TOTAL_FASES } from './progression';
+import { difficultyMultiplier, ESTAGIOS_PER_FASE, isBossStage, nextStage, teamSizeMultiplier, TOTAL_FASES } from './progression';
 
 describe('isBossStage', () => {
   it('is true only at the last estágio of the last fase', () => {
@@ -41,5 +41,17 @@ describe('difficultyMultiplier', () => {
 
   it('gives the same multiplier for the same estágio regardless of which fase it is in', () => {
     expect(difficultyMultiplier({ fase: 2, estagio: 3 })).toBeCloseTo(difficultyMultiplier({ fase: 9, estagio: 3 }));
+  });
+});
+
+describe('teamSizeMultiplier', () => {
+  it('is 1x at the original 4-character baseline', () => {
+    expect(teamSizeMultiplier(4)).toBe(1);
+  });
+
+  it('scales down proportionally for a smaller owned roster', () => {
+    expect(teamSizeMultiplier(1)).toBeCloseTo(0.25);
+    expect(teamSizeMultiplier(2)).toBeCloseTo(0.5);
+    expect(teamSizeMultiplier(3)).toBeCloseTo(0.75);
   });
 });
