@@ -2,7 +2,6 @@ import { useCallback, useEffect, useReducer, useState } from 'react';
 import { loadJurupariAllies, loadJurupariBoss, loadJurupariComuns } from '../engine/core/loader';
 import { runBattle } from '../engine/core/battle';
 import { applyReplayEntry, buildNameToId, createInitialReplayState, type ReplayState } from '../engine/core/replay';
-import { formatLogEntry } from '../engine/cli/format';
 import type { BattleLogEntry, Combatant } from '../engine/core/types';
 import {
   DISPLAY_LEVEL_BY_TEMPLATE_ID,
@@ -58,11 +57,38 @@ type Action = { type: 'reset'; session: BattleSession } | { type: 'tick' } | { t
 let chatIdCounter = 0;
 let floaterIdCounter = 0;
 
-function toneFor(entry: BattleLogEntry): ChatMessage['tone'] {
-  if (entry.kind === 'battleEnd') return entry.winner === 'allies' ? 'success' : entry.winner === 'enemies' ? 'danger' : 'system';
-  if (entry.kind === 'enrage') return 'system';
-  if (entry.kind === 'attack' && entry.result.crit) return 'success';
-  return 'default';
+// Only Jurupari.iso exists so far; both the world number and the (unimplemented)
+// reward numbers below are placeholders until the real economy/progression lands.
+const WORLD_NUMBER = 1;
+const WORLD_NAME = 'Jurupari';
+
+const REWARDS: Record<'comuns' | 'boss', { win: { credits: number; xp: number }; lossOrDraw: { credits: number } }> = {
+  comuns: { win: { credits: 20, xp: 15 }, lossOrDraw: { credits: 5 } },
+  boss: { win: { credits: 80, xp: 40 }, lossOrDraw: { credits: 10 } },
+};
+
+/** Fase/Estágio shown for the current encounter — only Jurupari.iso exists so far. */
+function worldStageOf(useBoss: boolean): { phase: number; stage: number } {
+  return { phase: 1, stage: useBoss ? 10 : 6 };
+}
+
+/** "[1] Jurupari 1-6 / Venceu [+20 C / +15 XP]" — the only line the Log tab shows, once per finished battle. */
+function buildBattleSummary(winner: 'allies' | 'enemies' | 'draw', useBoss: boolean): ChatMessage {
+  const { phase, stage } = worldStageOf(useBoss);
+  const rewards = REWARDS[useBoss ? 'boss' : 'comuns'];
+  const won = winner === 'allies';
+  const resultLabel = won ? 'Venceu' : winner === 'draw' ? 'Empate' : 'Perdeu';
+  const rewardText = won ? `+${rewards.win.credits} C / +${rewards.win.xp} XP` : `+${rewards.lossOrDraw.credits} C`;
+  const text = `[${WORLD_NUMBER}] ${WORLD_NAME} ${phase}-${stage} / ${resultLabel} [${rewardText}]`;
+
+  chatIdCounter += 1;
+  return {
+    id: `battle-log-${chatIdCounter}`,
+    tab: 'log',
+    text,
+    time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+    tone: won ? 'success' : winner === 'draw' ? 'system' : 'danger',
+  };
 }
 
 /** What floating numbers (if any) a log entry should spawn, keyed by target unit id. */
@@ -109,7 +135,8 @@ function reducer(state: PlaybackState, action: Action): PlaybackState {
       session: action.session,
       replay: createInitialReplayState(action.session.allies, action.session.enemies),
       index: 0,
-      logFeed: [],
+      // The Log tab is a history across battles, not just this one — carry it forward.
+      logFeed: state.logFeed,
       floaters: [],
       finished: action.session.log.length === 0,
       winner: null,
@@ -128,11 +155,10 @@ function reducer(state: PlaybackState, action: Action): PlaybackState {
 
   const entry = state.session.log[state.index];
   const replay = applyReplayEntry(state.replay, entry, state.session.nameToId);
-  const line = formatLogEntry(entry);
-  chatIdCounter += 1;
-  const logFeed = line
-    ? [...state.logFeed, { id: `battle-log-${chatIdCounter}`, tab: 'log' as const, text: line.trim(), time: `R${replay.round}`, tone: toneFor(entry) }]
-    : state.logFeed;
+  const logFeed =
+    entry.kind === 'battleEnd'
+      ? [...state.logFeed, buildBattleSummary(entry.winner, state.session.useBoss)]
+      : state.logFeed;
   const now = Date.now();
   const newFloaters = floatersFor(entry, state.session.nameToId)
     .filter((f) => f.unitId)
@@ -235,8 +261,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions = {}): B
     stage: {
       worldName: 'Jurupari.iso',
       worldSubtitle: 'Folclore Brasileiro',
-      phase: 1,
-      stage: useBoss ? 10 : 6,
+      ...worldStageOf(useBoss),
       totalStages: 10,
       round: state.replay.round,
       turn: state.replay.turnInRound,
