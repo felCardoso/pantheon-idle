@@ -41,6 +41,10 @@ import {
   Turtle,
   ImageOff,
   Star,
+  Mail,
+  Loader2,
+  CheckCircle2,
+  LogOut,
   type LucideProps,
 } from 'lucide-react';
 import type { FC } from 'react';
@@ -88,6 +92,10 @@ const REGISTRY: Record<string, FC<LucideProps>> = {
   turtle: Turtle,
   'image-off': ImageOff,
   star: Star,
+  mail: Mail,
+  loader: Loader2,
+  'check-circle': CheckCircle2,
+  'log-out': LogOut,
 };
 
 interface IconProps extends LucideProps {

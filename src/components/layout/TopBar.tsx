@@ -1,10 +1,12 @@
+import { useState } from 'react';
 import { Icon } from '../common/Icon';
 import type { PlayerState } from '../../types';
 
 interface TopBarProps {
   player: PlayerState;
+  userEmail: string;
+  onSignOut: () => void;
   onOpenWiki: () => void;
-  onOpenProfile: () => void;
   onOpenNotifications: () => void;
   onOpenSettings: () => void;
 }
@@ -14,7 +16,9 @@ function formatNumber(n: number): string {
   return `${n}`;
 }
 
-export function TopBar({ player, onOpenWiki, onOpenProfile, onOpenNotifications, onOpenSettings }: TopBarProps) {
+export function TopBar({ player, userEmail, onSignOut, onOpenWiki, onOpenNotifications, onOpenSettings }: TopBarProps) {
+  const [profileOpen, setProfileOpen] = useState(false);
+
   return (
     <header className="relative z-30 flex h-14 items-center gap-2 border-b border-code-500/20 bg-void-900/90 px-2 backdrop-blur-md sm:h-16 sm:gap-3 sm:px-4">
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-code-500/70 to-transparent" />
@@ -102,13 +106,34 @@ export function TopBar({ player, onOpenWiki, onOpenProfile, onOpenNotifications,
         >
           <Icon name="settings" size={18} />
         </button>
-        <button
-          onClick={onOpenProfile}
-          title="Perfil"
-          className="ml-1 flex h-8 w-8 items-center justify-center rounded-full border border-code-500/40 bg-code-900/60 text-code-300 transition hover:border-code-400"
-        >
-          <Icon name="user" size={16} />
-        </button>
+        <div className="relative ml-1">
+          <button
+            onClick={() => setProfileOpen((v) => !v)}
+            title="Perfil"
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-code-500/40 bg-code-900/60 text-code-300 transition hover:border-code-400"
+          >
+            <Icon name="user" size={16} />
+          </button>
+
+          {profileOpen && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setProfileOpen(false)} aria-hidden />
+              <div className="absolute right-0 top-full z-40 mt-2 w-56 rounded-lg border border-code-500/25 bg-void-900/95 p-3 shadow-lg backdrop-blur-md">
+                <p className="truncate font-mono text-xs text-white/60">{userEmail}</p>
+                <button
+                  onClick={() => {
+                    setProfileOpen(false);
+                    onSignOut();
+                  }}
+                  className="mt-2 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-signal-red transition hover:bg-signal-red/10"
+                >
+                  <Icon name="log-out" size={14} />
+                  Sair
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </header>
   );

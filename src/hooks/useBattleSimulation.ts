@@ -124,7 +124,7 @@ function floatersFor(entry: BattleLogEntry, nameToId: Record<string, string>): O
   }
 }
 
-function buildInitialState(seed: number, position: WorldPosition): PlaybackState {
+function buildInitialState(seed: number, position: WorldPosition, initialCredits: number, initialXp: number): PlaybackState {
   const session = createSession(seed, position);
   return {
     session,
@@ -134,8 +134,8 @@ function buildInitialState(seed: number, position: WorldPosition): PlaybackState
     floaters: [],
     finished: session.log.length === 0,
     winner: null,
-    totalCredits: 0,
-    totalXp: 0,
+    totalCredits: initialCredits,
+    totalXp: initialXp,
   };
 }
 
@@ -232,6 +232,11 @@ export interface UseBattleSimulationOptions {
   tickMs?: number;
   /** Pause after Vitória!/Derrota before auto-advancing to the next attempt. */
   autoAdvanceDelayMs?: number;
+  /** Resume from a saved world position instead of starting at fase 1, estágio 1. */
+  initialPosition?: WorldPosition;
+  /** Resume from a saved wallet instead of starting at 0. */
+  initialCredits?: number;
+  initialXp?: number;
 }
 
 export interface BattleSimulation {
@@ -240,7 +245,7 @@ export interface BattleSimulation {
   stage: StageInfo;
   logFeed: ChatMessage[];
   floaters: FloatingText[];
-  /** Créditos/XP earned across all battles this session (not persisted across reloads yet). */
+  /** Créditos/XP earned since `initialCredits`/`initialXp` — the caller is responsible for persisting these. */
   credits: number;
   xp: number;
   playing: boolean;
@@ -254,9 +259,17 @@ export interface BattleSimulation {
 }
 
 export function useBattleSimulation(options: UseBattleSimulationOptions = {}): BattleSimulation {
-  const { tickMs = 550, autoAdvanceDelayMs = 1600 } = options;
+  const {
+    tickMs = 550,
+    autoAdvanceDelayMs = 1600,
+    initialPosition = { fase: 1, estagio: 1 },
+    initialCredits = 0,
+    initialXp = 0,
+  } = options;
   const [playing, setPlaying] = useState(true);
-  const [state, dispatch] = useReducer(reducer, undefined, () => buildInitialState(Date.now() >>> 0, { fase: 1, estagio: 1 }));
+  const [state, dispatch] = useReducer(reducer, undefined, () =>
+    buildInitialState(Date.now() >>> 0, initialPosition, initialCredits, initialXp),
+  );
 
   useEffect(() => {
     if (!playing || state.finished) return;
