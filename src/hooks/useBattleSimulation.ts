@@ -262,7 +262,7 @@ export interface BattleSimulation {
 
 export function useBattleSimulation(options: UseBattleSimulationOptions = {}): BattleSimulation {
   const {
-    tickMs = 550,
+    tickMs = 500,
     autoAdvanceDelayMs = 1600,
     initialPosition = { fase: 1, estagio: 1 },
     initialCredits = 0,
