@@ -6,9 +6,11 @@ interface StagePanelProps {
   stage: StageInfo;
   open: boolean;
   onClose: () => void;
+  onAdvance: () => void;
+  onRepeat: () => void;
 }
 
-export function StagePanel({ stage, open, onClose }: StagePanelProps) {
+export function StagePanel({ stage, open, onClose, onAdvance, onRepeat }: StagePanelProps) {
   const [retreatOnLoss, setRetreatOnLoss] = useState(true);
 
   return (
@@ -39,10 +41,10 @@ export function StagePanel({ stage, open, onClose }: StagePanelProps) {
           </button>
         </div>
 
-        <div className="rounded-lg border border-void-600 bg-void-800/60 px-3 py-2">
+        <div className={`rounded-lg border px-3 py-2 ${stage.isBoss ? 'border-signal-red/40 bg-signal-red/10' : 'border-void-600 bg-void-800/60'}`}>
           <div className="flex items-center justify-between text-xs">
-            <span className="text-white/50">
-              Fase {stage.phase} · Estágio {stage.stage}/{stage.totalStages}
+            <span className={stage.isBoss ? 'font-bold text-signal-red' : 'text-white/50'}>
+              Fase {stage.phase} · {stage.isBoss ? 'Chefe de Mundo' : `Estágio ${stage.stage}/${stage.totalStages}`}
             </span>
             <span className="font-mono text-code-400">
               Round {stage.round} · T{stage.turn}
@@ -72,11 +74,17 @@ export function StagePanel({ stage, open, onClose }: StagePanelProps) {
         </div>
 
         <div className="flex flex-col gap-2">
-          <button className="flex items-center justify-center gap-2 rounded-lg bg-code-500 py-2.5 font-display text-xs font-bold uppercase tracking-wide text-void-950 transition hover:bg-code-400">
+          <button
+            onClick={onAdvance}
+            className="flex items-center justify-center gap-2 rounded-lg bg-code-500 py-2.5 font-display text-xs font-bold uppercase tracking-wide text-void-950 transition hover:bg-code-400"
+          >
             <Icon name="play" size={15} />
             Avançar
           </button>
-          <button className="flex items-center justify-center gap-2 rounded-lg border border-void-500 py-2.5 font-display text-xs font-bold uppercase tracking-wide text-white/80 transition hover:border-code-400 hover:text-code-300">
+          <button
+            onClick={onRepeat}
+            className="flex items-center justify-center gap-2 rounded-lg border border-void-500 py-2.5 font-display text-xs font-bold uppercase tracking-wide text-white/80 transition hover:border-code-400 hover:text-code-300"
+          >
             <Icon name="rotate-ccw" size={15} />
             Repetir estágio
           </button>

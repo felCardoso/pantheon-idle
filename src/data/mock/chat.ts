@@ -11,9 +11,5 @@ export const CHAT_MESSAGES: ChatMessage[] = [
   { id: 'a1', tab: 'anuncios', text: 'Manutenção programada às 03:00 (horário de Brasília).', time: 'hoje', tone: 'system' },
   { id: 'a2', tab: 'anuncios', text: 'Evento de fim de semana: +50% Créditos em todas as fases.', time: 'ontem', tone: 'system' },
 
-  { id: 'l1', tab: 'log', text: 'Venceu Wave 5 (+69 ouro, +8 XP)', time: '21:10', tone: 'success' },
-  { id: 'l2', tab: 'log', text: 'Venceu Wave 4 (+54 ouro, +7 XP)', time: '21:08', tone: 'success' },
-  { id: 'l3', tab: 'log', text: 'Perdeu o PvP para ShefloN (-7 rank). A campanha segue de onde estava.', time: '21:02', tone: 'danger' },
-  { id: 'l4', tab: 'log', text: 'Venceu Wave 3 (+39 ouro, +5 XP)', time: '20:58', tone: 'success' },
-  { id: 'l5', tab: 'log', text: 'Venceu Wave 2 (+26 ouro, +3 XP)', time: '20:55', tone: 'success' },
+  // A aba "log" é preenchida em tempo real pelo motor de combate (useBattleSimulation), não por dados mockados.
 ];

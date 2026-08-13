@@ -1,4 +1,5 @@
 import type { Element, Faction } from '../types';
+import type { StatusType } from '../engine/schema';
 
 export const FACTION_COLOR: Record<Faction, string> = {
   Firewall: '#2fd8ff',
@@ -22,3 +23,40 @@ export const ELEMENT_GLYPH: Record<Element, string> = {
   Encryption: '{ }',
   Backdoor: '::',
 };
+
+/** Icons + colors for the status badge row. Regeneração is a buff, not shown there. */
+export const STATUS_ICON: Record<StatusType, string> = {
+  virus: 'bug',
+  sangramento: 'droplet',
+  veneno: 'flask-conical',
+  atordoamento: 'zap-off',
+  enfraquecimento: 'trending-down',
+  corrosao: 'shield-off',
+  lentidao: 'turtle',
+  regeneracao: 'heart',
+  marcado: 'crosshair',
+};
+
+export const STATUS_COLOR: Record<StatusType, string> = {
+  virus: '#39ff9c',
+  sangramento: '#ff3b5c',
+  veneno: '#a3ff2f',
+  atordoamento: '#ffb02e',
+  enfraquecimento: '#ff7a3d',
+  corrosao: '#ff7a3d',
+  lentidao: '#2fd8ff',
+  regeneracao: '#39ff9c',
+  marcado: '#ff3b5c',
+};
+
+/** Statuses shown in the "negative effects" row above a unit — everything except the one buff. */
+export const NEGATIVE_STATUSES: ReadonlySet<StatusType> = new Set([
+  'virus',
+  'sangramento',
+  'veneno',
+  'atordoamento',
+  'enfraquecimento',
+  'corrosao',
+  'lentidao',
+  'marcado',
+]);
