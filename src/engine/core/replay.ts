@@ -22,6 +22,13 @@ export interface ReplayState {
   /** Count of turn-spending actions (attack/dodge/stun-skip) taken since the last roundStart. */
   turnInRound: number;
   units: Record<string, UnitSnapshot>;
+  /**
+   * Front-to-back queue order per side, for the "front of the line" formation
+   * display: whoever just spent a turn (attack/dodge/stun-skip) rotates to the
+   * back, so the next unit due to act is always shown at the front.
+   */
+  allyOrder: string[];
+  enemyOrder: string[];
 }
 
 /**
@@ -39,7 +46,24 @@ export function createInitialReplayState(allies: Combatant[], enemies: Combatant
   for (const u of [...allies, ...enemies]) {
     units[u.id] = { id: u.id, hp: u.maxHp, maxHp: u.maxHp, shield: 0, statuses: {} };
   }
-  return { round: 0, turnInRound: 0, units };
+  return {
+    round: 0,
+    turnInRound: 0,
+    units,
+    allyOrder: allies.map((u) => u.id),
+    enemyOrder: enemies.map((u) => u.id),
+  };
+}
+
+/** Moves `id` to the back of whichever side's order array currently holds it — the unit that just acted cedes the front. */
+function rotateToBack(state: ReplayState, id: string): ReplayState {
+  if (state.allyOrder.includes(id)) {
+    return { ...state, allyOrder: [...state.allyOrder.filter((u) => u !== id), id] };
+  }
+  if (state.enemyOrder.includes(id)) {
+    return { ...state, enemyOrder: [...state.enemyOrder.filter((u) => u !== id), id] };
+  }
+  return state;
 }
 
 /** Log entries identify units by display name, which is unique within one battle instance. */
@@ -69,11 +93,13 @@ export function applyReplayEntry(state: ReplayState, entry: BattleLogEntry, name
       return { ...state, round: entry.round, turnInRound: 0 };
 
     case 'turnSkippedStun':
+      return rotateToBack({ ...state, turnInRound: state.turnInRound + 1 }, nameToId[entry.unit]);
+
     case 'dodge':
-      return { ...state, turnInRound: state.turnInRound + 1 };
+      return rotateToBack({ ...state, turnInRound: state.turnInRound + 1 }, nameToId[entry.attacker]);
 
     case 'attack': {
-      const next = { ...state, turnInRound: state.turnInRound + 1 };
+      const next = rotateToBack({ ...state, turnInRound: state.turnInRound + 1 }, entry.result.attacker.id);
       if (entry.result.dodged) return next;
       const id = entry.result.defender.id;
       const prev = state.units[id];

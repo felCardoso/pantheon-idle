@@ -145,6 +145,66 @@ describe('replay', () => {
     expect(state.units[target.id].statuses.sangramento).toBe(2);
   });
 
+  it('starts each side in its natural array order', () => {
+    const a = makeCombatant({ name: 'A' });
+    const b = makeCombatant({ name: 'B' });
+    const c = makeCombatant({ name: 'C' });
+    const state = createInitialReplayState([a, b], [c]);
+    expect(state.allyOrder).toEqual([a.id, b.id]);
+    expect(state.enemyOrder).toEqual([c.id]);
+  });
+
+  it('an attack rotates the attacker to the back of its own side, leaving the other side untouched', () => {
+    const a = makeCombatant({ name: 'A' });
+    const b = makeCombatant({ name: 'B' });
+    const enemy = makeCombatant({ name: 'E' });
+    let state = createInitialReplayState([a, b], [enemy]);
+
+    const entry: BattleLogEntry = { kind: 'attack', result: fakeAttack({ attacker: a, defender: enemy }) };
+    state = applyReplayEntry(state, entry, {});
+
+    expect(state.allyOrder).toEqual([b.id, a.id]);
+    expect(state.enemyOrder).toEqual([enemy.id]);
+  });
+
+  it('a dodge rotates the attacker (by name lookup) to the back of its side', () => {
+    const a = makeCombatant({ name: 'A' });
+    const b = makeCombatant({ name: 'B' });
+    const enemy = makeCombatant({ name: 'E' });
+    const nameToId = buildNameToId([a, b], [enemy]);
+    let state = createInitialReplayState([a, b], [enemy]);
+
+    state = applyReplayEntry(state, { kind: 'dodge', attacker: a.name, defender: enemy.name }, nameToId);
+
+    expect(state.allyOrder).toEqual([b.id, a.id]);
+  });
+
+  it('a stun-skipped turn rotates the skipped unit to the back of its side', () => {
+    const a = makeCombatant({ name: 'A' });
+    const enemy1 = makeCombatant({ name: 'E1' });
+    const enemy2 = makeCombatant({ name: 'E2' });
+    const nameToId = buildNameToId([a], [enemy1, enemy2]);
+    let state = createInitialReplayState([a], [enemy1, enemy2]);
+
+    state = applyReplayEntry(state, { kind: 'turnSkippedStun', unit: enemy1.name }, nameToId);
+
+    expect(state.enemyOrder).toEqual([enemy2.id, enemy1.id]);
+    expect(state.allyOrder).toEqual([a.id]);
+  });
+
+  it('rotating repeatedly cycles the queue so the next unit is always at the front', () => {
+    const a = makeCombatant({ name: 'A' });
+    const b = makeCombatant({ name: 'B' });
+    const c = makeCombatant({ name: 'C' });
+    let state = createInitialReplayState([a, b, c], []);
+
+    state = applyReplayEntry(state, { kind: 'attack', result: fakeAttack({ attacker: a, dodged: true }) }, {});
+    expect(state.allyOrder).toEqual([b.id, c.id, a.id]);
+
+    state = applyReplayEntry(state, { kind: 'attack', result: fakeAttack({ attacker: b, dodged: true }) }, {});
+    expect(state.allyOrder).toEqual([c.id, a.id, b.id]);
+  });
+
   it('statusExpired decrements the count and removes the entry once it reaches 0', () => {
     const target = makeCombatant({ name: 'T' });
     const nameToId = buildNameToId([target], []);

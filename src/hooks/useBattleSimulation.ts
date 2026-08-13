@@ -207,8 +207,10 @@ function toActiveStatuses(statuses: ReplayState['units'][string]['statuses']): A
     .map(([type, count]) => ({ type: type as ActiveStatus['type'], count: count ?? 0 }));
 }
 
-function toBattleUnits(templates: Combatant[], replay: ReplayState): BattleUnit[] {
-  return templates.map((t) => {
+function toBattleUnits(templates: Combatant[], replay: ReplayState, order: string[]): BattleUnit[] {
+  const byId = new Map(templates.map((t) => [t.id, t]));
+  return order.map((id) => {
+    const t = byId.get(id)!;
     const snapshot = replay.units[t.id];
     return {
       id: t.id,
@@ -308,8 +310,8 @@ export function useBattleSimulation(options: UseBattleSimulationOptions = {}): B
   }, [state.session.seed, state.session.fase, state.session.estagio]);
 
   return {
-    allies: toBattleUnits(state.session.allies, state.replay),
-    enemies: toBattleUnits(state.session.enemies, state.replay),
+    allies: toBattleUnits(state.session.allies, state.replay, state.replay.allyOrder),
+    enemies: toBattleUnits(state.session.enemies, state.replay, state.replay.enemyOrder),
     stage: {
       worldName: 'Jurupari.iso',
       worldSubtitle: 'Folclore Brasileiro',
