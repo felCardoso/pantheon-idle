@@ -22,6 +22,10 @@ export default function App() {
 
   const battle = useBattleSimulation();
   const chatMessages = useMemo(() => [...CHAT_MESSAGES, ...battle.logFeed], [battle.logFeed]);
+  const player = useMemo(
+    () => ({ ...PLAYER_STATE, credits: PLAYER_STATE.credits + battle.credits, xp: PLAYER_STATE.xp + battle.xp }),
+    [battle.credits, battle.xp],
+  );
 
   useEffect(() => {
     if (!toast) return;
@@ -40,7 +44,7 @@ export default function App() {
   return (
     <div className="flex h-dvh flex-col overflow-hidden font-body">
       <TopBar
-        player={PLAYER_STATE}
+        player={player}
         onOpenWiki={() => setWikiOpen(true)}
         onOpenProfile={() => setToast('Perfil — em breve')}
         onOpenNotifications={() => setToast('Notificações — em breve')}

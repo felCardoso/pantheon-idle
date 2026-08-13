@@ -50,6 +50,7 @@ export interface PlayerState {
   rankValue: string;
   guildName: string;
   credits: number;
+  xp: number;
   tokens: number;
   buffs: Buff[];
   notificationCount: number;

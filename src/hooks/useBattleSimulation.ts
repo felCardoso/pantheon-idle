@@ -52,6 +52,8 @@ interface PlaybackState {
   floaters: FloatingText[];
   finished: boolean;
   winner: 'allies' | 'enemies' | 'draw' | null;
+  totalCredits: number;
+  totalXp: number;
 }
 
 type Action = { type: 'reset'; session: BattleSession } | { type: 'tick' } | { type: 'pruneFloaters' };
@@ -69,12 +71,22 @@ const REWARDS: Record<'comuns' | 'boss', { win: { credits: number; xp: number };
   boss: { win: { credits: 80, xp: 40 }, lossOrDraw: { credits: 10 } },
 };
 
-/** "[1] Jurupari 1-6 / Venceu [+20 C / +15 XP]" — the only line the Log tab shows, once per finished battle. */
-function buildBattleSummary(winner: 'allies' | 'enemies' | 'draw', session: BattleSession): ChatMessage {
+interface Reward {
+  credits: number;
+  xp: number;
+}
+
+/** Credits/XP earned for a battle's outcome — the single source both the log line and the running totals read from. */
+function rewardFor(winner: 'allies' | 'enemies' | 'draw', session: BattleSession): Reward {
   const rewards = REWARDS[session.isBoss ? 'boss' : 'comuns'];
+  return winner === 'allies' ? rewards.win : { credits: rewards.lossOrDraw.credits, xp: 0 };
+}
+
+/** "[1] Jurupari 1-6 / Venceu [+20 C / +15 XP]" — the only line the Log tab shows, once per finished battle. */
+function buildBattleSummary(winner: 'allies' | 'enemies' | 'draw', session: BattleSession, reward: Reward): ChatMessage {
   const won = winner === 'allies';
   const resultLabel = won ? 'Venceu' : winner === 'draw' ? 'Empate' : 'Perdeu';
-  const rewardText = won ? `+${rewards.win.credits} C / +${rewards.win.xp} XP` : `+${rewards.lossOrDraw.credits} C`;
+  const rewardText = won ? `+${reward.credits} C / +${reward.xp} XP` : `+${reward.credits} C`;
   const text = `[${WORLD_NUMBER}] ${WORLD_NAME} ${session.fase}-${session.estagio} / ${resultLabel} [${rewardText}]`;
 
   chatIdCounter += 1;
@@ -122,6 +134,8 @@ function buildInitialState(seed: number, position: WorldPosition): PlaybackState
     floaters: [],
     finished: session.log.length === 0,
     winner: null,
+    totalCredits: 0,
+    totalXp: 0,
   };
 }
 
@@ -131,8 +145,10 @@ function reducer(state: PlaybackState, action: Action): PlaybackState {
       session: action.session,
       replay: createInitialReplayState(action.session.allies, action.session.enemies),
       index: 0,
-      // The Log tab is a history across battles, not just this one — carry it forward.
+      // The Log tab and the wallet are history across battles, not just this one — carry them forward.
       logFeed: state.logFeed,
+      totalCredits: state.totalCredits,
+      totalXp: state.totalXp,
       floaters: [],
       finished: action.session.log.length === 0,
       winner: null,
@@ -151,8 +167,17 @@ function reducer(state: PlaybackState, action: Action): PlaybackState {
 
   const entry = state.session.log[state.index];
   const replay = applyReplayEntry(state.replay, entry, state.session.nameToId);
-  const logFeed =
-    entry.kind === 'battleEnd' ? [...state.logFeed, buildBattleSummary(entry.winner, state.session)] : state.logFeed;
+
+  let logFeed = state.logFeed;
+  let totalCredits = state.totalCredits;
+  let totalXp = state.totalXp;
+  if (entry.kind === 'battleEnd') {
+    const reward = rewardFor(entry.winner, state.session);
+    logFeed = [...state.logFeed, buildBattleSummary(entry.winner, state.session, reward)];
+    totalCredits += reward.credits;
+    totalXp += reward.xp;
+  }
+
   const now = Date.now();
   const newFloaters = floatersFor(entry, state.session.nameToId)
     .filter((f) => f.unitId)
@@ -168,6 +193,8 @@ function reducer(state: PlaybackState, action: Action): PlaybackState {
     replay,
     index,
     logFeed,
+    totalCredits,
+    totalXp,
     floaters: [...state.floaters, ...newFloaters],
     winner,
     finished: index >= state.session.log.length,
@@ -213,6 +240,9 @@ export interface BattleSimulation {
   stage: StageInfo;
   logFeed: ChatMessage[];
   floaters: FloatingText[];
+  /** Créditos/XP earned across all battles this session (not persisted across reloads yet). */
+  credits: number;
+  xp: number;
   playing: boolean;
   finished: boolean;
   winner: 'allies' | 'enemies' | 'draw' | null;
@@ -279,6 +309,8 @@ export function useBattleSimulation(options: UseBattleSimulationOptions = {}): B
     },
     logFeed: state.logFeed,
     floaters: state.floaters,
+    credits: state.totalCredits,
+    xp: state.totalXp,
     playing,
     finished: state.finished,
     winner: state.winner,

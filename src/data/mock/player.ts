@@ -6,6 +6,7 @@ export const PLAYER_STATE: PlayerState = {
   rankValue: '11.7k',
   guildName: 'Cluster: Ordem.dll',
   credits: 13200,
+  xp: 0,
   tokens: 674,
   notificationCount: 3,
   buffs: [

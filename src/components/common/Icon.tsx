@@ -40,6 +40,7 @@ import {
   ShieldOff,
   Turtle,
   ImageOff,
+  Star,
   type LucideProps,
 } from 'lucide-react';
 import type { FC } from 'react';
@@ -86,6 +87,7 @@ const REGISTRY: Record<string, FC<LucideProps>> = {
   'shield-off': ShieldOff,
   turtle: Turtle,
   'image-off': ImageOff,
+  star: Star,
 };
 
 interface IconProps extends LucideProps {
