@@ -1,5 +1,15 @@
-import type { Element, Faction } from '../types';
+import type { Element, Faction, Rarity } from '../types';
 import type { StatusType } from '../engine/schema';
+
+/** Ascending tier: Alpha < Beta < RC < Stable < LTS < Quantum (docs/personagens.md). */
+export const RARITY_COLOR: Record<Rarity, string> = {
+  Alpha: '#8a93a6',
+  Beta: '#39ff9c',
+  RC: '#2fd8ff',
+  Stable: '#5a8bff',
+  LTS: '#c34aff',
+  Quantum: '#ffb02e',
+};
 
 export const FACTION_COLOR: Record<Faction, string> = {
   Firewall: '#2fd8ff',

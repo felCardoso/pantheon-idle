@@ -4,6 +4,8 @@ import { SideMenu } from './layout/SideMenu';
 import { StagePanel } from './layout/StagePanel';
 import { ChatPanel } from './layout/ChatPanel';
 import { BattleStage } from './battle/BattleStage';
+import { TeamPage } from './roster/TeamPage';
+import { CharactersPage } from './roster/CharactersPage';
 import { WikiModal } from './wiki/WikiModal';
 import { Toast } from './common/Toast';
 import { Splash } from './common/Splash';
@@ -107,17 +109,23 @@ function GameShellReady({ userEmail, onSignOut, initialFase, initialEstagio, ini
         <SideMenu items={MENU_ITEMS} activeId={activeMenuId} onSelect={handleMenuSelect} />
 
         <div className="flex min-h-0 flex-1 flex-col pb-16 lg:pb-0">
-          <BattleStage
-            allies={battle.allies}
-            enemies={battle.enemies}
-            stage={battle.stage}
-            playing={battle.playing}
-            onSetPlaying={battle.setPlaying}
-            finished={battle.finished}
-            winner={battle.winner}
-            onNextBattle={battle.startNewBattle}
-            floaters={battle.floaters}
-          />
+          {activeMenuId === 'team' ? (
+            <TeamPage />
+          ) : activeMenuId === 'characters' ? (
+            <CharactersPage />
+          ) : (
+            <BattleStage
+              allies={battle.allies}
+              enemies={battle.enemies}
+              stage={battle.stage}
+              playing={battle.playing}
+              onSetPlaying={battle.setPlaying}
+              finished={battle.finished}
+              winner={battle.winner}
+              onNextBattle={battle.startNewBattle}
+              floaters={battle.floaters}
+            />
+          )}
         </div>
 
         <div className="lg:flex lg:w-72 lg:min-h-0 lg:shrink-0 lg:flex-col">
