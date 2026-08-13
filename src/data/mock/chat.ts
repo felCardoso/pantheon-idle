@@ -1,0 +1,19 @@
+import type { ChatMessage } from '../../types';
+
+export const CHAT_MESSAGES: ChatMessage[] = [
+  { id: 'g1', tab: 'global', author: 'ShefloN', text: 'alguém mais travou no boss do Jurupari?', time: '21:04' },
+  { id: 'g2', tab: 'global', author: 'kernel_panic', text: 'Iara com Lentidão resolve, testa', time: '21:05' },
+  { id: 'g3', tab: 'global', author: 'root@_ana', text: 'trocando .dat de Saci por .dat de Boitatá, dm', time: '21:07' },
+
+  { id: 'gu1', tab: 'guild', author: 'Oficial_Mari', text: 'DDoS Raid abre em 3h, se preparem', time: '20:40' },
+  { id: 'gu2', tab: 'guild', author: 'byte_reaper', text: 'já rankeei 40k de dano no boss', time: '20:52' },
+
+  { id: 'a1', tab: 'anuncios', text: 'Manutenção programada às 03:00 (horário de Brasília).', time: 'hoje', tone: 'system' },
+  { id: 'a2', tab: 'anuncios', text: 'Evento de fim de semana: +50% Créditos em todas as fases.', time: 'ontem', tone: 'system' },
+
+  { id: 'l1', tab: 'log', text: 'Venceu Wave 5 (+69 ouro, +8 XP)', time: '21:10', tone: 'success' },
+  { id: 'l2', tab: 'log', text: 'Venceu Wave 4 (+54 ouro, +7 XP)', time: '21:08', tone: 'success' },
+  { id: 'l3', tab: 'log', text: 'Perdeu o PvP para ShefloN (-7 rank). A campanha segue de onde estava.', time: '21:02', tone: 'danger' },
+  { id: 'l4', tab: 'log', text: 'Venceu Wave 3 (+39 ouro, +5 XP)', time: '20:58', tone: 'success' },
+  { id: 'l5', tab: 'log', text: 'Venceu Wave 2 (+26 ouro, +3 XP)', time: '20:55', tone: 'success' },
+];

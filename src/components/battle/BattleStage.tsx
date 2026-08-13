@@ -1,0 +1,88 @@
+import { useState } from 'react';
+import { UnitCard } from './UnitCard';
+import { Icon } from '../common/Icon';
+import type { BattleUnit, StageInfo } from '../../types';
+
+interface BattleStageProps {
+  allies: BattleUnit[];
+  enemies: BattleUnit[];
+  stage: StageInfo;
+}
+
+export function BattleStage({ allies, enemies, stage }: BattleStageProps) {
+  const [auto, setAuto] = useState(true);
+
+  return (
+    <main className="relative flex-1 overflow-hidden bg-void-950">
+      {/* atmosphere */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(60% 45% at 50% 18%, rgba(195,74,255,0.16), transparent 70%), radial-gradient(70% 50% at 50% 100%, rgba(57,255,156,0.12), transparent 70%), linear-gradient(180deg, #0b0b16 0%, #0a0a12 55%, #070710 100%)',
+        }}
+      />
+      <div className="circuit-grid absolute inset-0 opacity-40" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-24 w-full animate-scanline bg-gradient-to-b from-code-500/10 to-transparent" />
+
+      {/* moon */}
+      <div className="absolute left-1/2 top-10 h-20 w-20 -translate-x-1/2 rounded-full bg-arcane-300/20 blur-2xl sm:h-28 sm:w-28" />
+      <div className="absolute left-1/2 top-12 h-10 w-10 -translate-x-1/2 rounded-full border border-arcane-300/40 bg-arcane-300/10 sm:h-16 sm:w-16" />
+
+      {/* HUD overlay */}
+      <div className="relative z-10 flex items-start justify-between p-3 sm:p-4">
+        <div className="rounded-lg border border-code-500/25 bg-void-950/50 px-2.5 py-1.5 backdrop-blur-sm">
+          <p className="font-display text-[10px] font-bold uppercase tracking-wider text-code-300 sm:text-xs">
+            {stage.worldName} · Fase {stage.phase} · Onda {stage.stage}/{stage.totalStages}
+          </p>
+          <p className="text-[10px] text-white/40">{stage.worldSubtitle}</p>
+        </div>
+
+        <div className="flex items-center gap-1 rounded-full border border-void-600 bg-void-950/50 p-1 backdrop-blur-sm">
+          <button
+            onClick={() => setAuto(true)}
+            className={`rounded-full px-2.5 py-1 font-display text-[10px] font-bold uppercase tracking-wide transition sm:px-3 sm:text-xs ${
+              auto ? 'bg-code-500 text-void-950' : 'text-white/50'
+            }`}
+          >
+            Auto
+          </button>
+          <button
+            onClick={() => setAuto(false)}
+            className={`rounded-full px-2.5 py-1 font-display text-[10px] font-bold uppercase tracking-wide transition sm:px-3 sm:text-xs ${
+              !auto ? 'bg-signal-amber text-void-950' : 'text-white/50'
+            }`}
+          >
+            Pausar
+          </button>
+        </div>
+
+        <div className="invisible rounded-lg border border-void-600 bg-void-950/50 px-2.5 py-1.5 text-right backdrop-blur-sm sm:visible">
+          <p className="font-mono text-xs text-white/70">
+            Round {stage.round} · Turno {stage.turn}
+          </p>
+        </div>
+      </div>
+
+      {/* formation */}
+      <div className="absolute inset-x-0 bottom-6 z-10 flex items-end justify-center gap-2 overflow-x-auto px-2 sm:bottom-10 sm:gap-10 sm:px-3 md:gap-16">
+        <div className="flex items-end gap-1.5 sm:gap-4">
+          {allies.map((unit, i) => (
+            <UnitCard key={unit.id} unit={unit} delay={i * 220} />
+          ))}
+        </div>
+
+        <div className="mb-4 hidden shrink-0 flex-col items-center gap-1 opacity-70 sm:flex">
+          <Icon name="swords" size={18} className="text-signal-red" />
+          <span className="font-display text-[10px] font-bold uppercase tracking-widest text-white/40">vs</span>
+        </div>
+
+        <div className="flex items-end gap-1.5 sm:gap-4">
+          {enemies.map((unit, i) => (
+            <UnitCard key={unit.id} unit={unit} delay={i * 220 + 110} />
+          ))}
+        </div>
+      </div>
+    </main>
+  );
+}

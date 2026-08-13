@@ -1,0 +1,178 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Tektur", "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-body: "Plus Jakarta Sans", "Segoe UI", sans-serif;
+
+  --color-void-950: #05050a;
+  --color-void-900: #0a0a12;
+  --color-void-800: #12121e;
+  --color-void-700: #1a1a2b;
+  --color-void-600: #262640;
+  --color-void-500: #38385c;
+
+  --color-code-400: #6dffb0;
+  --color-code-500: #39ff9c;
+  --color-code-600: #1fd67e;
+  --color-code-900: #06301d;
+
+  --color-arcane-300: #e0aaff;
+  --color-arcane-400: #d17bff;
+  --color-arcane-500: #c34aff;
+  --color-arcane-600: #9a2ee0;
+  --color-arcane-900: #2b0a45;
+
+  --color-signal-amber: #ffb02e;
+  --color-signal-red: #ff3b5c;
+  --color-signal-cyan: #2fd8ff;
+
+  --animate-scanline: scanline 8s linear infinite;
+  --animate-idle-bob: idle-bob 3.2s ease-in-out infinite;
+  --animate-glow-pulse: glow-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+@keyframes idle-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-void-950);
+  color: #e8e8f5;
+  font-family: var(--font-body);
+  overscroll-behavior: none;
+}
+
+/* Circuit grid backdrop used behind the whole shell */
+.circuit-grid {
+  background-image:
+    linear-gradient(rgba(57, 255, 156, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(57, 255, 156, 0.055) 1px, transparent 1px);
+  background-size: 34px 34px;
+}
+
+.text-glow-code {
+  text-shadow: 0 0 12px rgba(57, 255, 156, 0.55);
+}
+
+.text-glow-arcane {
+  text-shadow: 0 0 12px rgba(195, 74, 255, 0.55);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-void-500);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-code-600);
+}
+
+.wiki-prose {
+  font-family: var(--font-body);
+  color: #d8d8ec;
+  line-height: 1.65;
+}
+.wiki-prose h1 {
+  font-family: var(--font-display);
+  color: #ffffff;
+  font-size: 1.35rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin-bottom: 1rem;
+  text-shadow: 0 0 12px rgba(57, 255, 156, 0.4);
+}
+.wiki-prose h2 {
+  font-family: var(--font-display);
+  color: var(--color-code-400);
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-top: 1.75rem;
+  margin-bottom: 0.6rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--color-void-600);
+}
+.wiki-prose p {
+  margin-bottom: 0.85rem;
+  font-size: 0.9rem;
+}
+.wiki-prose strong {
+  color: #ffffff;
+  font-weight: 700;
+}
+.wiki-prose em {
+  color: var(--color-arcane-300);
+  font-style: normal;
+}
+.wiki-prose ul {
+  list-style: none;
+  margin-bottom: 0.85rem;
+}
+.wiki-prose li {
+  position: relative;
+  padding-left: 1.1rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.9rem;
+}
+.wiki-prose li::before {
+  content: '▸';
+  position: absolute;
+  left: 0;
+  color: var(--color-code-500);
+}
+.wiki-prose hr {
+  border: none;
+  border-top: 1px solid var(--color-void-600);
+  margin: 1.25rem 0;
+}
+.wiki-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+  font-size: 0.82rem;
+}
+.wiki-prose th {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: var(--color-code-400);
+  text-align: left;
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--color-void-500);
+}
+.wiki-prose td {
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--color-void-700);
+  color: #c8c8de;
+}
+.wiki-prose code {
+  font-family: var(--font-mono);
+  background: var(--color-void-800);
+  color: var(--color-arcane-300);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
