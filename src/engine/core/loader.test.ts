@@ -7,13 +7,13 @@ describe('loadJurupariAllies', () => {
     expect(allies.map((a) => a.name)).toEqual(['Jurupari.exe', 'Curupira.exe', 'Caipora.exe', 'Saci.exe']);
 
     const jurupari = allies.find((a) => a.name === 'Jurupari.exe')!;
-    // docs/mvp.md base: HP 3000, ATK 300 -> +21% synergy
-    expect(jurupari.maxHp).toBe(Math.round(3000 * 1.21));
-    expect(jurupari.base.atk).toBe(Math.round(300 * 1.21));
+    // Every character starts at the Alpha (lowest) tier: HP 800, ATK 80 -> +21% synergy
+    expect(jurupari.maxHp).toBe(Math.round(800 * 1.21));
+    expect(jurupari.base.atk).toBe(Math.round(80 * 1.21));
     // DEF/INI/ESQ are untouched by synergy
     expect(jurupari.base.def).toBe(0);
-    expect(jurupari.base.ini).toBe(110);
-    expect(jurupari.base.esq).toBeCloseTo(0.1);
+    expect(jurupari.base.ini).toBe(80);
+    expect(jurupari.base.esq).toBeCloseTo(0.05);
   });
 
   it('gives Jurupari.exe its +1 round status duration passive and Saci.exe its always-first passive', () => {
@@ -35,7 +35,7 @@ describe('loadCharactersByIds', () => {
 
     const trio = loadCharactersByIds(['jurupari', 'odin', 'zeus']);
     // docs/combate.md: +12% at team size 3
-    expect(trio[0].maxHp).toBe(Math.round(3000 * 1.12));
+    expect(trio[0].maxHp).toBe(Math.round(800 * 1.12));
   });
 
   it('throws for an unknown character id', () => {

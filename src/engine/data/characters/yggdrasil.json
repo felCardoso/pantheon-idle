@@ -4,10 +4,10 @@
     "name": "Odin.exe",
     "faction": "Firewall",
     "element": "Encryption",
-    "rarity": "Quantum",
+    "rarity": "Alpha",
     "mythology": "Mitologia Nórdica",
     "stars": 0,
-    "baseStats": { "hp": 3000, "atk": 300, "def": 0, "ini": 110, "esq": 0.1 },
+    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },
     "abilities": ["odin-shield-team"]
   },
   {
@@ -15,10 +15,10 @@
     "name": "Freya.exe",
     "faction": "Crypto-Miner",
     "element": "Nanites",
-    "rarity": "LTS",
+    "rarity": "Alpha",
     "mythology": "Mitologia Nórdica",
     "stars": 0,
-    "baseStats": { "hp": 2200, "atk": 220, "def": 0, "ini": 100, "esq": 0.09 },
+    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },
     "abilities": ["freya-regen-team"]
   },
   {
@@ -26,10 +26,10 @@
     "name": "Thor.exe",
     "faction": "Malware",
     "element": "Vírus",
-    "rarity": "RC",
+    "rarity": "Alpha",
     "mythology": "Mitologia Nórdica",
     "stars": 0,
-    "baseStats": { "hp": 1300, "atk": 130, "def": 0, "ini": 90, "esq": 0.07 },
+    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },
     "abilities": ["thor-sangramento"]
   },
   {
@@ -37,7 +37,7 @@
     "name": "Ratatoskr.exe",
     "faction": "Exploit",
     "element": "Backdoor",
-    "rarity": "Beta",
+    "rarity": "Alpha",
     "mythology": "Mitologia Nórdica",
     "stars": 0,
     "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },

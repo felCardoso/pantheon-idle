@@ -8,23 +8,30 @@ import type { Element, Faction, Rarity } from '../types';
  * live here rather than in the engine's data files. (Allies technically carry
  * a `rarity` field in their CombatantData JSON, but the engine's Combatant
  * type drops it when building the runtime unit — this map is the UI's source
- * of truth for both, kept consistent by tier across all 3 mythologies.)
+ * of truth for both.)
+ *
+ * Rarity is not a fixed trait per character — every character can be found
+ * at the lowest tier (Alpha) and, once an upgrade system exists, raised up
+ * through Beta/RC/Stable/LTS/Quantum while keeping everything it had at the
+ * lower tier. Since no such system is built yet, every ally is Alpha here —
+ * this map is what a future upgrade feature would update per-owned-instance
+ * rather than per-templateId.
  */
 export const DISPLAY_LEVEL_BY_TEMPLATE_ID: Record<string, number> = {
   // Folclore Brasileiro
-  jurupari: 45,
-  curupira: 42,
-  caipora: 38,
+  jurupari: 35,
+  curupira: 35,
+  caipora: 35,
   saci: 35,
   // Mitologia Nórdica
-  odin: 45,
-  freya: 42,
-  thor: 38,
+  odin: 35,
+  freya: 35,
+  thor: 35,
   ratatoskr: 35,
   // Mitologia Grega
-  zeus: 45,
-  hades: 42,
-  atena: 38,
+  zeus: 35,
+  hades: 35,
+  atena: 35,
   satiro: 35,
   // Jurupari.iso enemies
   'script-kiddie': 12,
@@ -35,19 +42,19 @@ export const DISPLAY_LEVEL_BY_TEMPLATE_ID: Record<string, number> = {
 
 export const DISPLAY_RARITY_BY_TEMPLATE_ID: Record<string, Rarity> = {
   // Folclore Brasileiro
-  jurupari: 'Quantum',
-  curupira: 'LTS',
-  caipora: 'RC',
+  jurupari: 'Alpha',
+  curupira: 'Alpha',
+  caipora: 'Alpha',
   saci: 'Alpha',
   // Mitologia Nórdica
-  odin: 'Quantum',
-  freya: 'LTS',
-  thor: 'RC',
-  ratatoskr: 'Beta',
+  odin: 'Alpha',
+  freya: 'Alpha',
+  thor: 'Alpha',
+  ratatoskr: 'Alpha',
   // Mitologia Grega
-  zeus: 'Quantum',
-  hades: 'LTS',
-  atena: 'RC',
+  zeus: 'Alpha',
+  hades: 'Alpha',
+  atena: 'Alpha',
   satiro: 'Alpha',
   // Jurupari.iso enemies
   'script-kiddie': 'Alpha',
