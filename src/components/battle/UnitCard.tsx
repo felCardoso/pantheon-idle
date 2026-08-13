@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion';
 import { Icon } from '../common/Icon';
 import { PixelFigure } from './PixelFigure';
 import { StatusBadge } from './StatusBadge';
@@ -35,7 +36,10 @@ export function UnitCard({ unit, delay = 0, floatingTexts = [] }: UnitCardProps)
   const negativeStatuses = unit.statuses.filter((s) => NEGATIVE_STATUSES.has(s.type));
 
   return (
-    <div
+    <motion.div
+      layout
+      layoutId={unit.id}
+      transition={{ type: 'spring', stiffness: 300, damping: 28 }}
       className={`flex flex-col items-center gap-1 transition-opacity duration-500 ${isDead ? 'opacity-35 grayscale' : 'animate-idle-bob'}`}
       style={{ animationDelay: `${delay}ms` }}
       title={`${unit.name} · Nv.${unit.level} · ${unit.faction} · ${unit.element}${isDead ? ' · derrotado' : ''}`}
@@ -60,12 +64,7 @@ export function UnitCard({ unit, delay = 0, floatingTexts = [] }: UnitCardProps)
         }}
       >
         {unit.portraitUrl ? (
-          <img
-            src={unit.portraitUrl}
-            alt={unit.name}
-            className="h-full w-full object-contain p-0.5"
-            style={{ imageRendering: 'pixelated' }}
-          />
+          <img src={unit.portraitUrl} alt={unit.name} className="h-full w-full object-cover" />
         ) : (
           <PixelFigure className="h-[85%] w-[85%]" style={{ color: elementColor }} />
         )}
@@ -119,6 +118,6 @@ export function UnitCard({ unit, delay = 0, floatingTexts = [] }: UnitCardProps)
           <span className="font-mono text-[8px] text-signal-cyan/80 sm:text-[9px]">{Math.round(unit.shield)}</span>
         </>
       )}
-    </div>
+    </motion.div>
   );
 }

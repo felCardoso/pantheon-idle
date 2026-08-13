@@ -45,6 +45,9 @@ import {
   Loader2,
   CheckCircle2,
   LogOut,
+  Gauge,
+  Wind,
+  ScrollText,
   type LucideProps,
 } from 'lucide-react';
 import type { FC } from 'react';
@@ -96,6 +99,9 @@ const REGISTRY: Record<string, FC<LucideProps>> = {
   loader: Loader2,
   'check-circle': CheckCircle2,
   'log-out': LogOut,
+  gauge: Gauge,
+  wind: Wind,
+  'scroll-text': ScrollText,
 };
 
 interface IconProps extends LucideProps {

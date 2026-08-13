@@ -1,3 +1,6 @@
+import caiporaArt from '../assets/caipora.png';
+import saciArt from '../assets/saci.png';
+import modelArt from '../assets/model.png';
 import type { Element, Faction, Rarity } from '../types';
 
 /**
@@ -28,12 +31,16 @@ export const DISPLAY_RARITY_BY_TEMPLATE_ID: Record<string, Rarity> = {
 };
 
 /**
- * Card art per character, keyed by templateId. Empty for now — drop pixel-art
- * files under `public/portraits/` and register the path here (e.g.
- * `jurupari: '/portraits/jurupari.png'`) to have UnitCard render them instead
- * of the placeholder silhouette. No code changes needed beyond this map.
+ * Card art per character, keyed by templateId. These three are placeholder
+ * test art (not the final official designs) standing in for allies until
+ * the real per-character pixel art is ready — swap the values here once it
+ * lands. No other code changes needed beyond this map.
  */
-export const DISPLAY_PORTRAIT_BY_TEMPLATE_ID: Record<string, string> = {};
+export const DISPLAY_PORTRAIT_BY_TEMPLATE_ID: Record<string, string> = {
+  jurupari: caiporaArt,
+  saci: saciArt,
+  boitata: modelArt,
+};
 
 export const FALLBACK_FACTION: Faction = 'Malware';
 export const FALLBACK_RARITY: Rarity = 'Alpha';
