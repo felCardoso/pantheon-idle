@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loadCharactersByIds, loadJurupariAllies, loadJurupariBoss, loadJurupariComuns } from './loader';
+import { loadCharactersByIds, loadJurupariAllies, loadJurupariBoss, loadJurupariComuns, loadWorldBoss, loadWorldComuns } from './loader';
 
 describe('loadJurupariAllies', () => {
   it('loads the 4 Jurupari.iso characters with the 4-person mythological synergy (+21%) folded into HP/ATK', () => {
@@ -79,6 +79,12 @@ describe('loadCharactersByIds', () => {
     expect(minotauro.name).toBe('Minotauro.exe');
     expect(minotauro.abilities).toHaveLength(4);
   });
+
+  it('loads Amaterasu.exe (Mitologia Japonesa) with its 3 abilities', () => {
+    const [amaterasu] = loadCharactersByIds([{ id: 'amaterasu', xp: 0 }]);
+    expect(amaterasu.name).toBe('Amaterasu.exe');
+    expect(amaterasu.abilities.map((a) => a.id)).toEqual(['amaterasu-regen-team', 'amaterasu-shield-team', 'amaterasu-reflexo-solar']);
+  });
 });
 
 describe('loadJurupariComuns / loadJurupariBoss', () => {
@@ -129,5 +135,25 @@ describe('loadJurupariComuns / loadJurupariBoss', () => {
   it('scales the boss by an optional multiplier too (team-size scaling)', () => {
     const [boss] = loadJurupariBoss(0.25);
     expect(boss.maxHp).toBe(Math.round(12000 * 0.25));
+  });
+});
+
+describe('loadWorldComuns / loadWorldBoss', () => {
+  it('loads every world\'s comuns/boss at the exact same calibrated baseline as Jurupari (all difficulty scaling comes from the statMultiplier, not hand-tuned per-world stats)', () => {
+    for (const worldId of ['jurupari', 'duat', 'orun', 'takamagahara', 'olympus', 'yggdrasil'] as const) {
+      const comuns = loadWorldComuns(worldId, 3);
+      expect(comuns.map((c) => c.maxHp)).toEqual([200, 600, 350]);
+      const [boss] = loadWorldBoss(worldId);
+      expect(boss.maxHp).toBe(12000);
+      expect(boss.base.atk).toBe(250);
+    }
+  });
+
+  it('gives each world its own themed names, distinct from every other world and from the ally roster', () => {
+    expect(loadWorldBoss('duat')[0].name).toBe('Set.exe');
+    expect(loadWorldBoss('orun')[0].name).toBe('Ogum.exe');
+    expect(loadWorldBoss('takamagahara')[0].name).toBe('Yamata-no-Orochi.exe');
+    expect(loadWorldBoss('olympus')[0].name).toBe('Typhon.exe'); // not "Medusa.exe" — collides with the ally character
+    expect(loadWorldBoss('yggdrasil')[0].name).toBe('Fenrir.exe');
   });
 });

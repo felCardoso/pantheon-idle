@@ -29,7 +29,7 @@ export function OnboardingScreen({ onSelect }: OnboardingScreenProps) {
         }}
       />
 
-      <div className="relative mx-auto w-full max-w-4xl">
+      <div className={`relative mx-auto w-full ${options.length >= 4 ? 'max-w-6xl' : 'max-w-4xl'}`}>
         <div className="mb-6 text-center">
           <h1 className="font-display text-xl font-black uppercase tracking-widest text-white text-glow-code sm:text-2xl">
             Escolha seu primeiro .exe
@@ -37,7 +37,7 @@ export function OnboardingScreen({ onSelect }: OnboardingScreenProps) {
           <p className="mt-2 text-sm text-white/50">Um personagem de cada mitologia disponível — essa escolha é permanente.</p>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${options.length >= 3 ? 'lg:grid-cols-3' : ''} ${options.length >= 4 ? 'xl:grid-cols-4' : ''}`}>
           {options.map((c) => (
             <div
               key={c.templateId}

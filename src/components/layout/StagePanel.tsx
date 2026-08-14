@@ -1,5 +1,5 @@
 import { Icon } from '../common/Icon';
-import { comparePositions, isBossStage } from '../../engine/core/progression';
+import { comparePositions, isBossStage, localFaseNumber } from '../../engine/core/progression';
 import type { StageInfo } from '../../types';
 
 interface StagePanelProps {
@@ -70,7 +70,7 @@ export function StagePanel({
         <div className={`rounded-lg border px-3 py-2 ${stage.isBoss ? 'border-signal-red/40 bg-signal-red/10' : 'border-void-600 bg-void-800/60'}`}>
           <div className="flex items-center justify-between text-xs">
             <span className={stage.isBoss ? 'font-bold text-signal-red' : 'text-white/50'}>
-              Fase {stage.phase} · {stage.isBoss ? 'Chefe de Mundo' : `Estágio ${stage.stage}/${stage.totalStages}`}
+              Fase {localFaseNumber(stage.phase)} · {stage.isBoss ? 'Chefe de Mundo' : `Estágio ${stage.stage}/${stage.totalStages}`}
             </span>
             <span className="font-mono text-code-400">
               Round {stage.round} · T{stage.turn}
@@ -93,7 +93,7 @@ export function StagePanel({
           {!isAtFrontier && (
             <p className="mt-1 flex items-center gap-1 text-[10px] uppercase tracking-wide text-arcane-300">
               <Icon name="map" size={10} />
-              Progresso real: Fase {frontierFase}, Estágio {frontierEstagio}
+              Progresso real: Fase {localFaseNumber(frontierFase)}, Estágio {frontierEstagio}
             </p>
           )}
 

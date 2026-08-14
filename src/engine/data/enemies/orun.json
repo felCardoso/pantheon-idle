@@ -1,0 +1,36 @@
+{
+  "comuns": [
+    {
+      "id": "espirito-ancestral",
+      "name": "Espírito Ancestral.sh",
+      "faction": "Malware",
+      "element": "Vírus",
+      "baseStats": { "hp": 200, "atk": 30, "def": 0, "ini": 60, "esq": 0.03 },
+      "abilities": ["espirito-ancestral-lentidao"]
+    },
+    {
+      "id": "guardiao-mata",
+      "name": "Guardião da Mata.sh",
+      "faction": "Firewall",
+      "element": "Encryption",
+      "baseStats": { "hp": 600, "atk": 20, "def": 30, "ini": 40, "esq": 0.02 },
+      "abilities": ["guardiao-mata-shield"]
+    },
+    {
+      "id": "tambor-guerra",
+      "name": "Tambor de Guerra.sh",
+      "faction": "Malware",
+      "element": "Brute Force",
+      "baseStats": { "hp": 350, "atk": 50, "def": 0, "ini": 70, "esq": 0.04 },
+      "abilities": ["tambor-guerra-sangramento"]
+    }
+  ],
+  "boss": {
+    "id": "ogum",
+    "name": "Ogum.exe",
+    "faction": null,
+    "element": "Backdoor",
+    "baseStats": { "hp": 12000, "atk": 250, "def": 50, "ini": 95, "esq": 0.06 },
+    "abilities": ["ogum-enfraquecimento", "ogum-cura-sangramento"]
+  }
+}

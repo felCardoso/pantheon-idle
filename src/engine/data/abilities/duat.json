@@ -1,0 +1,78 @@
+[
+  {
+    "id": "mumia-veneno",
+    "name": "Maldição da Múmia",
+    "trigger": "onAttack",
+    "chance": 0.1,
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "veneno",
+        "duration": 3,
+        "magnitude": { "kind": "flat", "value": 15 }
+      }
+    ]
+  },
+  {
+    "id": "chacal-guardiao-shield",
+    "name": "Guarda de Anúbis",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "grantShield",
+        "target": "self",
+        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.2 }
+      }
+    ]
+  },
+  {
+    "id": "serpente-nilo-veneno",
+    "name": "Mordida do Nilo",
+    "trigger": "onAttack",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "veneno",
+        "duration": 3,
+        "magnitude": { "kind": "flat", "value": 15 },
+        "ignoresDef": true,
+        "stacks": true
+      }
+    ]
+  },
+  {
+    "id": "set-enfraquecimento",
+    "name": "Tempestade do Caos",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "allEnemies",
+        "status": "enfraquecimento",
+        "duration": 2,
+        "magnitude": { "kind": "percent", "value": 0.15 }
+      }
+    ]
+  },
+  {
+    "id": "set-cura-corrosao",
+    "name": "Corrupção do Deserto",
+    "trigger": "onCriticalHit",
+    "effects": [
+      {
+        "type": "heal",
+        "target": "self",
+        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.1 }
+      },
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "corrosao",
+        "duration": 2,
+        "magnitude": { "kind": "percent", "value": 0.15 }
+      }
+    ]
+  }
+]

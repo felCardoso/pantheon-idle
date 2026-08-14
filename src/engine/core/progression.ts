@@ -1,17 +1,30 @@
 /**
- * World progression for Jurupari.iso. docs/mundos.md suggests 10 fases of 5
- * estágios each (50 total) as an unconfirmed starting point — adopted as-is.
- * Each fase resets to the same Estágio 1 baseline (no cross-fase difficulty
- * growth). The boss (Anhangá.exe) has its own fixed calibrated stats and
- * never scales — it's a distinct 6th checkpoint that comes after the last
- * fase's 5 regular estágios, not the 5th estágio itself.
+ * World progression across the full campaign. docs/mundos.md's proposed
+ * launch order — Jurupari, Duat, Orun, Takamagahara, Olympus, Yggdrasil —
+ * each gets 10 fases of 5 estágios (an unconfirmed starting point, adopted
+ * as-is, same as before). Each fase resets to the same Estágio 1 baseline
+ * within its world (no cross-fase difficulty growth) — only crossing into a
+ * new world bumps the baseline. Every world's boss has its own fixed
+ * calibrated stats (scaled only by that world's base multiplier, never by
+ * the intra-fase estágio step) and is a distinct 6th checkpoint that comes
+ * after the world's last fase's 5 regular estágios, not the 5th estágio
+ * itself.
+ *
+ * `fase` is a single number that runs continuously across the whole
+ * campaign (1-60) rather than resetting to 1 per world, so a WorldPosition
+ * alone still fully orders progress — see worldIndexForFase/localFaseNumber
+ * to translate a global fase into "which world" / "which fase within it".
  *
  * Estágio 1-5 within a fase is a progressive wave: more enemies and a
  * gentler stat bump each step (0/5/10/15/20%), deliberately easing off the
  * old +15%-compounding curve so a solo, appropriately-leveled character can
  * still realistically reach and beat the boss.
  */
-export const TOTAL_FASES = 10;
+export const WORLD_IDS = ['jurupari', 'duat', 'orun', 'takamagahara', 'olympus', 'yggdrasil'] as const;
+export type WorldId = (typeof WORLD_IDS)[number];
+
+export const FASES_PER_WORLD = 10;
+export const TOTAL_FASES = FASES_PER_WORLD * WORLD_IDS.length;
 export const ESTAGIOS_PER_FASE = 5;
 /** The boss's own slot, one estágio past the last fase's 5 regular ones. */
 const BOSS_ESTAGIO = ESTAGIOS_PER_FASE + 1;
@@ -19,18 +32,36 @@ const BOSS_ESTAGIO = ESTAGIOS_PER_FASE + 1;
 /** +5% per estágio within a fase (0%, 5%, 10%, 15%, 20% across estágios 1-5). */
 const PER_ESTAGIO_SCALING_STEP = 0.05;
 
+/** Each world's Estágio 1 baseline is 30% harder than the previous world's, per the launch-order design. */
+const WORLD_DIFFICULTY_STEP = 1.3;
+
 export interface WorldPosition {
   fase: number;
   estagio: number;
 }
 
-export function isBossStage(position: WorldPosition): boolean {
-  return position.fase === TOTAL_FASES && position.estagio === BOSS_ESTAGIO;
+/** 0-based index into WORLD_IDS for a given (campaign-wide) fase number. */
+export function worldIndexForFase(fase: number): number {
+  return Math.floor((fase - 1) / FASES_PER_WORLD);
 }
 
-/** Multiplier applied to the comuns' Estágio 1 base stats for the given position. */
+export function worldIdForFase(fase: number): WorldId {
+  return WORLD_IDS[worldIndexForFase(fase)];
+}
+
+/** The 1-10 fase number *within* the current world — what a player should actually see, not the raw campaign-wide counter. */
+export function localFaseNumber(fase: number): number {
+  return ((fase - 1) % FASES_PER_WORLD) + 1;
+}
+
+export function isBossStage(position: WorldPosition): boolean {
+  return localFaseNumber(position.fase) === FASES_PER_WORLD && position.estagio === BOSS_ESTAGIO;
+}
+
+/** Multiplier applied to the comuns' Estágio 1 base stats for the given position — compounds the per-estágio step on top of that world's base difficulty. */
 export function difficultyMultiplier(position: WorldPosition): number {
-  return 1 + PER_ESTAGIO_SCALING_STEP * (position.estagio - 1);
+  const worldBase = WORLD_DIFFICULTY_STEP ** worldIndexForFase(position.fase);
+  return worldBase * (1 + PER_ESTAGIO_SCALING_STEP * (position.estagio - 1));
 }
 
 /**
@@ -65,22 +96,34 @@ export function teamSizeMultiplier(teamSize: number): number {
 
 /**
  * Where progression goes after clearing `position`: next estágio, the boss
- * slot after the last fase's 5th estágio, or back to 1-1 after the boss
- * itself (no further worlds exist yet).
+ * slot after a world's last fase's 5th estágio, the next world's 1-1 after
+ * beating a non-final boss, or back to the campaign's 1-1 after the very
+ * last world's boss (no further worlds exist yet).
  */
 export function nextStage(position: WorldPosition): WorldPosition {
-  if (isBossStage(position)) return { fase: 1, estagio: 1 };
-  if (position.fase === TOTAL_FASES && position.estagio === ESTAGIOS_PER_FASE) {
-    return { fase: TOTAL_FASES, estagio: BOSS_ESTAGIO };
+  if (isBossStage(position)) {
+    return position.fase === TOTAL_FASES ? { fase: 1, estagio: 1 } : { fase: position.fase + 1, estagio: 1 };
+  }
+  if (localFaseNumber(position.fase) === FASES_PER_WORLD && position.estagio === ESTAGIOS_PER_FASE) {
+    return { fase: position.fase, estagio: BOSS_ESTAGIO };
   }
   if (position.estagio < ESTAGIOS_PER_FASE) return { fase: position.fase, estagio: position.estagio + 1 };
   return { fase: position.fase + 1, estagio: 1 };
 }
 
-/** The inverse of nextStage — one estágio back, floored at 1-1 (never goes negative). */
+/**
+ * The inverse of nextStage — one estágio back, floored at the campaign's
+ * 1-1 (never goes negative). Stepping back across a world boundary lands on
+ * the previous world's boss slot (its true "last" stage), not its 5th
+ * regular estágio.
+ */
 export function prevStage(position: WorldPosition): WorldPosition {
   if (position.estagio > 1) return { fase: position.fase, estagio: position.estagio - 1 };
-  if (position.fase > 1) return { fase: position.fase - 1, estagio: ESTAGIOS_PER_FASE };
+  if (position.fase > 1) {
+    const prevFase = position.fase - 1;
+    const prevFaseIsWorldFinal = localFaseNumber(prevFase) === FASES_PER_WORLD;
+    return { fase: prevFase, estagio: prevFaseIsWorldFinal ? BOSS_ESTAGIO : ESTAGIOS_PER_FASE };
+  }
   return { fase: 1, estagio: 1 };
 }
 

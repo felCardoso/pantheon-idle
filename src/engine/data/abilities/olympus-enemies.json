@@ -1,0 +1,78 @@
+[
+  {
+    "id": "ciclope-atordoamento",
+    "name": "Golpe do Ciclope",
+    "trigger": "onAttack",
+    "chance": 0.1,
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "atordoamento",
+        "duration": 1,
+        "magnitude": { "kind": "flat", "value": 0 }
+      }
+    ]
+  },
+  {
+    "id": "esqueleto-espartano-shield",
+    "name": "Falange Espartana",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "grantShield",
+        "target": "self",
+        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.2 }
+      }
+    ]
+  },
+  {
+    "id": "hidra-menor-sangramento",
+    "name": "Mordida Regenerativa",
+    "trigger": "onAttack",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "sangramento",
+        "duration": 3,
+        "magnitude": { "kind": "flat", "value": 15 },
+        "ignoresDef": true,
+        "stacks": true
+      }
+    ]
+  },
+  {
+    "id": "typhon-enfraquecimento",
+    "name": "Rugido Primordial",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "allEnemies",
+        "status": "enfraquecimento",
+        "duration": 2,
+        "magnitude": { "kind": "percent", "value": 0.15 }
+      }
+    ]
+  },
+  {
+    "id": "typhon-cura-corrosao",
+    "name": "Veneno dos Cem Dragões",
+    "trigger": "onCriticalHit",
+    "effects": [
+      {
+        "type": "heal",
+        "target": "self",
+        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.1 }
+      },
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "corrosao",
+        "duration": 2,
+        "magnitude": { "kind": "percent", "value": 0.15 }
+      }
+    ]
+  }
+]

@@ -1,0 +1,36 @@
+{
+  "comuns": [
+    {
+      "id": "ciclope",
+      "name": "Ciclope.sh",
+      "faction": "Malware",
+      "element": "Brute Force",
+      "baseStats": { "hp": 200, "atk": 30, "def": 0, "ini": 60, "esq": 0.03 },
+      "abilities": ["ciclope-atordoamento"]
+    },
+    {
+      "id": "esqueleto-espartano",
+      "name": "Esqueleto Espartano.sh",
+      "faction": "Firewall",
+      "element": "Encryption",
+      "baseStats": { "hp": 600, "atk": 20, "def": 30, "ini": 40, "esq": 0.02 },
+      "abilities": ["esqueleto-espartano-shield"]
+    },
+    {
+      "id": "hidra-menor",
+      "name": "Hidra Menor.sh",
+      "faction": "Malware",
+      "element": "Vírus",
+      "baseStats": { "hp": 350, "atk": 50, "def": 0, "ini": 70, "esq": 0.04 },
+      "abilities": ["hidra-menor-sangramento"]
+    }
+  ],
+  "boss": {
+    "id": "typhon",
+    "name": "Typhon.exe",
+    "faction": null,
+    "element": "Backdoor",
+    "baseStats": { "hp": 12000, "atk": 250, "def": 50, "ini": 95, "esq": 0.06 },
+    "abilities": ["typhon-enfraquecimento", "typhon-cura-corrosao"]
+  }
+}

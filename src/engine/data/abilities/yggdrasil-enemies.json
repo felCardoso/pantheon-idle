@@ -1,0 +1,79 @@
+[
+  {
+    "id": "draugr-lentidao",
+    "name": "Toque Gélido",
+    "trigger": "onAttack",
+    "chance": 0.1,
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "lentidao",
+        "duration": 2,
+        "magnitude": { "kind": "percent", "value": 0.2 }
+      }
+    ]
+  },
+  {
+    "id": "valquiria-corrompida-shield",
+    "name": "Asas Corrompidas",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "grantShield",
+        "target": "self",
+        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.2 }
+      }
+    ]
+  },
+  {
+    "id": "lobo-selvagem-sangramento",
+    "name": "Presas Selvagens",
+    "trigger": "onAttack",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "sangramento",
+        "duration": 3,
+        "magnitude": { "kind": "flat", "value": 15 },
+        "ignoresDef": true,
+        "stacks": true
+      }
+    ]
+  },
+  {
+    "id": "fenrir-enfraquecimento",
+    "name": "Uivo do Fim dos Tempos",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "allEnemies",
+        "status": "enfraquecimento",
+        "duration": 2,
+        "magnitude": { "kind": "percent", "value": 0.15 }
+      }
+    ]
+  },
+  {
+    "id": "fenrir-cura-sangramento",
+    "name": "Fome da Raiz",
+    "trigger": "onCriticalHit",
+    "effects": [
+      {
+        "type": "heal",
+        "target": "self",
+        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.1 }
+      },
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "sangramento",
+        "duration": 3,
+        "magnitude": { "kind": "flat", "value": 15 },
+        "ignoresDef": true
+      }
+    ]
+  }
+]

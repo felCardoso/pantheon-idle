@@ -4,18 +4,54 @@ import {
   difficultyMultiplier,
   enemyCountRange,
   ESTAGIOS_PER_FASE,
+  FASES_PER_WORLD,
   isBossStage,
+  localFaseNumber,
   nextStage,
   prevStage,
   RECOVERY_WINS_REQUIRED,
   resolveProgression,
   teamSizeMultiplier,
   TOTAL_FASES,
+  WORLD_IDS,
+  worldIdForFase,
+  worldIndexForFase,
   type ProgressionState,
 } from './progression';
 
+describe('WORLD_IDS / worldIndexForFase / worldIdForFase / localFaseNumber', () => {
+  it('has 6 worlds, in docs/mundos.md\'s proposed launch order', () => {
+    expect(WORLD_IDS).toEqual(['jurupari', 'duat', 'orun', 'takamagahara', 'olympus', 'yggdrasil']);
+  });
+
+  it('TOTAL_FASES spans every world\'s 10 fases', () => {
+    expect(TOTAL_FASES).toBe(FASES_PER_WORLD * WORLD_IDS.length);
+  });
+
+  it('maps fases 1-10 to world 0 (jurupari), 11-20 to world 1 (duat), and so on', () => {
+    expect(worldIndexForFase(1)).toBe(0);
+    expect(worldIndexForFase(10)).toBe(0);
+    expect(worldIndexForFase(11)).toBe(1);
+    expect(worldIndexForFase(20)).toBe(1);
+    expect(worldIndexForFase(TOTAL_FASES)).toBe(WORLD_IDS.length - 1);
+  });
+
+  it('worldIdForFase resolves the same boundaries to the actual world id', () => {
+    expect(worldIdForFase(1)).toBe('jurupari');
+    expect(worldIdForFase(11)).toBe('duat');
+    expect(worldIdForFase(TOTAL_FASES)).toBe('yggdrasil');
+  });
+
+  it('localFaseNumber wraps back to 1-10 within each world', () => {
+    expect(localFaseNumber(1)).toBe(1);
+    expect(localFaseNumber(10)).toBe(10);
+    expect(localFaseNumber(11)).toBe(1);
+    expect(localFaseNumber(TOTAL_FASES)).toBe(10);
+  });
+});
+
 describe('isBossStage', () => {
-  it('is true only at the 6th slot of the last fase — one estágio past the 5 regular ones', () => {
+  it('is true only at the 6th slot of the campaign\'s last fase — one estágio past the 5 regular ones', () => {
     expect(isBossStage({ fase: TOTAL_FASES, estagio: ESTAGIOS_PER_FASE + 1 })).toBe(true);
   });
 
@@ -23,6 +59,11 @@ describe('isBossStage', () => {
     expect(isBossStage({ fase: 1, estagio: 1 })).toBe(false);
     expect(isBossStage({ fase: TOTAL_FASES - 1, estagio: ESTAGIOS_PER_FASE })).toBe(false);
     expect(isBossStage({ fase: TOTAL_FASES, estagio: ESTAGIOS_PER_FASE })).toBe(false);
+  });
+
+  it('is also true at every non-final world\'s own 6th slot (fase 10, 20, 30...), not just the campaign end', () => {
+    expect(isBossStage({ fase: FASES_PER_WORLD, estagio: ESTAGIOS_PER_FASE + 1 })).toBe(true);
+    expect(isBossStage({ fase: FASES_PER_WORLD * 2, estagio: ESTAGIOS_PER_FASE + 1 })).toBe(true);
   });
 });
 
@@ -40,8 +81,12 @@ describe('nextStage', () => {
     expect(nextStage({ fase: TOTAL_FASES, estagio: ESTAGIOS_PER_FASE })).toEqual({ fase: TOTAL_FASES, estagio: ESTAGIOS_PER_FASE + 1 });
   });
 
-  it('loops back to fase 1 estágio 1 after the boss stage', () => {
+  it('loops back to fase 1 estágio 1 after the campaign\'s very last boss', () => {
     expect(nextStage({ fase: TOTAL_FASES, estagio: ESTAGIOS_PER_FASE + 1 })).toEqual({ fase: 1, estagio: 1 });
+  });
+
+  it('advances into the next world\'s fase 1 estágio 1 after a non-final world\'s boss, instead of looping back', () => {
+    expect(nextStage({ fase: FASES_PER_WORLD, estagio: ESTAGIOS_PER_FASE + 1 })).toEqual({ fase: FASES_PER_WORLD + 1, estagio: 1 });
   });
 });
 
@@ -60,6 +105,10 @@ describe('prevStage', () => {
 
   it('steps back from the boss slot into the final fase\'s 5th estágio', () => {
     expect(prevStage({ fase: TOTAL_FASES, estagio: ESTAGIOS_PER_FASE + 1 })).toEqual({ fase: TOTAL_FASES, estagio: ESTAGIOS_PER_FASE });
+  });
+
+  it('crossing back from a world\'s fase 1 lands on the previous world\'s boss slot, not its 5th regular estágio', () => {
+    expect(prevStage({ fase: FASES_PER_WORLD + 1, estagio: 1 })).toEqual({ fase: FASES_PER_WORLD, estagio: ESTAGIOS_PER_FASE + 1 });
   });
 });
 
@@ -84,8 +133,26 @@ describe('difficultyMultiplier', () => {
     expect(difficultyMultiplier({ fase: 1, estagio: 5 })).toBeCloseTo(1.2);
   });
 
-  it('gives the same multiplier for the same estágio regardless of which fase it is in', () => {
+  it('gives the same multiplier for the same estágio regardless of which fase it is in, within one world', () => {
     expect(difficultyMultiplier({ fase: 2, estagio: 3 })).toBeCloseTo(difficultyMultiplier({ fase: 9, estagio: 3 }));
+  });
+
+  it('is 30% higher at a new world\'s estágio 1 than the previous world\'s estágio 1', () => {
+    const jurupariBase = difficultyMultiplier({ fase: 1, estagio: 1 });
+    const duatBase = difficultyMultiplier({ fase: FASES_PER_WORLD + 1, estagio: 1 });
+    expect(duatBase).toBeCloseTo(jurupariBase * 1.3);
+  });
+
+  it('compounds the 30%-per-world step across every world crossed, always relative to Jurupari\'s estágio 1 baseline', () => {
+    const jurupariBase = difficultyMultiplier({ fase: 1, estagio: 1 });
+    const orunBase = difficultyMultiplier({ fase: FASES_PER_WORLD * 2 + 1, estagio: 1 });
+    expect(orunBase).toBeCloseTo(jurupariBase * 1.3 * 1.3);
+  });
+
+  it('still layers the intra-world +5%-per-estágio step on top of a later world\'s higher base', () => {
+    const duatEstagio1 = difficultyMultiplier({ fase: FASES_PER_WORLD + 1, estagio: 1 });
+    const duatEstagio5 = difficultyMultiplier({ fase: FASES_PER_WORLD + 1, estagio: 5 });
+    expect(duatEstagio5).toBeCloseTo(duatEstagio1 * 1.2);
   });
 });
 
