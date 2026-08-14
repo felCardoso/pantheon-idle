@@ -18,7 +18,7 @@ import kagutsuchiArt from "../assets/characters/kagutsuchi.png";
 import medusaArt from "../assets/characters/medusa.png";
 import minotauroArt from "../assets/characters/minotauro.png";
 import odinArt from "../assets/characters/odin.png";
-import rajinArt from "../assets/characters/rajin.png";
+import raijinArt from "../assets/characters/raijin.png";
 import ratatoskrArt from "../assets/characters/ratatoskr.png";
 import saciArt from "../assets/characters/saci.png";
 import susanooArt from "../assets/characters/susanoo.png";
@@ -102,7 +102,7 @@ export const DISPLAY_PORTRAIT_BY_TEMPLATE_ID: Record<string, string> = {
   medusa: medusaArt,
   minotauro: minotauroArt,
   odin: odinArt,
-  rajin: rajinArt,
+  raijin: raijinArt,
   ratatoskr: ratatoskrArt,
   saci: saciArt,
   susanoo: susanooArt,
@@ -133,7 +133,7 @@ export const DISPLAY_AVATAR_FOCUS_BY_TEMPLATE_ID: Record<
   medusa: { x: 50, y: 23 },
   minotauro: { x: 50, y: 23 },
   odin: { x: 50, y: 23 },
-  rajin: { x: 50, y: 23 },
+  raijin: { x: 50, y: 23 },
   ratatoskr: { x: 50, y: 23 },
   saci: { x: 50, y: 22 },
   susanoo: { x: 50, y: 23 },
