@@ -167,3 +167,16 @@ export function pickWeeklyShowcase(weekSeed: number): string[] {
   }
   return picks;
 }
+
+/**
+ * Picks the single character spotlighted on the Invocações banner, seeded by
+ * currentShowcaseWeek() but offset from pickWeeklyShowcase's own seed so the
+ * two rotations don't draw from the same first RNG value. Purely a spotlight
+ * — banner pulls still draw uniformly from the full pool (pullGachaCharacter),
+ * same as every other summon tier, since there's no rarity-weighted odds
+ * system yet (see pullGachaCharacter's own comment).
+ */
+export function pickWeeklyBannerCharacter(weekSeed: number): string {
+  const rng = new Rng((weekSeed * 2654435761 + 1) >>> 0);
+  return rng.pick(ALL_CHARACTER_IDS);
+}

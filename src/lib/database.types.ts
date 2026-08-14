@@ -1,4 +1,4 @@
-/** Hand-written to match supabase/migrations/00{01..13}_*.sql — no Supabase CLI access to codegen this. */
+/** Hand-written to match supabase/migrations/00{01..14}_*.sql — no Supabase CLI access to codegen this. */
 export interface Database {
   public: {
     Tables: {
@@ -21,6 +21,7 @@ export interface Database {
           unlocked_team_slots: number;
           pve_team_slot: number;
           pvp_team_slot: number;
+          bytes: number;
           updated_at: string;
         };
         Insert: {
@@ -41,6 +42,7 @@ export interface Database {
           unlocked_team_slots?: number;
           pve_team_slot?: number;
           pvp_team_slot?: number;
+          bytes?: number;
           updated_at?: string;
         };
         Update: {
@@ -61,6 +63,7 @@ export interface Database {
           unlocked_team_slots?: number;
           pve_team_slot?: number;
           pvp_team_slot?: number;
+          bytes?: number;
           updated_at?: string;
         };
         Relationships: [];

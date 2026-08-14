@@ -44,6 +44,7 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
     progress,
     starterBoostClaimed,
     tokens,
+    bytes,
     teamVisibility,
     vipActive,
     vipExpiresAt,
@@ -54,6 +55,7 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
     saveProgress,
     claimStarterBoost,
     spendTokens,
+    adjustBytes,
     setTeamVisibility,
     purchaseVip,
     claimDailyVipBonus,
@@ -124,6 +126,8 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
       claimStarterBoost={claimStarterBoost}
       tokens={tokens}
       spendTokens={spendTokens}
+      bytes={bytes}
+      adjustBytes={adjustBytes}
       teamVisibility={teamVisibility}
       setTeamVisibility={setTeamVisibility}
       vipActive={vipActive}
@@ -169,6 +173,8 @@ interface GameShellReadyProps {
   claimStarterBoost: () => void;
   tokens: number;
   spendTokens: (amount: number) => Promise<boolean>;
+  bytes: number;
+  adjustBytes: (delta: number) => Promise<boolean>;
   teamVisibility: TeamVisibility;
   setTeamVisibility: (value: TeamVisibility) => void;
   vipActive: boolean;
@@ -215,6 +221,8 @@ function GameShellReady({
   claimStarterBoost,
   tokens,
   spendTokens,
+  bytes,
+  adjustBytes,
   teamVisibility,
   setTeamVisibility,
   vipActive,
@@ -261,8 +269,8 @@ function GameShellReady({
   const chatMessages = useMemo(() => [...CHAT_MESSAGES, ...battle.logFeed], [battle.logFeed]);
   // Credits/XP/tokens are real (persisted in Supabase); name is the real username once loaded, falling back to the mock placeholder otherwise.
   const player = useMemo(
-    () => ({ ...PLAYER_STATE, name: username ?? PLAYER_STATE.name, credits: battle.credits, xp: battle.xp, tokens }),
-    [username, battle.credits, battle.xp, tokens],
+    () => ({ ...PLAYER_STATE, name: username ?? PLAYER_STATE.name, credits: battle.credits, xp: battle.xp, tokens, bytes }),
+    [username, battle.credits, battle.xp, tokens, bytes],
   );
 
   const hasMounted = useRef(false);
@@ -338,10 +346,8 @@ function GameShellReady({
               credits={battle.credits}
               tokens={tokens}
               starterBoostClaimed={starterBoostClaimed}
-              fragments={fragments}
               onClaimStarterBoost={claimStarterBoost}
               onAcquireCharacter={acquireCharacter}
-              onSellFragment={sellFragment}
               onAdjustCredits={battle.adjustCredits}
               onToast={setToast}
               vipActive={vipActive}
@@ -351,7 +357,15 @@ function GameShellReady({
               inCluster={!!cluster.cluster}
             />
           ) : activeMenuId === 'summon' ? (
-            <GachaPage credits={battle.credits} onAcquireCharacter={acquireCharacter} onAdjustCredits={battle.adjustCredits} />
+            <GachaPage
+              credits={battle.credits}
+              tokens={tokens}
+              ownedCharacters={ownedCharacters}
+              onAcquireCharacter={acquireCharacter}
+              onAdjustCredits={battle.adjustCredits}
+              onSpendTokens={spendTokens}
+              onToast={setToast}
+            />
           ) : activeMenuId === 'guild' ? (
             <ClusterPage userId={userId} cluster={cluster} bandwidth={0} onToast={setToast} />
           ) : activeMenuId === 'market' ? (
@@ -360,7 +374,10 @@ function GameShellReady({
               fragments={fragments}
               vipActive={vipActive}
               credits={battle.credits}
+              bytes={bytes}
               onAdjustCredits={battle.adjustCredits}
+              onAdjustBytes={adjustBytes}
+              onSellFragment={sellFragment}
               onRefreshFragments={refreshFragments}
               onToast={setToast}
             />

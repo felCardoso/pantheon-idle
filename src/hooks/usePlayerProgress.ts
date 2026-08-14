@@ -53,6 +53,8 @@ export interface UsePlayerProgressResult {
   vipExpiresAt: string | null;
   /** Cluster-only currency (docs section 2) — no earn path yet (the DDoS Raid that grants it isn't built), so this stays at 0 until then. */
   bandwidth: number;
+  /** Tech-flavored currency earned by converting duplicate-character fragments in Mercado's "Meu Inventário" tab. */
+  bytes: number;
   /** Persisted team-slot purchases (2-5) — the effective unlocked count is `vipActive ? MAX_TEAM_SLOTS : unlockedTeamSlots`. */
   unlockedTeamSlots: number;
   /** Which of the 5 saved teams (see usePlayerTeams.ts) currently feeds PvE battles / PvP defense. */
@@ -66,6 +68,8 @@ export interface UsePlayerProgressResult {
   claimStarterBoost: () => Promise<void>;
   /** Deducts tokens if affordable, persists, and returns whether it succeeded. */
   spendTokens: (amount: number) => Promise<boolean>;
+  /** Adjusts the Bytes balance by delta (positive or negative), persists, and returns whether it succeeded (fails only if a negative delta would go below 0). */
+  adjustBytes: (delta: number) => Promise<boolean>;
   setTeamVisibility: (value: TeamVisibility) => Promise<void>;
   /** Spends VIP_COST_TOKENS for VIP_DURATION_DAYS of Root Access, stacking onto any remaining time if already active. Returns whether it succeeded (fails if tokens are short). */
   purchaseVip: () => Promise<boolean>;
@@ -95,6 +99,7 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
   const [vipExpiresAt, setVipExpiresAt] = useState<string | null>(null);
   const [vipDailyBonusClaimedAt, setVipDailyBonusClaimedAt] = useState<string | null>(null);
   const [bandwidth, setBandwidth] = useState(0);
+  const [bytes, setBytes] = useState(0);
   const [unlockedTeamSlots, setUnlockedTeamSlots] = useState(MIN_TEAM_SLOTS);
   const [pveTeamSlot, setPveTeamSlotState] = useState(1);
   const [pvpTeamSlot, setPvpTeamSlotState] = useState(1);
@@ -110,6 +115,7 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
       setVipExpiresAt(null);
       setVipDailyBonusClaimedAt(null);
       setBandwidth(0);
+      setBytes(0);
       setUnlockedTeamSlots(MIN_TEAM_SLOTS);
       setPveTeamSlotState(1);
       setPvpTeamSlotState(1);
@@ -125,7 +131,7 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
       const { data, error: selectError } = await supabase
         .from('player_progress')
         .select(
-          'fase, estagio, credits, xp, starter_boost_claimed, tokens, team_visibility, vip_expires_at, vip_daily_bonus_claimed_at, bandwidth, unlocked_team_slots, pve_team_slot, pvp_team_slot',
+          'fase, estagio, credits, xp, starter_boost_claimed, tokens, team_visibility, vip_expires_at, vip_daily_bonus_claimed_at, bandwidth, unlocked_team_slots, pve_team_slot, pvp_team_slot, bytes',
         )
         .eq('user_id', userId)
         .maybeSingle();
@@ -141,6 +147,7 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
         setVipExpiresAt(null);
         setVipDailyBonusClaimedAt(null);
         setBandwidth(0);
+        setBytes(0);
         setUnlockedTeamSlots(MIN_TEAM_SLOTS);
         setPveTeamSlotState(1);
         setPvpTeamSlotState(1);
@@ -156,6 +163,7 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
         setVipExpiresAt(data.vip_expires_at);
         setVipDailyBonusClaimedAt(data.vip_daily_bonus_claimed_at);
         setBandwidth(data.bandwidth);
+        setBytes(data.bytes);
         setUnlockedTeamSlots(data.unlocked_team_slots);
         setPveTeamSlotState(data.pve_team_slot);
         setPvpTeamSlotState(data.pvp_team_slot);
@@ -172,6 +180,7 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
           setVipExpiresAt(null);
           setVipDailyBonusClaimedAt(null);
           setBandwidth(0);
+          setBytes(0);
           setUnlockedTeamSlots(MIN_TEAM_SLOTS);
           setPveTeamSlotState(1);
           setPvpTeamSlotState(1);
@@ -212,6 +221,18 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
       return true;
     },
     [userId, tokens],
+  );
+
+  const adjustBytes = useCallback(
+    async (delta: number): Promise<boolean> => {
+      if (!userId || bytes + delta < 0) return false;
+      const next = bytes + delta;
+      setBytes(next);
+      const { error: updateError } = await supabase.from('player_progress').update({ bytes: next }).eq('user_id', userId);
+      setError(updateError ? updateError.message : null);
+      return true;
+    },
+    [userId, bytes],
   );
 
   const setTeamVisibility = useCallback(
@@ -298,6 +319,7 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
     vipActive: isVipActive(vipExpiresAt),
     vipExpiresAt,
     bandwidth,
+    bytes,
     unlockedTeamSlots,
     pveTeamSlot,
     pvpTeamSlot,
@@ -306,6 +328,7 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
     saveProgress,
     claimStarterBoost,
     spendTokens,
+    adjustBytes,
     setTeamVisibility,
     purchaseVip,
     claimDailyVipBonus,

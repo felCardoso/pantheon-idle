@@ -10,14 +10,33 @@ interface MarketPageProps {
   fragments: Record<string, number>;
   vipActive: boolean;
   credits: number;
+  bytes: number;
   onAdjustCredits: (delta: number) => void;
+  onAdjustBytes: (delta: number) => Promise<boolean>;
+  onSellFragment: (characterId: string) => void;
   onRefreshFragments: () => Promise<void>;
   onToast: (message: string) => void;
 }
 
 const MIN_PRICE_CREDITS = 50;
+/** First-pass number, easy to retune later. */
+const FRAGMENT_CONVERSION_BYTES = 8;
 
-export function MarketPage({ market, fragments, vipActive, credits, onAdjustCredits, onRefreshFragments, onToast }: MarketPageProps) {
+type MarketTab = 'inventory' | 'offers' | 'market';
+
+export function MarketPage({
+  market,
+  fragments,
+  vipActive,
+  credits,
+  bytes,
+  onAdjustCredits,
+  onAdjustBytes,
+  onSellFragment,
+  onRefreshFragments,
+  onToast,
+}: MarketPageProps) {
+  const [tab, setTab] = useState<MarketTab>('inventory');
   const compendium = buildCompendium();
   const byId = new Map(compendium.map((c) => [c.templateId, c]));
 
@@ -28,8 +47,18 @@ export function MarketPage({ market, fragments, vipActive, credits, onAdjustCred
   const [publishing, setPublishing] = useState(false);
   const [buyQuantities, setBuyQuantities] = useState<Record<string, number>>({});
   const [busyListingId, setBusyListingId] = useState<string | null>(null);
+  const [convertingId, setConvertingId] = useState<string | null>(null);
 
   const maxFragmentsForPublish = fragments[publishCharacterId] ?? 0;
+
+  async function handleConvertFragment(characterId: string) {
+    if (convertingId) return;
+    setConvertingId(characterId);
+    onSellFragment(characterId);
+    await onAdjustBytes(FRAGMENT_CONVERSION_BYTES);
+    setConvertingId(null);
+    onToast(`+${FRAGMENT_CONVERSION_BYTES} bytes pela conversão do diagrama.`);
+  }
 
   async function handlePublish() {
     if (publishing || !publishCharacterId || publishQuantity < 1 || publishQuantity > maxFragmentsForPublish || publishPrice < MIN_PRICE_CREDITS) return;
@@ -74,18 +103,86 @@ export function MarketPage({ market, fragments, vipActive, credits, onAdjustCred
     }
   }
 
+  const TABS: { id: MarketTab; label: string; icon: string }[] = [
+    { id: 'inventory', label: 'Meu Inventário', icon: 'package' },
+    { id: 'offers', label: 'Minhas Ofertas', icon: 'megaphone' },
+    { id: 'market', label: 'Mercado', icon: 'store' },
+  ];
+
   return (
     <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5">
       <div className="mb-4">
         <h1 className="font-display text-sm font-bold uppercase tracking-wide text-white text-glow-code sm:text-base">Mercado de Diagramas</h1>
-        <p className="text-xs text-white/50">Assinantes de Root Access negociam `.dat` (diagramas de personagens duplicados) entre si</p>
+        <p className="text-xs text-white/50">Converta diagramas (`.dat`) em Bytes ou negocie com outros jogadores</p>
       </div>
 
-      <div className="flex flex-col gap-6">
-        {/* Suas ofertas */}
-        <section>
-          <h2 className="mb-2 font-display text-xs font-bold uppercase tracking-widest text-white/50">Suas ofertas</h2>
+      <div className="mb-4 flex gap-1.5 border-b border-void-700">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-bold uppercase tracking-wide transition ${
+              tab === t.id ? 'border-code-400 text-code-300' : 'border-transparent text-white/50 hover:text-white/80'
+            }`}
+          >
+            <Icon name={t.icon} size={13} />
+            {t.label}
+          </button>
+        ))}
+      </div>
 
+      {tab === 'inventory' && (
+        <section>
+          <p className="mb-3 flex items-center gap-1.5 text-[11px] text-white/40">
+            <Icon name="binary" size={12} className="text-signal-cyan" />
+            Cada diagrama convertido rende +{FRAGMENT_CONVERSION_BYTES} bytes. Seu saldo: {bytes} bytes.
+          </p>
+          {fragmentEntries.length === 0 ? (
+            <p className="rounded-xl border border-void-600 bg-void-800/30 p-4 text-xs text-white/40">
+              Nenhum diagrama ainda — personagens repetidos de invocações aparecem aqui.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {fragmentEntries.map(([characterId, count]) => {
+                const info = byId.get(characterId);
+                return (
+                  <div key={characterId} className="flex items-center justify-between gap-3 rounded-lg border border-void-600 bg-void-800/50 p-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <CharacterPortrait
+                        name={info?.name ?? characterId}
+                        element={info?.element ?? 'Encryption'}
+                        rarity={info?.rarity ?? FALLBACK_RARITY}
+                        portraitUrl={info?.portraitUrl}
+                        size={40}
+                      />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm text-white">{diagramName(info?.name ?? characterId)}</p>
+                        <p className="text-xs text-white/50">{count}x diagrama</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleConvertFragment(characterId)}
+                      disabled={convertingId === characterId}
+                      className="flex shrink-0 items-center gap-1.5 rounded-lg border border-void-600 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-white/70 transition hover:border-signal-cyan/50 hover:text-signal-cyan disabled:opacity-50"
+                    >
+                      {convertingId === characterId && <Icon name="loader" size={12} className="animate-spin" />}
+                      <Icon name="binary" size={12} />
+                      Converter +{FRAGMENT_CONVERSION_BYTES}
+                    </button>
+                  </div>
+                );
+              })}
+              <p className="text-[11px] text-white/30">
+                Prefere negociar com outros jogadores por um preço melhor? Assinantes de Root Access podem publicar e comprar `.dat` na aba
+                Mercado.
+              </p>
+            </div>
+          )}
+        </section>
+      )}
+
+      {tab === 'offers' && (
+        <section>
           {!vipActive ? (
             <div className="rounded-xl border border-signal-cyan/25 bg-void-800/50 p-4 text-xs text-white/50">
               <div className="mb-1 flex items-center gap-2 text-signal-cyan">
@@ -183,10 +280,10 @@ export function MarketPage({ market, fragments, vipActive, credits, onAdjustCred
             </div>
           )}
         </section>
+      )}
 
-        {/* Mercado */}
+      {tab === 'market' && (
         <section>
-          <h2 className="mb-2 font-display text-xs font-bold uppercase tracking-widest text-white/50">Mercado</h2>
           {market.loading ? (
             <p className="p-4 text-xs text-white/40">Carregando...</p>
           ) : market.listings.length === 0 ? (
@@ -240,7 +337,7 @@ export function MarketPage({ market, fragments, vipActive, credits, onAdjustCred
             </div>
           )}
         </section>
-      </div>
+      )}
     </div>
   );
 }
