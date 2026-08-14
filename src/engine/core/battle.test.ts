@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { checkVictory, decideByRemainingHp, runBattle } from './battle';
-import { loadJurupariAllies, loadJurupariComuns, loadJurupariBoss } from './loader';
+import { loadJurupariAllies, loadJurupariComuns, loadJurupariBoss, loadCharactersByIds } from './loader';
 import { makeCombatant } from './testUtils';
 
 describe('checkVictory', () => {
@@ -59,6 +59,18 @@ describe('runBattle — full Jurupari.iso integration smoke test', () => {
 
   it('runs allies vs. Anhangá.exe to completion without throwing', () => {
     const result = runBattle(loadJurupariAllies(), loadJurupariBoss(), { seed: 42 });
+    expect(['allies', 'enemies', 'draw']).toContain(result.winner);
+    expect(result.rounds).toBeGreaterThan(0);
+    expect(result.rounds).toBeLessThanOrEqual(45);
+  });
+
+  it('runs Medusa/Hércules/Minotauro (4 abilities each, multiple onDamaged/onAttack/battleStart triggers firing every round) to completion without throwing', () => {
+    const allies = loadCharactersByIds([
+      { id: 'medusa', xp: 0 },
+      { id: 'hercules', xp: 0 },
+      { id: 'minotauro', xp: 0 },
+    ]);
+    const result = runBattle(allies, loadJurupariComuns(3), { seed: 42 });
     expect(['allies', 'enemies', 'draw']).toContain(result.winner);
     expect(result.rounds).toBeGreaterThan(0);
     expect(result.rounds).toBeLessThanOrEqual(45);

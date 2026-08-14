@@ -1,33 +1,43 @@
-import { useState } from 'react';
 import { Icon } from '../common/Icon';
+import { comparePositions } from '../../engine/core/progression';
 import type { StageInfo } from '../../types';
 
 interface StagePanelProps {
   stage: StageInfo;
-  /** The player's real saved progress within the current fase — distinct from `stage.stage` while detouring (playing an earlier estágio via the mini-map). Estágios before this are completed and selectable. */
+  /** The player's real saved progress — the highest position ever reached. May differ from `stage.phase/stage` while replaying an earlier estágio or mid-retreat. */
+  frontierFase: number;
   frontierEstagio: number;
+  /** 'advance' (Avançar) or 'repeat' (Repetir estágio) — drives which button is highlighted as primary. */
+  mode: 'advance' | 'repeat';
+  retreatOnLoss: boolean;
+  onToggleRetreatOnLoss: () => void;
+  /** Non-null while grinding back up after a retreat: how many more wins are needed before an advance is attempted again. */
+  recoveryWinsRemaining: number | null;
   open: boolean;
   onClose: () => void;
   onAdvance: () => void;
   onRepeat: () => void;
-  /** Jumps to replay a completed estágio (mini-map dot click). */
+  /** Jumps to replay a completed estágio within the currently-viewed fase (mini-map dot click). */
   onSelectStage: (estagio: number) => void;
 }
 
-export function StagePanel({ stage, frontierEstagio, open, onClose, onAdvance, onRepeat, onSelectStage }: StagePanelProps) {
-  const [retreatOnLoss, setRetreatOnLoss] = useState(true);
-  const [primaryAction, setPrimaryAction] = useState<'advance' | 'repeat'>('advance');
-  const isDetouring = stage.stage !== frontierEstagio;
-
-  function handleAdvance() {
-    setPrimaryAction('advance');
-    onAdvance();
-  }
-
-  function handleRepeat() {
-    setPrimaryAction('repeat');
-    onRepeat();
-  }
+export function StagePanel({
+  stage,
+  frontierFase,
+  frontierEstagio,
+  mode,
+  retreatOnLoss,
+  onToggleRetreatOnLoss,
+  recoveryWinsRemaining,
+  open,
+  onClose,
+  onAdvance,
+  onRepeat,
+  onSelectStage,
+}: StagePanelProps) {
+  const position = { fase: stage.phase, estagio: stage.stage };
+  const frontier = { fase: frontierFase, estagio: frontierEstagio };
+  const isAtFrontier = comparePositions(position, frontier) === 0;
 
   return (
     <>
@@ -66,18 +76,34 @@ export function StagePanel({ stage, frontierEstagio, open, onClose, onAdvance, o
               Round {stage.round} · T{stage.turn}
             </span>
           </div>
-          {isDetouring && (
-            <p className="mt-1 flex items-center gap-1 text-[10px] uppercase tracking-wide text-arcane-300">
+
+          {mode === 'repeat' ? (
+            <p className="mt-1 flex items-center gap-1 text-[10px] uppercase tracking-wide text-code-300">
               <Icon name="rotate-ccw" size={10} />
-              Repetição — seu progresso real está no Estágio {frontierEstagio}
+              Repetindo este estágio automaticamente
+            </p>
+          ) : (
+            recoveryWinsRemaining !== null && (
+              <p className="mt-1 flex items-center gap-1 text-[10px] uppercase tracking-wide text-signal-red">
+                <Icon name="flag-off" size={10} />
+                Recuperação: vença mais {recoveryWinsRemaining}x pra tentar avançar
+              </p>
+            )
+          )}
+          {!isAtFrontier && (
+            <p className="mt-1 flex items-center gap-1 text-[10px] uppercase tracking-wide text-arcane-300">
+              <Icon name="map" size={10} />
+              Progresso real: Fase {frontierFase}, Estágio {frontierEstagio}
             </p>
           )}
+
           <div className="mt-2 flex items-center gap-1.5">
-            {Array.from({ length: 5 }).map((_, i) => {
+            {Array.from({ length: stage.totalStages }).map((_, i) => {
               const nodeEstagio = i + 1;
-              const isDone = nodeEstagio < frontierEstagio;
+              const nodePosition = { fase: stage.phase, estagio: nodeEstagio };
+              const isDone = comparePositions(nodePosition, frontier) < 0;
               const isViewing = nodeEstagio === stage.stage;
-              const isFrontierMarker = !isViewing && nodeEstagio === frontierEstagio;
+              const isFrontierMarker = !isViewing && comparePositions(nodePosition, frontier) === 0;
               const isSelectable = isDone && !isViewing;
               return (
                 <div key={i} className="flex flex-1 items-center gap-1.5">
@@ -96,7 +122,7 @@ export function StagePanel({ stage, frontierEstagio, open, onClose, onAdvance, o
                             : 'border-void-500 bg-void-700'
                     }`}
                   />
-                  {i < 4 && <div className={`h-px flex-1 ${isDone ? 'bg-code-500/60' : 'bg-void-600'}`} />}
+                  {i < stage.totalStages - 1 && <div className={`h-px flex-1 ${isDone ? 'bg-code-500/60' : 'bg-void-600'}`} />}
                 </div>
               );
             })}
@@ -105,20 +131,20 @@ export function StagePanel({ stage, frontierEstagio, open, onClose, onAdvance, o
 
         <div className="flex flex-col gap-2">
           <button
-            onClick={handleAdvance}
+            onClick={onAdvance}
             className={`flex items-center justify-center gap-2 rounded-lg py-2.5 font-display text-xs font-bold uppercase tracking-wide transition ${
-              primaryAction === 'advance'
+              mode === 'advance'
                 ? 'bg-code-500 text-void-950 hover:bg-code-400'
                 : 'border border-void-500 text-white/80 hover:border-code-400 hover:text-code-300'
             }`}
           >
             <Icon name="play" size={15} />
-            {isDetouring ? 'Voltar ao progresso' : 'Avançar'}
+            Avançar
           </button>
           <button
-            onClick={handleRepeat}
+            onClick={onRepeat}
             className={`flex items-center justify-center gap-2 rounded-lg py-2.5 font-display text-xs font-bold uppercase tracking-wide transition ${
-              primaryAction === 'repeat'
+              mode === 'repeat'
                 ? 'bg-code-500 text-void-950 hover:bg-code-400'
                 : 'border border-void-500 text-white/80 hover:border-code-400 hover:text-code-300'
             }`}
@@ -127,7 +153,7 @@ export function StagePanel({ stage, frontierEstagio, open, onClose, onAdvance, o
             Repetir estágio
           </button>
           <button
-            onClick={() => setRetreatOnLoss((v) => !v)}
+            onClick={onToggleRetreatOnLoss}
             className="flex items-center justify-between gap-2 rounded-lg border border-void-600 px-3 py-2 text-xs text-white/60 transition hover:border-signal-red/50"
           >
             <span className="flex items-center gap-2">

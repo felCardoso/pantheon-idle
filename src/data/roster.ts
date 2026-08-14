@@ -24,13 +24,13 @@ export interface RosterCharacter extends CharacterInfo {
   stats: BaseStats;
   alwaysActsFirst: boolean;
   statusDurationBonus: number;
+  /** Star-up progress — always 0 until a star/rarity-upgrade system exists (docs/gdd.md section 7). */
+  stars: number;
 }
 
 const UNKNOWN_INFO: CharacterInfo = {
   lore: '',
-  abilityName: null,
-  abilityKind: 'Passiva',
-  abilityDescription: 'Sem habilidade registrada.',
+  abilities: [{ name: null, kind: 'Passiva', description: 'Sem habilidade registrada.' }],
 };
 
 function toRosterCharacter(c: ReturnType<typeof loadCharactersByIds>[number], mythology: string, xp: number): RosterCharacter {
@@ -50,6 +50,7 @@ function toRosterCharacter(c: ReturnType<typeof loadCharactersByIds>[number], my
     stats: c.base,
     alwaysActsFirst: c.alwaysActsFirst,
     statusDurationBonus: c.statusDurationBonus,
+    stars: c.stars,
     ...(CHARACTER_INFO[c.templateId] ?? UNKNOWN_INFO),
   };
 }

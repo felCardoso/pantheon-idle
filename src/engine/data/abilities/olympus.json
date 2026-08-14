@@ -52,5 +52,174 @@
         "magnitude": { "kind": "percentOfBaseAtk", "basePercent": 0.15 }
       }
     ]
+  },
+  {
+    "id": "medusa-petrificar",
+    "name": "Olhar Petrificante",
+    "trigger": "onAttack",
+    "chance": 0.35,
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "atordoamento",
+        "duration": 1,
+        "magnitude": { "kind": "flat", "value": 0 }
+      }
+    ]
+  },
+  {
+    "id": "medusa-veneno",
+    "name": "Presas Venenosas",
+    "trigger": "onAttack",
+    "chance": 0.7,
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "veneno",
+        "duration": "default",
+        "magnitude": { "kind": "percentOfBaseAtk", "basePercent": 0.15 }
+      }
+    ]
+  },
+  {
+    "id": "medusa-armadura-pedra",
+    "name": "Armadura de Pedra",
+    "trigger": "onDamaged",
+    "chance": 0.25,
+    "effects": [
+      {
+        "type": "grantShield",
+        "target": "allAllies",
+        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.1 }
+      }
+    ]
+  },
+  {
+    "id": "medusa-espinhos-veneno",
+    "name": "Espinhos Venenosos",
+    "trigger": "onDamaged",
+    "chance": 0.3,
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "attacker",
+        "status": "veneno",
+        "duration": "default",
+        "magnitude": { "kind": "percentOfBaseAtk", "basePercent": 0.1 }
+      }
+    ]
+  },
+  {
+    "id": "hercules-impacto",
+    "name": "Impacto",
+    "trigger": "onAttack",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "enfraquecimento",
+        "duration": 2,
+        "magnitude": { "kind": "percent", "value": 0.15 }
+      }
+    ]
+  },
+  {
+    "id": "hercules-furia",
+    "name": "Fúria",
+    "trigger": "onAttack",
+    "chance": 0.5,
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "sangramento",
+        "duration": 2,
+        "magnitude": { "kind": "percentOfBaseAtk", "basePercent": 0.12 },
+        "stacks": true
+      }
+    ]
+  },
+  {
+    "id": "hercules-clava-primordial",
+    "name": "A Clava Primordial",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "allEnemies",
+        "status": "atordoamento",
+        "duration": "default",
+        "magnitude": { "kind": "flat", "value": 0 }
+      }
+    ]
+  },
+  {
+    "id": "hercules-pele-leao",
+    "name": "Pele do Leão de Nemeia",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "grantShield",
+        "target": "self",
+        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.18 }
+      }
+    ]
+  },
+  {
+    "id": "minotauro-provocar",
+    "name": "Provocar",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "grantShield",
+        "target": "allAllies",
+        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.08 }
+      }
+    ]
+  },
+  {
+    "id": "minotauro-labrys",
+    "name": "Labrys",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "allEnemies",
+        "status": "sangramento",
+        "duration": 2,
+        "magnitude": { "kind": "percentOfBaseAtk", "basePercent": 0.1 }
+      }
+    ]
+  },
+  {
+    "id": "minotauro-fear",
+    "name": "Fear",
+    "trigger": "onAttack",
+    "chance": 0.3,
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "enfraquecimento",
+        "duration": 2,
+        "magnitude": { "kind": "percent", "value": 0.15 }
+      }
+    ]
+  },
+  {
+    "id": "minotauro-aterrorizar",
+    "name": "Aterrorizar",
+    "trigger": "onDamaged",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "attacker",
+        "status": "enfraquecimento",
+        "duration": 2,
+        "magnitude": { "kind": "percent", "value": 0.15 }
+      }
+    ]
   }
 ]
