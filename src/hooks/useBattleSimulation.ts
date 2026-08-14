@@ -111,6 +111,7 @@ let floaterIdCounter = 0;
 // reward numbers below are placeholders until the real economy lands.
 const WORLD_NUMBER = 1;
 const WORLD_NAME = 'Jurupari';
+const WORLD_ID = 'jurupari';
 
 const REWARDS: Record<'comuns' | 'boss', { win: { credits: number; xp: number }; lossOrDraw: { credits: number } }> = {
   comuns: { win: { credits: 20, xp: 15 }, lossOrDraw: { credits: 5 } },
@@ -471,6 +472,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     allies: toBattleUnits(state.session.allies, state.replay, state.replay.allyOrder),
     enemies: toBattleUnits(state.session.enemies, state.replay, state.replay.enemyOrder),
     stage: {
+      worldId: WORLD_ID,
       worldName: 'Jurupari.iso',
       worldSubtitle: 'Folclore Brasileiro',
       phase: state.session.fase,

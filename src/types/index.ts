@@ -57,6 +57,8 @@ export interface PlayerState {
 }
 
 export interface StageInfo {
+  /** Slug identifying which world's background art to show — see engineDisplay.ts's WORLD_BACKGROUND_BY_ID. */
+  worldId: string;
   worldName: string;
   worldSubtitle: string;
   phase: number;

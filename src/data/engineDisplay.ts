@@ -1,12 +1,18 @@
-import amaterasuArt from "../assets/amaterasu.png";
-import athenaArt from "../assets/athena.png";
-import caiporaArt from "../assets/caipora.png";
-import herculesArt from "../assets/hercules.png";
-import jurupariArt from "../assets/jurupari.png";
-import medusaArt from "../assets/medusa.png";
-import minotaurArt from "../assets/minotaur.png";
-import odinArt from "../assets/odin.png";
-import saciArt from "../assets/saci.png";
+import duatBg from "../assets/worlds/duat.png";
+import jurupariBg from "../assets/worlds/jurupari.png";
+import olympusBg from "../assets/worlds/olympus.png";
+import orunBg from "../assets/worlds/orun.png";
+import takamagaharaBg from "../assets/worlds/takamagahara.png";
+import yggdrasilBg from "../assets/worlds/yggrdasil.png";
+import amaterasuArt from "../assets/characters/amaterasu.png";
+import athenaArt from "../assets/characters/athena.png";
+import caiporaArt from "../assets/characters/caipora.png";
+import herculesArt from "../assets/characters/hercules.png";
+import jurupariArt from "../assets/characters/jurupari.png";
+import medusaArt from "../assets/characters/medusa.png";
+import minotaurArt from "../assets/characters/minotaur.png";
+import odinArt from "../assets/characters/odin.png";
+import saciArt from "../assets/characters/saci.png";
 import type { Element, Faction, Rarity } from "../types";
 
 /**
@@ -101,6 +107,22 @@ export const DISPLAY_AVATAR_FOCUS_BY_TEMPLATE_ID: Record<
 };
 
 export const DISPLAY_AVATAR_FOCUS_FALLBACK = { x: 50, y: 25 };
+
+/**
+ * Battle background art per world, keyed by StageInfo.worldId. Only Jurupari
+ * is actually reachable in-game so far (see useBattleSimulation.ts's
+ * WORLD_ID), but Yggdrasil/Olympus already have real allies and the rest are
+ * staged art for worlds that don't exist yet — kept here so BattleStage never
+ * needs to know which worlds are real.
+ */
+export const WORLD_BACKGROUND_BY_ID: Record<string, string> = {
+  jurupari: jurupariBg,
+  yggdrasil: yggdrasilBg,
+  olympus: olympusBg,
+  duat: duatBg,
+  orun: orunBg,
+  takamagahara: takamagaharaBg,
+};
 
 export const FALLBACK_FACTION: Faction = "Malware";
 export const FALLBACK_RARITY: Rarity = "Alpha";

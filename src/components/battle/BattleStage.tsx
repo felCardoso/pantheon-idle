@@ -1,5 +1,6 @@
 import { UnitCard } from './UnitCard';
 import { Icon } from '../common/Icon';
+import { WORLD_BACKGROUND_BY_ID } from '../../data/engineDisplay';
 import type { BattleUnit, StageInfo } from '../../types';
 import type { FloatingText, Reward } from '../../hooks/useBattleSimulation';
 
@@ -36,23 +37,37 @@ export function BattleStage({
   floaters,
 }: BattleStageProps) {
   const floatersFor = (unitId: string) => floaters.filter((f) => f.unitId === unitId);
+  const backgroundArt = WORLD_BACKGROUND_BY_ID[stage.worldId];
 
   return (
     <main className="relative flex-1 overflow-hidden bg-void-950">
+      {/* world background */}
+      {backgroundArt && (
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${backgroundArt})` }}
+        />
+      )}
+
       {/* atmosphere */}
       <div
         className="absolute inset-0"
         style={{
-          background:
-            'radial-gradient(60% 45% at 50% 18%, rgba(195,74,255,0.16), transparent 70%), radial-gradient(70% 50% at 50% 100%, rgba(57,255,156,0.12), transparent 70%), linear-gradient(180deg, #0b0b16 0%, #0a0a12 55%, #070710 100%)',
+          background: backgroundArt
+            ? 'linear-gradient(180deg, rgba(7,7,16,0.35) 0%, rgba(7,7,16,0.15) 45%, rgba(7,7,16,0.75) 100%)'
+            : 'radial-gradient(60% 45% at 50% 18%, rgba(195,74,255,0.16), transparent 70%), radial-gradient(70% 50% at 50% 100%, rgba(57,255,156,0.12), transparent 70%), linear-gradient(180deg, #0b0b16 0%, #0a0a12 55%, #070710 100%)',
         }}
       />
-      <div className="circuit-grid absolute inset-0 opacity-40" />
+      <div className={`circuit-grid absolute inset-0 ${backgroundArt ? 'opacity-10' : 'opacity-40'}`} />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-24 w-full animate-scanline bg-gradient-to-b from-code-500/10 to-transparent" />
 
-      {/* moon */}
-      <div className="absolute left-1/2 top-10 h-20 w-20 -translate-x-1/2 rounded-full bg-arcane-300/20 blur-2xl sm:h-28 sm:w-28" />
-      <div className="absolute left-1/2 top-12 h-10 w-10 -translate-x-1/2 rounded-full border border-arcane-300/40 bg-arcane-300/10 sm:h-16 sm:w-16" />
+      {!backgroundArt && (
+        <>
+          {/* moon */}
+          <div className="absolute left-1/2 top-10 h-20 w-20 -translate-x-1/2 rounded-full bg-arcane-300/20 blur-2xl sm:h-28 sm:w-28" />
+          <div className="absolute left-1/2 top-12 h-10 w-10 -translate-x-1/2 rounded-full border border-arcane-300/40 bg-arcane-300/10 sm:h-16 sm:w-16" />
+        </>
+      )}
 
       {/* HUD overlay */}
       <div className="relative z-10 flex items-start justify-between p-3 sm:p-4">
