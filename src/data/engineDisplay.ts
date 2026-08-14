@@ -8,7 +8,9 @@ import yggdrasilBg from "../assets/worlds/yggrdasil.png";
 import amaterasuArt from "../assets/characters/amaterasu.png";
 import atenaArt from "../assets/characters/atena.png";
 import caiporaArt from "../assets/characters/caipora.png";
+import curupiraArt from "../assets/characters/curupira.png";
 import freyaArt from "../assets/characters/freya.png";
+import hadesArt from "../assets/characters/hades.png";
 import herculesArt from "../assets/characters/hercules.png";
 import jurupariArt from "../assets/characters/jurupari.png";
 import medusaArt from "../assets/characters/medusa.png";
@@ -80,7 +82,9 @@ export const DISPLAY_PORTRAIT_BY_TEMPLATE_ID: Record<string, string> = {
   amaterasu: amaterasuArt,
   atena: atenaArt,
   caipora: caiporaArt,
+  curupira: curupiraArt,
   freya: freyaArt,
+  hades: hadesArt,
   hercules: herculesArt,
   jurupari: jurupariArt,
   medusa: medusaArt,
@@ -104,7 +108,9 @@ export const DISPLAY_AVATAR_FOCUS_BY_TEMPLATE_ID: Record<
   amaterasu: { x: 50, y: 23 },
   atena: { x: 50, y: 23 },
   caipora: { x: 55, y: 23 },
+  curupira: { x: 50, y: 23 },
   freya: { x: 50, y: 23 },
+  hades: { x: 50, y: 23 },
   hercules: { x: 50, y: 23 },
   jurupari: { x: 50, y: 23 },
   medusa: { x: 50, y: 23 },
