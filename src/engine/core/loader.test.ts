@@ -63,10 +63,33 @@ describe('loadCharactersByIds', () => {
 });
 
 describe('loadJurupariComuns / loadJurupariBoss', () => {
-  it('loads the 3 common archetypes with no synergy bonus applied', () => {
-    const comuns = loadJurupariComuns();
+  it('loads exactly `count` enemies, one of each archetype in order, with no synergy bonus applied', () => {
+    const comuns = loadJurupariComuns(3);
     expect(comuns.map((c) => c.name)).toEqual(['Mula-sem-Cabeça.sh', 'Boitatá.sh', 'Iara.sh']);
     expect(comuns.find((c) => c.name === 'Boitatá.sh')!.maxHp).toBe(600);
+  });
+
+  it('supports a wave smaller than the 3 archetypes', () => {
+    const comuns = loadJurupariComuns(2);
+    expect(comuns.map((c) => c.name)).toEqual(['Mula-sem-Cabeça.sh', 'Boitatá.sh']);
+  });
+
+  it('cycles back through the archetypes with unique ids once count exceeds 3', () => {
+    const comuns = loadJurupariComuns(5);
+    expect(comuns.map((c) => c.name)).toEqual([
+      'Mula-sem-Cabeça.sh',
+      'Boitatá.sh',
+      'Iara.sh',
+      'Mula-sem-Cabeça.sh',
+      'Boitatá.sh',
+    ]);
+    expect(comuns.map((c) => c.id)).toEqual([
+      'script-kiddie',
+      'firewall-turret',
+      'corrupted-daemon',
+      'script-kiddie#2',
+      'firewall-turret#2',
+    ]);
   });
 
   it('loads Anhangá.exe with its calibrated stats', () => {
@@ -77,11 +100,11 @@ describe('loadJurupariComuns / loadJurupariBoss', () => {
     expect(boss.base.def).toBe(50);
   });
 
-  it('scales comuns stats by the given multiplier (docs/mvp.md per-estágio scaling)', () => {
-    const scaled = loadJurupariComuns(Math.pow(1.15, 4)); // estágio 5 of a fase
+  it('scales comuns stats by the given multiplier (per-estágio scaling)', () => {
+    const scaled = loadJurupariComuns(3, 1.2); // estágio 5 of a fase (+20%)
     const boitata = scaled.find((c) => c.name === 'Boitatá.sh')!;
-    expect(boitata.maxHp).toBe(Math.round(600 * Math.pow(1.15, 4)));
-    expect(boitata.base.def).toBe(Math.round(30 * Math.pow(1.15, 4)));
+    expect(boitata.maxHp).toBe(Math.round(600 * 1.2));
+    expect(boitata.base.def).toBe(Math.round(30 * 1.2));
   });
 
   it('scales the boss by an optional multiplier too (team-size scaling)', () => {

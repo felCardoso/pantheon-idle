@@ -51,7 +51,7 @@ describe('runBattle — anti-infinite-round safeguard', () => {
 
 describe('runBattle — full Jurupari.iso integration smoke test', () => {
   it('runs allies vs. the 3 common enemies to completion without throwing', () => {
-    const result = runBattle(loadJurupariAllies(), loadJurupariComuns(), { seed: 42 });
+    const result = runBattle(loadJurupariAllies(), loadJurupariComuns(3), { seed: 42 });
     expect(['allies', 'enemies', 'draw']).toContain(result.winner);
     expect(result.rounds).toBeGreaterThan(0);
     expect(result.rounds).toBeLessThanOrEqual(45);

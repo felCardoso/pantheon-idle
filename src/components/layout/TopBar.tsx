@@ -20,7 +20,7 @@ export function TopBar({ player, userEmail, onSignOut, onOpenWiki, onOpenNotific
   const [profileOpen, setProfileOpen] = useState(false);
 
   return (
-    <header className="relative z-30 flex h-14 items-center gap-2 border-b border-code-500/20 bg-void-900/90 px-2 backdrop-blur-md sm:h-16 sm:gap-3 sm:px-4">
+    <header className="relative z-40 flex h-14 items-center gap-2 border-b border-code-500/20 bg-void-900/90 px-2 backdrop-blur-md sm:h-16 sm:gap-3 sm:px-4">
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-code-500/70 to-transparent" />
 
       {/* Rank */}

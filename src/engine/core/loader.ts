@@ -136,14 +136,25 @@ interface JurupariEnemyData {
 const enemyData = jurupariEnemies as JurupariEnemyData;
 
 /**
- * The 3 common enemy archetypes (1 of each), no synergy bonus. `statMultiplier`
- * applies the docs/mvp.md +15%-per-estágio scaling (see engine/core/progression.ts),
- * and — since a player's owned team can now be smaller than the original
- * 4-character baseline these were calibrated against — progression.ts's
- * teamSizeMultiplier.
+ * Builds a wave of `count` comuns enemies, cycling through the 3 archetypes
+ * and repeating (with unique ids, e.g. `script-kiddie#2`) once `count`
+ * exceeds 3 — see progression.ts's enemyCountRange for how many a given
+ * estágio should roll. `statMultiplier` applies the per-estágio scaling
+ * (progression.ts's difficultyMultiplier) and — since a player's owned team
+ * can be smaller than the original 4-character baseline these were
+ * calibrated against — teamSizeMultiplier.
  */
-export function loadJurupariComuns(statMultiplier: number = 1): Combatant[] {
-  return enemyData.comuns.map((e) => buildCombatant(e, false, 0, statMultiplier));
+export function loadJurupariComuns(count: number, statMultiplier: number = 1): Combatant[] {
+  const archetypes = enemyData.comuns;
+  const seenCount = new Array<number>(archetypes.length).fill(0);
+  const wave: Combatant[] = [];
+  for (let i = 0; i < count; i++) {
+    const archetypeIndex = i % archetypes.length;
+    const occurrence = seenCount[archetypeIndex]++;
+    const idSuffix = occurrence > 0 ? String(occurrence + 1) : undefined;
+    wave.push(buildCombatant(archetypes[archetypeIndex], false, 0, statMultiplier, idSuffix));
+  }
+  return wave;
 }
 
 /** Anhangá.exe, the world boss. `statMultiplier` — see loadJurupariComuns. */

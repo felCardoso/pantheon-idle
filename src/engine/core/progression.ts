@@ -1,17 +1,20 @@
 /**
  * World progression for Jurupari.iso. docs/mundos.md suggests 10 fases of 5
  * estágios each (50 total) as an unconfirmed starting point — adopted as-is.
- * docs/mvp.md only defines difficulty scaling *within* a fase (+15% per
- * estágio); there's no documented rule for scaling *across* fases, so each
- * fase resets to the original Estágio 1 baseline rather than inventing a
- * cross-fase multiplier. The boss (Anhangá.exe) has its own fixed calibrated
- * stats and never scales — it only ever appears once, at the final estágio.
+ * Each fase resets to the same Estágio 1 baseline (no cross-fase difficulty
+ * growth). The boss (Anhangá.exe) has its own fixed calibrated stats and
+ * never scales — it only ever appears once, at the final estágio.
+ *
+ * Estágio 1-5 within a fase is a progressive wave: more enemies and a
+ * gentler stat bump each step (0/5/10/15/20%), deliberately easing off the
+ * old +15%-compounding curve so a solo, appropriately-leveled character can
+ * still realistically reach and beat the boss.
  */
 export const TOTAL_FASES = 10;
 export const ESTAGIOS_PER_FASE = 5;
 
-/** +15% compounding per estágio within a fase; estagio is the 1-indexed position inside its fase (1-5). */
-const PER_ESTAGIO_SCALING = 1.15;
+/** +5% per estágio within a fase (0%, 5%, 10%, 15%, 20% across estágios 1-5). */
+const PER_ESTAGIO_SCALING_STEP = 0.05;
 
 export interface WorldPosition {
   fase: number;
@@ -24,7 +27,27 @@ export function isBossStage(position: WorldPosition): boolean {
 
 /** Multiplier applied to the comuns' Estágio 1 base stats for the given position. */
 export function difficultyMultiplier(position: WorldPosition): number {
-  return Math.pow(PER_ESTAGIO_SCALING, position.estagio - 1);
+  return 1 + PER_ESTAGIO_SCALING_STEP * (position.estagio - 1);
+}
+
+/**
+ * How many comuns enemies spawn for a given estágio position within its fase
+ * (1-5), as an inclusive [min, max] to roll within — more enemies each step,
+ * capping at 5 (the fase's hardest wave) rather than growing unbounded.
+ */
+export function enemyCountRange(estagio: number): [min: number, max: number] {
+  switch (estagio) {
+    case 1:
+      return [2, 2];
+    case 2:
+      return [2, 3];
+    case 3:
+      return [3, 4];
+    case 4:
+      return [3, 5];
+    default:
+      return [5, 5];
+  }
 }
 
 /**

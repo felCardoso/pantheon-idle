@@ -1,8 +1,17 @@
 import { useCallback, useEffect, useReducer, useState } from 'react';
 import { loadCharactersByIds, loadJurupariBoss, loadJurupariComuns } from '../engine/core/loader';
 import { runBattle } from '../engine/core/battle';
+import { Rng } from '../engine/core/rng';
 import { applyReplayEntry, buildNameToId, createInitialReplayState, type ReplayState } from '../engine/core/replay';
-import { difficultyMultiplier, ESTAGIOS_PER_FASE, isBossStage, nextStage, teamSizeMultiplier, type WorldPosition } from '../engine/core/progression';
+import {
+  difficultyMultiplier,
+  enemyCountRange,
+  ESTAGIOS_PER_FASE,
+  isBossStage,
+  nextStage,
+  teamSizeMultiplier,
+  type WorldPosition,
+} from '../engine/core/progression';
 import type { BattleLogEntry, Combatant } from '../engine/core/types';
 import {
   DISPLAY_PORTRAIT_BY_TEMPLATE_ID,
@@ -29,12 +38,24 @@ interface BattleSession extends WorldPosition {
  * Enemies are calibrated against the original 4-character team; a player's
  * owned roster can now be smaller (a solo starter, until Invocação ships), so
  * scale enemy stats down proportionally on top of the per-estágio difficulty.
+ * Non-boss waves also roll a random enemy count within that estágio's
+ * enemyCountRange, using a separate Rng seeded off the battle's own seed so
+ * the roll is deterministic (repeatBattle reproduces it) without perturbing
+ * the battle simulation's own Rng sequence.
  */
 function createSession(seed: number, position: WorldPosition, ownedCharacters: OwnedCharacter[]): BattleSession {
   const boss = isBossStage(position);
   const allies = loadCharactersByIds(ownedCharacters.map((o) => ({ id: o.characterId, xp: o.xp })));
   const sizeFactor = teamSizeMultiplier(ownedCharacters.length);
-  const enemies = boss ? loadJurupariBoss(sizeFactor) : loadJurupariComuns(difficultyMultiplier(position) * sizeFactor);
+  let enemies: Combatant[];
+  if (boss) {
+    enemies = loadJurupariBoss(sizeFactor);
+  } else {
+    const [min, max] = enemyCountRange(position.estagio);
+    const compositionRng = new Rng(seed);
+    const count = min + Math.floor(compositionRng.next() * (max - min + 1));
+    enemies = loadJurupariComuns(count, difficultyMultiplier(position) * sizeFactor);
+  }
   const result = runBattle(allies, enemies, { seed });
   return { seed, ...position, isBoss: boss, ownedCharacters, allies, enemies, log: result.log, nameToId: buildNameToId(allies, enemies) };
 }
@@ -62,6 +83,8 @@ interface PlaybackState {
   winner: 'allies' | 'enemies' | 'draw' | null;
   totalCredits: number;
   totalXp: number;
+  /** Credits/XP earned from this specific battle — set once it ends, shown on the winner overlay. */
+  lastReward: Reward | null;
 }
 
 type Action = { type: 'reset'; session: BattleSession } | { type: 'tick' } | { type: 'pruneFloaters' };
@@ -79,7 +102,7 @@ const REWARDS: Record<'comuns' | 'boss', { win: { credits: number; xp: number };
   boss: { win: { credits: 80, xp: 40 }, lossOrDraw: { credits: 10 } },
 };
 
-interface Reward {
+export interface Reward {
   credits: number;
   xp: number;
 }
@@ -150,6 +173,7 @@ function buildInitialState(
     winner: null,
     totalCredits: initialCredits,
     totalXp: initialXp,
+    lastReward: null,
   };
 }
 
@@ -166,6 +190,7 @@ function reducer(state: PlaybackState, action: Action): PlaybackState {
       floaters: [],
       finished: action.session.log.length === 0,
       winner: null,
+      lastReward: null,
     };
   }
 
@@ -185,11 +210,13 @@ function reducer(state: PlaybackState, action: Action): PlaybackState {
   let logFeed = state.logFeed;
   let totalCredits = state.totalCredits;
   let totalXp = state.totalXp;
+  let lastReward = state.lastReward;
   if (entry.kind === 'battleEnd') {
     const reward = rewardFor(entry.winner, state.session);
     logFeed = [...state.logFeed, buildBattleSummary(entry.winner, state.session, reward)];
     totalCredits += reward.credits;
     totalXp += reward.xp;
+    lastReward = reward;
   }
 
   const now = Date.now();
@@ -209,6 +236,7 @@ function reducer(state: PlaybackState, action: Action): PlaybackState {
     logFeed,
     totalCredits,
     totalXp,
+    lastReward,
     floaters: [...state.floaters, ...newFloaters],
     winner,
     finished: index >= state.session.log.length,
@@ -267,6 +295,8 @@ export interface BattleSimulation {
   /** Créditos/XP earned since `initialCredits`/`initialXp` — the caller is responsible for persisting these. */
   credits: number;
   xp: number;
+  /** Créditos/XP earned from the battle that just finished, for the winner overlay — null until one ends. */
+  lastReward: Reward | null;
   playing: boolean;
   finished: boolean;
   winner: 'allies' | 'enemies' | 'draw' | null;
@@ -350,6 +380,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     floaters: state.floaters,
     credits: state.totalCredits,
     xp: state.totalXp,
+    lastReward: state.lastReward,
     playing,
     finished: state.finished,
     winner: state.winner,

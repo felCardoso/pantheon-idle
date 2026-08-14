@@ -31,7 +31,7 @@ function main() {
   const { useBoss, seed } = parseArgs(process.argv.slice(2));
 
   const allies = loadJurupariAllies();
-  const enemies = useBoss ? loadJurupariBoss() : loadJurupariComuns();
+  const enemies = useBoss ? loadJurupariBoss() : loadJurupariComuns(3);
 
   console.log('Pantheon Idle — Simulação de combate (Jurupari.iso)');
   console.log(`Seed: ${seed}`);

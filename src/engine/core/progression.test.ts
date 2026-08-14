@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { difficultyMultiplier, ESTAGIOS_PER_FASE, isBossStage, nextStage, teamSizeMultiplier, TOTAL_FASES } from './progression';
+import { difficultyMultiplier, enemyCountRange, ESTAGIOS_PER_FASE, isBossStage, nextStage, teamSizeMultiplier, TOTAL_FASES } from './progression';
 
 describe('isBossStage', () => {
   it('is true only at the last estágio of the last fase', () => {
@@ -34,13 +34,28 @@ describe('difficultyMultiplier', () => {
     expect(difficultyMultiplier({ fase: 7, estagio: 1 })).toBe(1);
   });
 
-  it('compounds +15% per estágio within a fase', () => {
-    expect(difficultyMultiplier({ fase: 1, estagio: 2 })).toBeCloseTo(1.15);
-    expect(difficultyMultiplier({ fase: 1, estagio: 5 })).toBeCloseTo(Math.pow(1.15, 4));
+  it('adds a flat +5% per estágio within a fase, up to +20% at estágio 5', () => {
+    expect(difficultyMultiplier({ fase: 1, estagio: 2 })).toBeCloseTo(1.05);
+    expect(difficultyMultiplier({ fase: 1, estagio: 3 })).toBeCloseTo(1.1);
+    expect(difficultyMultiplier({ fase: 1, estagio: 4 })).toBeCloseTo(1.15);
+    expect(difficultyMultiplier({ fase: 1, estagio: 5 })).toBeCloseTo(1.2);
   });
 
   it('gives the same multiplier for the same estágio regardless of which fase it is in', () => {
     expect(difficultyMultiplier({ fase: 2, estagio: 3 })).toBeCloseTo(difficultyMultiplier({ fase: 9, estagio: 3 }));
+  });
+});
+
+describe('enemyCountRange', () => {
+  it('starts at exactly 2 enemies for estágio 1', () => {
+    expect(enemyCountRange(1)).toEqual([2, 2]);
+  });
+
+  it('grows each estágio, capping at exactly 5 for estágio 5 (the fase\'s hardest wave)', () => {
+    expect(enemyCountRange(2)).toEqual([2, 3]);
+    expect(enemyCountRange(3)).toEqual([3, 4]);
+    expect(enemyCountRange(4)).toEqual([3, 5]);
+    expect(enemyCountRange(5)).toEqual([5, 5]);
   });
 });
 
