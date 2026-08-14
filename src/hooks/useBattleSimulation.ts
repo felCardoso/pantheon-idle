@@ -324,9 +324,9 @@ export interface BattleSimulation {
   finished: boolean;
   winner: 'allies' | 'enemies' | 'draw' | null;
   setPlaying: (playing: boolean) => void;
-  /** Jumps immediately to the next attempt, per progression.ts's resolveProgression ("Avançar"). Also switches to advance mode. */
+  /** Switches to advance mode ("Avançar") and immediately jumps to the next attempt, per resolveProgression. A no-op if already in advance mode — the auto-advance effect is already driving it. */
   startNewBattle: () => void;
-  /** Retries the same estágio, per resolveProgression's repeat-mode rules ("Repetir estágio"). Also switches to repeat mode — every subsequent finished battle keeps retrying until Avançar or the mini-map is used. */
+  /** Switches to repeat mode ("Repetir estágio") and immediately retries the same estágio, per resolveProgression's repeat-mode rules. A no-op if already in repeat mode. Every subsequent finished battle keeps retrying until Avançar or the mini-map is used. */
   repeatBattle: () => void;
   /** 'advance' (Avançar) or 'repeat' (Repetir estágio) — the source of truth for which button should be highlighted as primary, and which resolveProgression rules apply on each finish. */
   mode: 'advance' | 'repeat';
@@ -410,6 +410,10 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
   ]);
 
   const startNewBattle = useCallback(() => {
+    // Already advancing — the auto-advance effect is already driving this; a redundant click
+    // shouldn't force an extra resolveProgression pass against whatever the battle's current
+    // (possibly mid-fight) winner happens to be.
+    if (mode === 'advance') return;
     setMode('advance');
     const position: WorldPosition = { fase: state.session.fase, estagio: state.session.estagio };
     const won = state.winner === 'allies';
@@ -424,9 +428,11 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
       recoveryWinsRemaining: result.recoveryWinsRemaining,
     });
     setPlaying(true);
-  }, [state.session.fase, state.session.estagio, state.winner, state.frontier, state.recoveryWinsRemaining, retreatOnLoss, initialOwnedCharacters]);
+  }, [mode, state.session.fase, state.session.estagio, state.winner, state.frontier, state.recoveryWinsRemaining, retreatOnLoss, initialOwnedCharacters]);
 
   const repeatBattle = useCallback(() => {
+    // Already repeating — nothing to change; avoids restarting the current battle mid-fight.
+    if (mode === 'repeat') return;
     setMode('repeat');
     const position: WorldPosition = { fase: state.session.fase, estagio: state.session.estagio };
     const won = state.winner === 'allies';
@@ -444,7 +450,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
       recoveryWinsRemaining: result.recoveryWinsRemaining,
     });
     setPlaying(true);
-  }, [state.session.fase, state.session.estagio, state.session.seed, state.winner, state.frontier, state.recoveryWinsRemaining, retreatOnLoss, initialOwnedCharacters]);
+  }, [mode, state.session.fase, state.session.estagio, state.session.seed, state.winner, state.frontier, state.recoveryWinsRemaining, retreatOnLoss, initialOwnedCharacters]);
 
   const playStage = useCallback(
     (estagio: number) => {
