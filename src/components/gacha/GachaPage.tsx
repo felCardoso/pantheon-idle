@@ -9,6 +9,7 @@ import {
   buildCompendium,
   currentShowcaseWeek,
   pickWeeklyBannerCharacter,
+  pullBannerCharacter,
   pullGachaCharacterWithRarity,
   RARITY_RANK,
   type GachaTier,
@@ -18,7 +19,6 @@ import { RARITY_COLOR } from '../../data/theme';
 import { Rng } from '../../engine/core/rng';
 import { BANNER_PITY_MAX } from '../../hooks/usePlayerProgress';
 import type { AcquireOutcome, OwnedCharacter } from '../../hooks/useOwnedCharacters';
-import type { CharacterAbilityProgress } from '../../hooks/useCharacterProgression';
 import type { Rarity } from '../../types';
 
 // First-pass numbers, easy to retune later — change these to retune the whole gacha economy.
@@ -48,9 +48,9 @@ interface GachaPageProps {
   bannerPity: number;
   onIncrementBannerPity: (count: number) => void;
   onClaimBannerPity: () => void;
-  progression: Record<string, CharacterAbilityProgress>;
-  onUpgradeAbility: (characterId: string) => void;
-  onUpgradePassive: (characterId: string) => void;
+  /** The banner's "50/50" carry-over — true once the next Zero-Day pulled on the banner is guaranteed to be the spotlighted character. */
+  bannerGuaranteed: boolean;
+  onSetBannerGuaranteed: (value: boolean) => void;
 }
 
 interface PullResult {
@@ -76,9 +76,8 @@ export function GachaPage({
   bannerPity,
   onIncrementBannerPity,
   onClaimBannerPity,
-  progression,
-  onUpgradeAbility,
-  onUpgradePassive,
+  bannerGuaranteed,
+  onSetBannerGuaranteed,
 }: GachaPageProps) {
   const [pulling, setPulling] = useState(false);
   const [reelItems, setReelItems] = useState<RosterCharacter[] | null>(null);
@@ -109,13 +108,26 @@ export function GachaPage({
     }
 
     const results: PullResult[] = [];
-    for (let i = 0; i < count; i++) {
-      const { characterId, rarity } = pullGachaCharacterWithRarity(new Rng((Date.now() + i) >>> 0), tier);
-      const outcome = await onAcquireCharacter(characterId, rarity);
-      results.push({ characterId, rarity, outcome });
+    if (tier === 'banner') {
+      // The 50/50 carry-over (see pullBannerCharacter) depends on the outcome of the previous
+      // banner pull, so this batch has to thread it through sequentially rather than rolling
+      // all `count` pulls independently.
+      let guaranteed = bannerGuaranteed;
+      for (let i = 0; i < count; i++) {
+        const { characterId, rarity, guaranteedNext } = pullBannerCharacter(new Rng((Date.now() + i) >>> 0), bannerCharacterId, guaranteed);
+        guaranteed = guaranteedNext;
+        const outcome = await onAcquireCharacter(characterId, rarity);
+        results.push({ characterId, rarity, outcome });
+      }
+      onSetBannerGuaranteed(guaranteed);
+      onIncrementBannerPity(count);
+    } else {
+      for (let i = 0; i < count; i++) {
+        const { characterId, rarity } = pullGachaCharacterWithRarity(new Rng((Date.now() + i) >>> 0), tier);
+        const outcome = await onAcquireCharacter(characterId, rarity);
+        results.push({ characterId, rarity, outcome });
+      }
     }
-
-    if (tier === 'banner') onIncrementBannerPity(count);
 
     const flourishWinnerId = [...results].sort((a, b) => RARITY_RANK[b.rarity] - RARITY_RANK[a.rarity])[0].characterId;
     const winner = byId.get(flourishWinnerId);
@@ -390,11 +402,6 @@ export function GachaPage({
           character={bannerDisplay}
           owned={ownedSet.has(bannerCharacterId)}
           ownedRarity={ownedByCharacterId.get(bannerCharacterId)?.rarity ?? null}
-          abilityLevel={progression[bannerCharacterId]?.abilityLevel ?? 1}
-          passiveLevel={progression[bannerCharacterId]?.passiveLevel ?? 0}
-          credits={credits}
-          onUpgradeAbility={() => onUpgradeAbility(bannerCharacterId)}
-          onUpgradePassive={() => onUpgradePassive(bannerCharacterId)}
           onClose={() => setViewingBanner(false)}
         />
       )}

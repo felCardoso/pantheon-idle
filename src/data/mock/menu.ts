@@ -6,7 +6,7 @@ export const MENU_ITEMS: MenuItem[] = [
   { id: 'characters', label: 'Personagens', icon: 'id-card', status: 'active' },
   { id: 'shop', label: 'Loja', icon: 'store', status: 'active' },
   { id: 'market', label: 'Mercado', icon: 'repeat', status: 'active' },
-  { id: 'forge', label: 'Módulos', icon: 'hammer', status: 'soon' },
+  { id: 'forge', label: 'Upgrades', icon: 'hammer', status: 'active' },
   { id: 'summon', label: 'Invocações', icon: 'sparkles', status: 'active' },
   { id: 'guild', label: 'Cluster', icon: 'shield', status: 'active' },
   { id: 'social', label: 'Social', icon: 'message-circle', status: 'soon' },

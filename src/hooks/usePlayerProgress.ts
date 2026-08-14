@@ -79,6 +79,9 @@ export interface UsePlayerProgressResult {
   incrementBannerPity: (count: number) => void;
   /** Resets the pity counter to 0 — call after claiming the guaranteed character. */
   claimBannerPity: () => void;
+  /** The banner's "50/50" carry-over — true once the player has lost a 50/50 and the next Zero-Day pulled on the banner is guaranteed to be the spotlighted character. */
+  bannerGuaranteed: boolean;
+  setBannerGuaranteed: (value: boolean) => void;
   setTeamVisibility: (value: TeamVisibility) => Promise<void>;
   /** Spends VIP_COST_TOKENS for VIP_DURATION_DAYS of Root Access, stacking onto any remaining time if already active. Returns whether it succeeded (fails if tokens are short). */
   purchaseVip: () => Promise<boolean>;
@@ -110,6 +113,7 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
   const [bandwidth, setBandwidth] = useState(0);
   const [bytes, setBytes] = useState(0);
   const [bannerPity, setBannerPity] = useState(0);
+  const [bannerGuaranteed, setBannerGuaranteedState] = useState(false);
   const [unlockedTeamSlots, setUnlockedTeamSlots] = useState(MIN_TEAM_SLOTS);
   const [pveTeamSlot, setPveTeamSlotState] = useState(1);
   const [pvpTeamSlot, setPvpTeamSlotState] = useState(1);
@@ -127,6 +131,7 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
       setBandwidth(0);
       setBytes(0);
       setBannerPity(0);
+      setBannerGuaranteedState(false);
       setUnlockedTeamSlots(MIN_TEAM_SLOTS);
       setPveTeamSlotState(1);
       setPvpTeamSlotState(1);
@@ -142,7 +147,7 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
       const { data, error: selectError } = await supabase
         .from('player_progress')
         .select(
-          'fase, estagio, credits, xp, starter_boost_claimed, tokens, team_visibility, vip_expires_at, vip_daily_bonus_claimed_at, bandwidth, unlocked_team_slots, pve_team_slot, pvp_team_slot, bytes, banner_pity',
+          'fase, estagio, credits, xp, starter_boost_claimed, tokens, team_visibility, vip_expires_at, vip_daily_bonus_claimed_at, bandwidth, unlocked_team_slots, pve_team_slot, pvp_team_slot, bytes, banner_pity, banner_guaranteed',
         )
         .eq('user_id', userId)
         .maybeSingle();
@@ -160,6 +165,7 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
         setBandwidth(0);
         setBytes(0);
         setBannerPity(0);
+        setBannerGuaranteedState(false);
         setUnlockedTeamSlots(MIN_TEAM_SLOTS);
         setPveTeamSlotState(1);
         setPvpTeamSlotState(1);
@@ -177,6 +183,7 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
         setBandwidth(data.bandwidth);
         setBytes(data.bytes);
         setBannerPity(data.banner_pity);
+        setBannerGuaranteedState(data.banner_guaranteed);
         setUnlockedTeamSlots(data.unlocked_team_slots);
         setPveTeamSlotState(data.pve_team_slot);
         setPvpTeamSlotState(data.pvp_team_slot);
@@ -195,6 +202,7 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
           setBandwidth(0);
           setBytes(0);
           setBannerPity(0);
+          setBannerGuaranteedState(false);
           setUnlockedTeamSlots(MIN_TEAM_SLOTS);
           setPveTeamSlotState(1);
           setPvpTeamSlotState(1);
@@ -274,6 +282,19 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
       .eq('user_id', userId)
       .then(({ error: updateError }) => setError(updateError ? updateError.message : null));
   }, [userId]);
+
+  const setBannerGuaranteed = useCallback(
+    (value: boolean) => {
+      if (!userId) return;
+      setBannerGuaranteedState(value);
+      supabase
+        .from('player_progress')
+        .update({ banner_guaranteed: value })
+        .eq('user_id', userId)
+        .then(({ error: updateError }) => setError(updateError ? updateError.message : null));
+    },
+    [userId],
+  );
 
   const setTeamVisibility = useCallback(
     async (value: TeamVisibility) => {
@@ -363,6 +384,8 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
     bannerPity,
     incrementBannerPity,
     claimBannerPity,
+    bannerGuaranteed,
+    setBannerGuaranteed,
     unlockedTeamSlots,
     pveTeamSlot,
     pvpTeamSlot,

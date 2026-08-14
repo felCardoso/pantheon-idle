@@ -177,6 +177,37 @@ export function pullGachaCharacterWithRarity(rng: RngLike, tier: GachaTier): { c
   return { characterId: rng.pick(ALL_CHARACTER_IDS), rarity: rollGachaRarity(rng, tier) };
 }
 
+/** Chance a Zero-Day rolled on the banner is the spotlighted character rather than a random Zero-Day from the general pool ("Sistema 50/50", docs/gdd.md §10). */
+export const BANNER_RATE_UP_CHANCE = 0.5;
+
+export interface BannerPullResult {
+  characterId: string;
+  rarity: Rarity;
+  /** Whether the *next* Zero-Day pulled on the banner is guaranteed to be the spotlighted character — pass this back in as `guaranteed` on the next call. */
+  guaranteedNext: boolean;
+}
+
+/**
+ * Rolls one Banner Semanal pull. Rarity uses the same odds as Gacha Hard
+ * (docs/gdd.md §10); the character id is uniform across the pool UNLESS the
+ * roll lands on Zero-Day, in which case the spotlighted banner character gets
+ * a rate-up: `BANNER_RATE_UP_CHANCE` to be the one that comes out, otherwise a
+ * random Zero-Day from the general pool — but losing that roll guarantees the
+ * *next* Zero-Day pulled is the spotlighted character (the classic "50/50").
+ * This is independent of and stacks with the banner's separate X/150 hard
+ * pity (see GachaPage/usePlayerProgress's bannerPity).
+ */
+export function pullBannerCharacter(rng: RngLike, bannerCharacterId: string, guaranteed: boolean): BannerPullResult {
+  const rarity = rollGachaRarity(rng, 'banner');
+  if (rarity !== 'Zero-Day') {
+    return { characterId: rng.pick(ALL_CHARACTER_IDS), rarity, guaranteedNext: guaranteed };
+  }
+  if (guaranteed || rng.next() < BANNER_RATE_UP_CHANCE) {
+    return { characterId: bannerCharacterId, rarity, guaranteedNext: false };
+  }
+  return { characterId: rng.pick(ALL_CHARACTER_IDS), rarity, guaranteedNext: true };
+}
+
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**

@@ -23,6 +23,7 @@ export interface Database {
           pvp_team_slot: number;
           bytes: number;
           banner_pity: number;
+          banner_guaranteed: boolean;
           updated_at: string;
         };
         Insert: {
@@ -45,6 +46,7 @@ export interface Database {
           pvp_team_slot?: number;
           bytes?: number;
           banner_pity?: number;
+          banner_guaranteed?: boolean;
           updated_at?: string;
         };
         Update: {
@@ -67,6 +69,7 @@ export interface Database {
           pvp_team_slot?: number;
           bytes?: number;
           banner_pity?: number;
+          banner_guaranteed?: boolean;
           updated_at?: string;
         };
         Relationships: [];

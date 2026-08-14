@@ -10,6 +10,7 @@ import { ShopPage } from './shop/ShopPage';
 import { GachaPage } from './gacha/GachaPage';
 import { ClusterPage } from './cluster/ClusterPage';
 import { MarketPage } from './market/MarketPage';
+import { UpgradesPage } from './upgrades/UpgradesPage';
 import { ProfileModal } from './profile/ProfileModal';
 import { OnboardingScreen } from './onboarding/OnboardingScreen';
 import { WikiModal } from './wiki/WikiModal';
@@ -63,6 +64,8 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
     bannerPity,
     incrementBannerPity,
     claimBannerPity,
+    bannerGuaranteed,
+    setBannerGuaranteed,
     loading: progressLoading,
     saveProgress,
     claimStarterBoost,
@@ -144,6 +147,8 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
       bannerPity={bannerPity}
       incrementBannerPity={incrementBannerPity}
       claimBannerPity={claimBannerPity}
+      bannerGuaranteed={bannerGuaranteed}
+      setBannerGuaranteed={setBannerGuaranteed}
       characterProgression={characterProgression}
       teamVisibility={teamVisibility}
       setTeamVisibility={setTeamVisibility}
@@ -195,6 +200,8 @@ interface GameShellReadyProps {
   bannerPity: number;
   incrementBannerPity: (count: number) => void;
   claimBannerPity: () => void;
+  bannerGuaranteed: boolean;
+  setBannerGuaranteed: (value: boolean) => void;
   characterProgression: ReturnType<typeof useCharacterProgression>;
   teamVisibility: TeamVisibility;
   setTeamVisibility: (value: TeamVisibility) => void;
@@ -247,6 +254,8 @@ function GameShellReady({
   bannerPity,
   incrementBannerPity,
   claimBannerPity,
+  bannerGuaranteed,
+  setBannerGuaranteed,
   characterProgression,
   teamVisibility,
   setTeamVisibility,
@@ -397,13 +406,11 @@ function GameShellReady({
               pvp={pvp}
               onRewardCredits={battle.adjustCredits}
               onToast={setToast}
-              progression={characterProgression.progression}
-              credits={battle.credits}
-              onUpgradeAbility={handleUpgradeAbility}
-              onUpgradePassive={handleUpgradePassive}
             />
           ) : activeMenuId === 'characters' ? (
-            <CharactersPage
+            <CharactersPage ownedCharacters={ownedCharacters} />
+          ) : activeMenuId === 'forge' ? (
+            <UpgradesPage
               ownedCharacters={ownedCharacters}
               progression={characterProgression.progression}
               credits={battle.credits}
@@ -437,9 +444,8 @@ function GameShellReady({
               bannerPity={bannerPity}
               onIncrementBannerPity={incrementBannerPity}
               onClaimBannerPity={claimBannerPity}
-              progression={characterProgression.progression}
-              onUpgradeAbility={handleUpgradeAbility}
-              onUpgradePassive={handleUpgradePassive}
+              bannerGuaranteed={bannerGuaranteed}
+              onSetBannerGuaranteed={setBannerGuaranteed}
             />
           ) : activeMenuId === 'guild' ? (
             <ClusterPage userId={userId} cluster={cluster} bandwidth={0} onToast={setToast} />

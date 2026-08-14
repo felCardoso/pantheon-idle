@@ -5,22 +5,17 @@ import { Icon } from '../common/Icon';
 import { buildFullRosterView, type RosterCharacter } from '../../data/roster';
 import { ELEMENT_COLOR, RARITY_COLOR } from '../../data/theme';
 import type { OwnedCharacter } from '../../hooks/useOwnedCharacters';
-import type { CharacterAbilityProgress } from '../../hooks/useCharacterProgression';
 import type { Rarity } from '../../types';
 
 interface CharactersPageProps {
   ownedCharacters: OwnedCharacter[];
-  progression: Record<string, CharacterAbilityProgress>;
-  credits: number;
-  onUpgradeAbility: (characterId: string) => void;
-  onUpgradePassive: (characterId: string) => void;
 }
 
 const RARITY_ORDER: Record<Rarity, number> = { 'Zero-Day': 0, LTS: 1, Stable: 2, Beta: 3, Alpha: 4 };
 const RARITIES: Rarity[] = ['Alpha', 'Beta', 'Stable', 'LTS', 'Zero-Day'];
 type SortKey = 'rarity' | 'level' | 'name';
 
-export function CharactersPage({ ownedCharacters, progression, credits, onUpgradeAbility, onUpgradePassive }: CharactersPageProps) {
+export function CharactersPage({ ownedCharacters }: CharactersPageProps) {
   const [search, setSearch] = useState('');
   const [rarityFilter, setRarityFilter] = useState<Rarity | 'all'>('all');
   const [mythologyFilter, setMythologyFilter] = useState<string>('all');
@@ -189,11 +184,6 @@ export function CharactersPage({ ownedCharacters, progression, credits, onUpgrad
           character={selected}
           owned={ownedSet.has(selected.templateId)}
           ownedRarity={ownedByCharacterId.get(selected.templateId)?.rarity ?? null}
-          abilityLevel={progression[selected.templateId]?.abilityLevel ?? 1}
-          passiveLevel={progression[selected.templateId]?.passiveLevel ?? 0}
-          credits={credits}
-          onUpgradeAbility={() => onUpgradeAbility(selected.templateId)}
-          onUpgradePassive={() => onUpgradePassive(selected.templateId)}
           onClose={() => setSelected(null)}
         />
       )}
