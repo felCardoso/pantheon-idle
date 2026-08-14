@@ -11,6 +11,10 @@ const STATUS_LABEL: Record<StatusType, string> = {
   lentidao: 'Lentidão',
   regeneracao: 'Regeneração',
   marcado: 'Marcado',
+  buffAtk: 'ATK aumentado',
+  buffDef: 'DEF aumentada',
+  buffIni: 'INI aumentada',
+  buffEsq: 'ESQ aumentada',
 };
 
 const WINNER_LABEL: Record<'allies' | 'enemies' | 'draw', string> = {
@@ -53,6 +57,11 @@ export function formatLogEntry(entry: BattleLogEntry): string | null {
       const shieldNote = entry.shieldAbsorbed > 0 ? ` (${Math.round(entry.shieldAbsorbed)} absorvido pelo escudo, ${Math.round(entry.hpDamage)} no HP)` : '';
       const deathNote = entry.targetDied ? ' — derrotado!' : '';
       return `  ICE de ${entry.source} reflete ${Math.round(entry.amount)} de dano em ${entry.target}${shieldNote}${deathNote}`;
+    }
+    case 'directDamage': {
+      const shieldNote = entry.shieldAbsorbed > 0 ? ` (${Math.round(entry.shieldAbsorbed)} absorvido pelo escudo, ${Math.round(entry.hpDamage)} no HP)` : '';
+      const deathNote = entry.targetDied ? ' — derrotado!' : '';
+      return `  ${entry.source} causa ${Math.round(entry.amount)} de dano direto em ${entry.target}${shieldNote}${deathNote}`;
     }
     case 'death':
       return null; // already noted inline by the attack/tick/enrage line

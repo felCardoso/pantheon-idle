@@ -181,6 +181,8 @@ function floatersFor(entry: BattleLogEntry, nameToId: Record<string, string>): O
       return [{ unitId: nameToId[entry.target], amount: entry.amount, kind: 'shield' }];
     case 'iceReflect':
       return [{ unitId: nameToId[entry.target], amount: entry.amount, kind: 'damage' }];
+    case 'directDamage':
+      return [{ unitId: nameToId[entry.target], amount: entry.amount, kind: 'damage' }];
     case 'enrage':
       return entry.damages.map((d) => ({ unitId: nameToId[d.target], amount: d.amount, kind: 'damage' as const }));
     default:

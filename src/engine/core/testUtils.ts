@@ -56,6 +56,7 @@ export function makeCombatant(overrides: Partial<Combatant> & { baseStats?: Part
     abilities: overrides.abilities ?? [],
     statusDurationBonus: overrides.statusDurationBonus ?? 0,
     alwaysActsFirst: overrides.alwaysActsFirst ?? false,
+    halfHpTriggered: overrides.halfHpTriggered ?? false,
   };
 }
 

@@ -12,6 +12,10 @@ const STATUS_LABEL: Record<ActiveStatus['type'], string> = {
   lentidao: 'Lentidão',
   regeneracao: 'Regeneração',
   marcado: 'Marcado',
+  buffAtk: 'ATK aumentado',
+  buffDef: 'DEF aumentada',
+  buffIni: 'INI aumentada',
+  buffEsq: 'ESQ aumentada',
 };
 
 interface StatusBadgeProps {

@@ -14,7 +14,11 @@
     "lentidao": 2,
     "atordoamento": 1,
     "regeneracao": 3,
-    "marcado": null
+    "marcado": null,
+    "buffAtk": 2,
+    "buffDef": 2,
+    "buffIni": 2,
+    "buffEsq": 2
   },
   "synergyByCount": {
     "2": 0.05,

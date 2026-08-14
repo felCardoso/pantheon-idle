@@ -1,34 +1,38 @@
 import type { StatusType } from './schema.ts';
 import type { Combatant, StatusEffectInstance } from './types.ts';
 
-const ATTRIBUTE_DEBUFFS: Record<'enfraquecimento' | 'corrosao' | 'lentidao', true> = {
-  enfraquecimento: true,
-  corrosao: true,
-  lentidao: true,
-};
-
 function sumActive(c: Combatant, status: StatusType): number {
   return c.statuses.filter((s) => s.status === status).reduce((sum, s) => sum + s.value, 0);
 }
 
-export function effectiveAtk(c: Combatant): number {
-  const reduction = ATTRIBUTE_DEBUFFS.enfraquecimento ? sumActive(c, 'enfraquecimento') : 0;
-  return Math.max(0, c.base.atk * (1 - reduction));
+function sumActiveByKind(c: Combatant, status: StatusType, flat: boolean): number {
+  return c.statuses.filter((s) => s.status === status && !!s.isFlat === flat).reduce((sum, s) => sum + s.value, 0);
 }
 
+export function effectiveAtk(c: Combatant): number {
+  const reduction = sumActive(c, 'enfraquecimento');
+  const buff = sumActive(c, 'buffAtk');
+  return Math.max(0, c.base.atk * (1 - reduction) * (1 + buff));
+}
+
+/** Corrosão (docs/combate.md: "reduz DEF em X% ou valor mínimo") supports both a flat point reduction and a percent reduction, applied together — flat first, then percent. */
 export function effectiveDef(c: Combatant): number {
-  const reduction = sumActive(c, 'corrosao');
-  return Math.max(0, c.base.def * (1 - reduction));
+  const flatReduction = sumActiveByKind(c, 'corrosao', true);
+  const percentReduction = sumActiveByKind(c, 'corrosao', false);
+  const buff = sumActive(c, 'buffDef');
+  const afterFlat = Math.max(0, c.base.def - flatReduction);
+  return Math.max(0, afterFlat * (1 - percentReduction) * (1 + buff));
 }
 
 export function effectiveIni(c: Combatant): number {
   const reduction = sumActive(c, 'lentidao');
-  return Math.max(0, c.base.ini * (1 - reduction));
+  const buff = sumActive(c, 'buffIni');
+  return Math.max(0, c.base.ini * (1 - reduction) * (1 + buff));
 }
 
 export function effectiveEsq(c: Combatant): number {
-  // No status in the current roster modifies ESQ; kept for API symmetry / future statuses.
-  return c.base.esq;
+  const buff = sumActive(c, 'buffEsq');
+  return Math.max(0, c.base.esq * (1 + buff));
 }
 
 export function effectiveIce(c: Combatant): number {
@@ -57,6 +61,7 @@ function defaultIgnoresShield(status: StatusType): boolean {
 export interface ApplyStatusOptions {
   stacks?: boolean;
   ignoresShield?: boolean;
+  isFlat?: boolean;
 }
 
 /**
@@ -78,6 +83,7 @@ export function applyStatus(
     remainingRounds,
     value,
     ignoresShield: options.ignoresShield ?? defaultIgnoresShield(status),
+    isFlat: options.isFlat,
   };
 
   if (!options.stacks) {

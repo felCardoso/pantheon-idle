@@ -35,17 +35,35 @@ describe('loadCharactersByIds', () => {
     expect(team.map((c) => c.name)).toEqual(['Jurupari.exe', 'Odin.exe', 'Zeus.exe']);
   });
 
-  it('applies the synergy bonus by team size regardless of which ids are passed', () => {
+  it('applies the synergy bonus per same-mythology subgroup, not by raw team size', () => {
     const solo = loadCharactersByIds([{ id: 'saci', xp: 0 }]);
-    expect(solo[0].maxHp).toBe(800); // no bonus at team size 1 (no "1" entry in synergyByCount)
+    expect(solo[0].maxHp).toBe(800); // no bonus at group size 1 (no "1" entry in synergyByCount)
 
-    const trio = loadCharactersByIds([
+    // jurupari/odin/zeus are 3 different mythologies (Folclore/Nórdica/Grega) — a mixed team gets
+    // no bonus for any of them, since each mythology's own subgroup size is still just 1.
+    const mixedTrio = loadCharactersByIds([
       { id: 'jurupari', xp: 0 },
       { id: 'odin', xp: 0 },
       { id: 'zeus', xp: 0 },
     ]);
-    // docs/combate.md: +12% at team size 3
-    expect(trio[0].maxHp).toBe(Math.round(800 * 1.12));
+    expect(mixedTrio.map((c) => c.maxHp)).toEqual([800, 800, 800]);
+
+    // curupira/caipora/saci are all Folclore Brasileiro — a same-mythology trio gets the real +12%.
+    const sameMythologyTrio = loadCharactersByIds([
+      { id: 'curupira', xp: 0 },
+      { id: 'caipora', xp: 0 },
+      { id: 'saci', xp: 0 },
+    ]);
+    expect(sameMythologyTrio[0].maxHp).toBe(Math.round(800 * 1.12));
+
+    // Mixing mythologies applies each character's own mythology-subgroup bonus independently: the
+    // 2 Folclore members get +5% (group of 2), the 1 Nórdica member gets none (group of 1).
+    const partialMix = loadCharactersByIds([
+      { id: 'curupira', xp: 0 },
+      { id: 'caipora', xp: 0 },
+      { id: 'odin', xp: 0 },
+    ]);
+    expect(partialMix.map((c) => c.maxHp)).toEqual([Math.round(800 * 1.05), Math.round(800 * 1.05), 800]);
   });
 
   it('throws for an unknown character id', () => {

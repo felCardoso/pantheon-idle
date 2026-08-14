@@ -3,7 +3,7 @@ import { Rng } from './rng.ts';
 import { CONSTANTS } from './loader.ts';
 import { resolveAttack } from './damage.ts';
 import { effectiveIce, endOfRoundTick, isStunned } from './statusEffects.ts';
-import { fireTrigger, type TriggerContext } from './abilityEngine.ts';
+import { fireDeath as fireDeathTrigger, fireTrigger, maybeFireHalfHp as maybeFireHalfHpTrigger, maybeFireShieldBreak as maybeFireShieldBreakTrigger, type TriggerContext } from './abilityEngine.ts';
 import { computeTurnOrder } from './turnOrder.ts';
 
 export interface BattleOptions {
@@ -56,6 +56,21 @@ export function runBattle(allies: Combatant[], enemies: Combatant[], options: Ba
     return { own: isAlly ? allies : enemies, opposing: isAlly ? enemies : allies };
   };
 
+  // Thin wrappers around abilityEngine's shared onDeath/onHalfHp/onShieldBreak firers (also used
+  // by the directDamage ability effect), just filling in this battle's own team-lookup + rng/log.
+  const fireDeath = (unit: Combatant) => {
+    const { own, opposing } = teamsOf(unit);
+    fireDeathTrigger(unit, own, opposing, rng, pushLog);
+  };
+  const maybeFireHalfHp = (unit: Combatant) => {
+    const { own, opposing } = teamsOf(unit);
+    maybeFireHalfHpTrigger(unit, own, opposing, rng, pushLog);
+  };
+  const maybeFireShieldBreak = (unit: Combatant, shieldBefore: number) => {
+    const { own, opposing } = teamsOf(unit);
+    maybeFireShieldBreakTrigger(unit, shieldBefore, own, opposing, rng, pushLog);
+  };
+
   pushLog({ kind: 'battleStart' });
   for (const unit of allUnits) {
     const { own, opposing } = teamsOf(unit);
@@ -82,13 +97,19 @@ export function runBattle(allies: Combatant[], enemies: Combatant[], options: Ba
         pushLog({ kind: 'turnSkippedStun', unit: unit.name });
       } else {
         const defender = rng.pick(livingOpponents);
+        const defenderShieldBefore = defender.shield;
         const result = resolveAttack(unit, defender, rng);
 
         if (result.dodged) {
           pushLog({ kind: 'dodge', attacker: unit.name, defender: defender.name });
         } else {
           pushLog({ kind: 'attack', result });
-          if (result.defenderDied) pushLog({ kind: 'death', unit: defender.name });
+          maybeFireShieldBreak(defender, defenderShieldBefore);
+          maybeFireHalfHp(defender);
+          if (result.defenderDied) {
+            pushLog({ kind: 'death', unit: defender.name });
+            fireDeath(defender);
+          }
 
           const attackCtx: TriggerContext = {
             self: unit,
@@ -101,6 +122,11 @@ export function runBattle(allies: Combatant[], enemies: Combatant[], options: Ba
           };
           fireTrigger('onAttack', attackCtx);
           if (result.crit) fireTrigger('onCriticalHit', attackCtx);
+
+          // "quando aliado ataca" — broadcast to unit's own living allies (unit itself already got onAttack above).
+          for (const ally of own.filter((a) => a !== unit && a.hp > 0)) {
+            fireTrigger('onAllyAttack', { self: ally, allies: own, enemies: opposing, rng, log: pushLog, attacker: unit, defender, attackResult: result });
+          }
 
           fireTrigger('onDamaged', {
             self: defender,
@@ -119,6 +145,7 @@ export function runBattle(allies: Combatant[], enemies: Combatant[], options: Ba
           const iceFraction = effectiveIce(defender);
           if (result.finalDamage > 0 && iceFraction > 0) {
             const reflected = result.finalDamage * iceFraction;
+            const unitShieldBefore = unit.shield;
             let iceShieldAbsorbed = 0;
             let iceHpDamage = reflected;
             if (unit.shield > 0) {
@@ -127,6 +154,8 @@ export function runBattle(allies: Combatant[], enemies: Combatant[], options: Ba
               iceHpDamage = reflected - iceShieldAbsorbed;
             }
             unit.hp = Math.max(0, unit.hp - iceHpDamage);
+            maybeFireShieldBreak(unit, unitShieldBefore);
+            maybeFireHalfHp(unit);
             const targetDied = unit.hp <= 0;
             pushLog({
               kind: 'iceReflect',
@@ -137,7 +166,10 @@ export function runBattle(allies: Combatant[], enemies: Combatant[], options: Ba
               hpDamage: iceHpDamage,
               targetDied,
             });
-            if (targetDied) pushLog({ kind: 'death', unit: unit.name });
+            if (targetDied) {
+              pushLog({ kind: 'death', unit: unit.name });
+              fireDeath(unit);
+            }
           }
         }
       }
@@ -150,6 +182,7 @@ export function runBattle(allies: Combatant[], enemies: Combatant[], options: Ba
 
     for (const unit of allUnits) {
       if (unit.hp <= 0) continue;
+      const shieldBefore = unit.shield;
       const { ticks, expired } = endOfRoundTick(unit);
       for (const tick of ticks) {
         pushLog({
@@ -162,7 +195,12 @@ export function runBattle(allies: Combatant[], enemies: Combatant[], options: Ba
         });
       }
       for (const status of expired) pushLog({ kind: 'statusExpired', target: unit.name, status });
-      if (unit.hp <= 0) pushLog({ kind: 'death', unit: unit.name });
+      maybeFireShieldBreak(unit, shieldBefore);
+      maybeFireHalfHp(unit);
+      if (unit.hp <= 0) {
+        pushLog({ kind: 'death', unit: unit.name });
+        fireDeath(unit);
+      }
     }
 
     winner = checkVictory(allies, enemies);
@@ -179,7 +217,11 @@ export function runBattle(allies: Combatant[], enemies: Combatant[], options: Ba
         if (unit.hp <= 0) continue;
         const trueDamage = Math.round(unit.maxHp * percent);
         unit.hp = Math.max(0, unit.hp - trueDamage);
-        if (unit.hp <= 0) pushLog({ kind: 'death', unit: unit.name });
+        maybeFireHalfHp(unit);
+        if (unit.hp <= 0) {
+          pushLog({ kind: 'death', unit: unit.name });
+          fireDeath(unit);
+        }
       }
       winner = checkVictory(allies, enemies);
       if (winner) break;

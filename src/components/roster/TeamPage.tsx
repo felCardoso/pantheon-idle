@@ -39,6 +39,13 @@ const TRIGGER_LABEL: Record<AbilityTrigger, string> = {
   onAttack: 'Ao atacar',
   onDamaged: 'Ao ser atingido',
   onCriticalHit: 'Crítico',
+  onDeath: 'Ao morrer',
+  onHalfHp: 'Ao perder 50% da vida',
+  onShieldReceived: 'Ao receber escudo',
+  onAllyAttack: 'Quando aliado ataca',
+  onShieldBreak: 'Quando escudo quebra',
+  onAllyShieldReceived: 'Quando aliado recebe escudo',
+  onHealReceived: 'Quando recebe cura',
 };
 
 function resolveTeamMembers(team: TeamSlot, owned: OwnedCharacter[]): OwnedCharacter[] {

@@ -18,7 +18,11 @@ export type StatusType =
   | 'corrosao'
   | 'lentidao'
   | 'regeneracao'
-  | 'marcado';
+  | 'marcado'
+  | 'buffAtk'
+  | 'buffDef'
+  | 'buffIni'
+  | 'buffEsq';
 
 /**
  * HP/ATK are the only stats that grow generically (level + mythology
@@ -51,9 +55,49 @@ export type Magnitude =
   /** Reuses the damage value of the attack that caused this trigger (the general Vírus rule). */
   | { kind: 'triggeringDamage' };
 
-export type TargetSelector = 'self' | 'attacker' | 'defender' | 'allEnemies' | 'allAllies';
+/**
+ * The 8 target options from docs/combate.md section 6, plus `attacker`/
+ * `defender` — context-bound single targets (whoever is involved in the
+ * attack that caused the current trigger), an engine primitive the doc
+ * doesn't name explicitly but that's needed for e.g. "quando aliado ataca"
+ * abilities that want to buff/reference whoever just attacked.
+ */
+export type TargetSelector =
+  | 'self'
+  | 'attacker'
+  | 'defender'
+  | 'allEnemies'
+  | 'allAllies'
+  | 'lowestHpAlly'
+  | 'highestAtkAlly'
+  | 'randomAlly'
+  | 'lowestEsqEnemy'
+  | 'highestIniEnemy'
+  | 'randomEnemy';
 
-export type AbilityTrigger = 'battleStart' | 'onAttack' | 'onDamaged' | 'onCriticalHit';
+/**
+ * The 9 triggers from docs/combate.md section 6 (battleStart=Início de
+ * batalha, onDeath=ao morrer, onHalfHp=ao perder 50% da vida,
+ * onShieldReceived=ao receber escudo, onAttack=ao atacar,
+ * onAllyAttack=quando aliado ataca, onShieldBreak=quando escudo quebra,
+ * onAllyShieldReceived=quando aliado recebe escudo, onHealReceived=quando
+ * recebe cura), plus two engine-level additions the doc doesn't name but
+ * real kits already use: onDamaged (fires on the unit that got hit,
+ * regardless of whether its shield/HP changed) and onCriticalHit (fires
+ * only when the attacking unit's own hit crits).
+ */
+export type AbilityTrigger =
+  | 'battleStart'
+  | 'onAttack'
+  | 'onDamaged'
+  | 'onCriticalHit'
+  | 'onDeath'
+  | 'onHalfHp'
+  | 'onShieldReceived'
+  | 'onAllyAttack'
+  | 'onShieldBreak'
+  | 'onAllyShieldReceived'
+  | 'onHealReceived';
 
 export interface ApplyStatusEffect {
   type: 'applyStatus';
@@ -79,7 +123,29 @@ export interface GrantShieldEffect {
   magnitude: Magnitude;
 }
 
-export type AbilityEffect = ApplyStatusEffect | HealEffect | GrantShieldEffect;
+/** "Dano direto" (docs/combate.md section 6) — damage independent of the acting unit's basic attack. Always hits (no dodge roll) since it's an ability effect, not a physical attack. */
+export interface DirectDamageEffect {
+  type: 'directDamage';
+  target: TargetSelector;
+  magnitude: Magnitude;
+  ignoresDef?: boolean;
+  /** Backdoor-style: skip shield entirely and hit HP directly. */
+  ignoresShield?: boolean;
+}
+
+export type BuffableAttribute = 'atk' | 'def' | 'ini' | 'esq';
+
+/** "Buff de atributo (ATK/DEF/INI/ESQ)" (docs/combate.md section 6) — magnitude is a percent bonus, e.g. 0.3 = +30%. */
+export interface BuffAttributeEffect {
+  type: 'buffAttribute';
+  target: TargetSelector;
+  attribute: BuffableAttribute;
+  /** Round count, "default" for the standard duration, or "permanent" for the rest of the battle. */
+  duration: number | 'default' | 'permanent';
+  magnitude: Magnitude;
+}
+
+export type AbilityEffect = ApplyStatusEffect | HealEffect | GrantShieldEffect | DirectDamageEffect | BuffAttributeEffect;
 
 export interface AbilityDefinition {
   id: string;
@@ -117,6 +183,10 @@ export interface StatusDurationTable {
   regeneracao: number;
   /** "Até o próximo ataque recebido" — not round-based, null marks that. */
   marcado: null;
+  buffAtk: number;
+  buffDef: number;
+  buffIni: number;
+  buffEsq: number;
 }
 
 export interface CombatConstants {

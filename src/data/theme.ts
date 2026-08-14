@@ -44,6 +44,10 @@ export const STATUS_ICON: Record<StatusType, string> = {
   lentidao: 'turtle',
   regeneracao: 'heart',
   marcado: 'crosshair',
+  buffAtk: 'swords',
+  buffDef: 'shield',
+  buffIni: 'zap',
+  buffEsq: 'wind',
 };
 
 export const STATUS_COLOR: Record<StatusType, string> = {
@@ -56,6 +60,10 @@ export const STATUS_COLOR: Record<StatusType, string> = {
   lentidao: '#2fd8ff',
   regeneracao: '#39ff9c',
   marcado: '#ff3b5c',
+  buffAtk: '#39ff9c',
+  buffDef: '#39ff9c',
+  buffIni: '#39ff9c',
+  buffEsq: '#39ff9c',
 };
 
 /** Statuses shown in the "negative effects" row above a unit — everything except the one buff. */

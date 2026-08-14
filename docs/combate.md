@@ -17,9 +17,10 @@ Complementa o Documento de Game Design principal (seção 4 lá é só um resumo
 |---|---|---|
 | **HP** | Vida | Reduzida a 0 = personagem ejetado da simulação (derrotado) |
 | **ATK** | Dano base | Multiplicado por modificadores de habilidade, elemento e sinergia |
-| **DEF** | Redução de dano | **Todos os personagens começam com DEF 0.** Só sobe via habilidade própria ou Módulos (`.dll`) — isso é proposital: DEF é um investimento ativo, não um stat passivo de todo personagem |
+| **DEF** | Redução de dano | **Todo personagem jogável começa com DEF 0.** Só sobe via habilidade própria ou Módulos (`.dll`) — isso é proposital: DEF é um investimento ativo, não um stat passivo de todo personagem. Inimigos são a exceção deliberada — seu DEF/INI/ESQ base fazem parte do balanceamento de dificuldade por mundo/estágio, não do sistema de build do jogador |
 | **INI** | Iniciativa | Define a ordem de ação (quem "compila" primeiro). Se o personagem que iria agir depois for derrotado antes de sua vez, a ação dele é cancelada e não causa dano |
 | **ESQ** | Esquiva | Chance percentual de desviar completamente de um ataque recebido. Melhorável via habilidade ou Módulos |
+| **ICE** *(Intrusion Countermeasure Electronics)* | Reflexo de dano | Fração do dano físico recebido que é refletida de volta pra quem atacou. Ability/rune-granted, igual DEF/INI/ESQ — adição pós-v1 deste documento, mesma lógica de "investimento ativo" |
 
 ### Escudo (mecânica transversal, não é atributo)
 
@@ -79,21 +80,25 @@ Bônus de atributos (HP/ATK) por quantidade de personagens da **mesma mitologia*
 
 ## 6. Habilidades
 
-- Personagens de raridade **Stable ou acima têm 1 habilidade passiva** única (curada pelo design, sem escolha do jogador)
-- Personagens **Alpha ou Beta têm habilidade ativa**, com **3 opções** que o jogador escolhe (fixa até redefinir)
+- Personagens de raridade **LTS ou acima têm a habilidade passiva desbloqueada** (curada pelo design, sem escolha do jogador) — abaixo disso o card da passiva aparece bloqueado ("Somente LTS+"). Ver seção de Progressão de Habilidades no GDD para os níveis de habilidade/passiva por raridade
+- Personagens **Alpha/Beta/Stable também têm habilidade ativa**, com **3 opções** que o jogador escolhe (fixa até redefinir) — esse sistema de seleção de opção (matriz curada + escolha do jogador) ainda não está implementado no motor; hoje cada personagem tem um kit fixo de habilidades, todas sempre ativas
 - Geração das 3 opções: matriz de **Gatilho × Efeito × Alvo**, curada manualmente por personagem — não randômica pro jogador. Isso acelera o design (montar combinações a partir de peças já existentes) sem parecer genérico, porque o design escolhe quais combinações fazem sentido pra cada personagem
 
 ### Gatilhos disponíveis
 
 Início de batalha · ao morrer · ao perder 50% da vida · ao receber escudo · ao atacar · quando aliado ataca · quando escudo quebra · quando aliado recebe escudo · quando recebe cura
 
+O motor também suporta 2 gatilhos técnicos além desses 9: **ao ser atingido** (dispara em quem apanhou, independente do resultado) e **crítico** (dispara só quando o próprio golpe do atacante crita) — já usados por kits reais (ex.: a armadura de pedra da Medusa.exe dispara em "ao ser atingido"; o efeito de cura do Anhangá dispara em "crítico").
+
 ### Efeitos disponíveis (pra combinar com os gatilhos acima)
 
-Dano direto · aplicar status (Vírus, Sangramento, Atordoamento, Enfraquecimento, Corrosão/Brute Force, Lentidão, Marcado) · cura · escudo · buff de atributo (ATK/DEF/INI/ESQ) · debuff de atributo
+Dano direto · aplicar status (Vírus, Sangramento, Veneno, Atordoamento, Enfraquecimento, Corrosão/Brute Force, Lentidão, Regeneração, Marcado) · cura · escudo · buff de atributo (ATK/DEF/INI/ESQ) · debuff de atributo (já coberto pelos status Enfraquecimento/Corrosão/Lentidão acima)
 
 ### Alvos possíveis
 
 Self · 1 aliado (menor HP / maior ATK / aleatório) · todos os aliados · 1 inimigo (menor ESQ / maior INI / aleatório) · todos os inimigos
+
+O motor também suporta 2 alvos técnicos ligados ao gatilho corrente: **quem atacou** e **quem está sendo atacado** — o alvo natural de gatilhos como "ao ser atingido" (mira em quem atacou) ou "ao atacar" (mira em quem está sendo atacado), sem precisar recalcular menor-HP/maior-ATK/etc quando o alvo óbvio já é conhecido pelo contexto.
 
 ## 7. PvE — anti-rodada-infinita
 

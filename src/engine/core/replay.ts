@@ -137,6 +137,13 @@ export function applyReplayEntry(state: ReplayState, entry: BattleLogEntry, name
       return withUnit(state, id, damage(prev, entry.hpDamage, entry.shieldAbsorbed));
     }
 
+    case 'directDamage': {
+      const id = nameToId[entry.target];
+      const prev = state.units[id];
+      if (!prev) return state;
+      return withUnit(state, id, damage(prev, entry.hpDamage, entry.shieldAbsorbed));
+    }
+
     case 'enrage': {
       let next = state;
       for (const d of entry.damages) {

@@ -123,6 +123,7 @@ function buildCombatant(
     abilities: resolveAbilities(data.abilities),
     statusDurationBonus: data.statusDurationBonus ?? 0,
     alwaysActsFirst: data.alwaysActsFirst ?? false,
+    halfHpTriggered: false,
   };
 }
 
@@ -134,17 +135,30 @@ export interface OwnedCharacterEntry {
 
 /**
  * Builds an ally team from whichever characters are passed (a player's owned
- * roster, of any size/mythology mix), with the same-mythology-team synergy
- * bonus applied by count (combate.md section 5) and each character's level
- * (derived from its xp) scaling its stats via levelMultiplier. Order is
- * preserved, and each id may appear at most once (no duplicate/star-up
- * support yet).
+ * roster, of any size/mythology mix), with each character's level (derived
+ * from its xp) scaling its stats via levelMultiplier, and the mythology
+ * synergy bonus (combate.md section 5) applied per same-mythology subgroup —
+ * a mixed-mythology team only gets the bonus for however many characters it
+ * has *of each given mythology*, never a flat bonus for the whole team's
+ * size regardless of mix. Order is preserved, and each id may appear at most
+ * once (no duplicate/star-up support yet).
  */
 export function loadCharactersByIds(entries: OwnedCharacterEntry[]): Combatant[] {
-  const synergyBonus = synergyBonusFor(entries.length);
-  return entries.map(({ id, xp }) => {
+  const dataByEntry = entries.map(({ id, xp }) => {
     const data = CHARACTER_REGISTRY[id];
     if (!data) throw new Error(`Unknown character id: ${id}`);
+    return { data, xp };
+  });
+
+  const countByMythology = new Map<string, number>();
+  for (const { data } of dataByEntry) {
+    const key = data.mythology ?? 'Desconhecida';
+    countByMythology.set(key, (countByMythology.get(key) ?? 0) + 1);
+  }
+
+  return dataByEntry.map(({ data, xp }) => {
+    const key = data.mythology ?? 'Desconhecida';
+    const synergyBonus = synergyBonusFor(countByMythology.get(key)!);
     const level = levelForXp(xp);
     return buildCombatant(data, true, synergyBonus, levelMultiplier(level), undefined, level);
   });
