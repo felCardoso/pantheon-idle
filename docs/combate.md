@@ -77,8 +77,8 @@ _Exemplo prático:_ Se a equipe possuir 2x arquivos do Folclore Brasileiro e 3x 
 
 O kit de combate de cada personagem não é randômico para o jogador, sendo curado e balanceado pelo design do jogo. O sistema é baseado em duas categorias estruturais, definidas pela Raridade (Nível de Compilação): **Alpha $\rightarrow$ Beta $\rightarrow$ Stable $\rightarrow$ LTS $\rightarrow$ Zero-Day**.
 
-- **Habilidades Ativas (Selecionáveis):** Todo personagem possui **3 opções** de habilidades ativas. O jogador só pode equipar **uma por vez** antes do combate.
-- **Habilidades Passivas (Bloqueadas por Tier):** Apenas personagens a partir da raridade **Stable** (Stable, LTS e Zero-Day) possuem uma habilidade passiva única, ativada permanentemente na simulação.
+- **Habilidades Ativas (Selecionáveis):** Todo personagem possui **3 opções** de habilidades ativas. O jogador só pode equipar **uma por vez** antes do combate, na aba "Time".
+- **Habilidades Passivas (Bloqueadas por Tier):** Apenas personagens a partir da raridade **LTS** (LTS e Zero-Day) possuem uma habilidade passiva única, ativada permanentemente na simulação.
 
 ### 6. A Matriz de Habilidades
 
