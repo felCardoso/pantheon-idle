@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Icon } from '../common/Icon';
 import { CharacterPortrait } from '../roster/CharacterPortrait';
 import { RosterChips } from '../roster/RosterChips';
-import { buildCompendium, pullGachaCharacter } from '../../data/roster';
-import { Rng } from '../../engine/core/rng';
+import { buildCompendium, currentShowcaseWeek, diagramName, pickWeeklyShowcase } from '../../data/roster';
+import { FALLBACK_RARITY } from '../../data/engineDisplay';
 import {
   CLUSTER_CREDIT_XP_BONUS_PERCENT,
   VIP_COST_TOKENS,
@@ -13,9 +13,11 @@ import {
 } from '../../hooks/usePlayerProgress';
 
 // First-pass numbers, easy to retune later.
-const GACHA_PACK_PRICE = 1500;
 const FRAGMENT_SELL_PRICE = 500;
 const STARTER_BOOST_CREDITS = 1000;
+const SHOWCASE_CHARACTER_PRICE_CREDITS = 2000;
+/** Slot 0 is open to everyone; slots 1-2 require an active Root Access subscription. */
+const SHOWCASE_FREE_SLOTS = 1;
 
 interface ShopPageProps {
   credits: number;
@@ -34,11 +36,6 @@ interface ShopPageProps {
   inCluster: boolean;
 }
 
-interface PullReveal {
-  characterId: string;
-  outcome: 'new' | 'duplicate';
-}
-
 export function ShopPage({
   credits,
   tokens,
@@ -55,8 +52,6 @@ export function ShopPage({
   onClaimDailyVipBonus,
   inCluster,
 }: ShopPageProps) {
-  const [pulling, setPulling] = useState(false);
-  const [reveal, setReveal] = useState<PullReveal | null>(null);
   const [purchasingVip, setPurchasingVip] = useState(false);
 
   async function handlePurchaseVip() {
@@ -75,6 +70,8 @@ export function ShopPage({
   const compendium = buildCompendium();
   const byId = new Map(compendium.map((c) => [c.templateId, c]));
   const fragmentEntries = Object.entries(fragments).filter(([, count]) => count > 0);
+  const showcaseIds = useMemo(() => pickWeeklyShowcase(currentShowcaseWeek()), []);
+  const [buyingShowcaseId, setBuyingShowcaseId] = useState<string | null>(null);
 
   function handleClaimStarterBoost() {
     if (starterBoostClaimed) return;
@@ -83,14 +80,15 @@ export function ShopPage({
     onToast(`+${STARTER_BOOST_CREDITS} créditos resgatados!`);
   }
 
-  async function handlePullGacha() {
-    if (pulling || credits < GACHA_PACK_PRICE) return;
-    setPulling(true);
-    onAdjustCredits(-GACHA_PACK_PRICE);
-    const characterId = pullGachaCharacter(new Rng(Date.now() >>> 0));
+  async function handleBuyShowcase(characterId: string, slotIndex: number) {
+    if (buyingShowcaseId) return;
+    if (slotIndex >= SHOWCASE_FREE_SLOTS && !vipActive) return;
+    if (credits < SHOWCASE_CHARACTER_PRICE_CREDITS) return;
+    setBuyingShowcaseId(characterId);
+    onAdjustCredits(-SHOWCASE_CHARACTER_PRICE_CREDITS);
     const outcome = await onAcquireCharacter(characterId);
-    setReveal({ characterId, outcome });
-    setPulling(false);
+    setBuyingShowcaseId(null);
+    onToast(outcome === 'new' ? 'Novo personagem desbloqueado!' : 'Já possuído — convertido em +1 diagrama.');
   }
 
   function handleSellFragment(characterId: string) {
@@ -99,13 +97,11 @@ export function ShopPage({
     onToast(`+${FRAGMENT_SELL_PRICE} créditos pela venda do diagrama.`);
   }
 
-  const revealInfo = reveal ? byId.get(reveal.characterId) : null;
-
   return (
     <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5">
       <div className="mb-4">
         <h1 className="font-display text-sm font-bold uppercase tracking-wide text-white text-glow-code sm:text-base">Loja</h1>
-        <p className="text-xs text-white/50">Pacotes de invocação, bônus e diagramas</p>
+        <p className="text-xs text-white/50">Vitrine semanal, bônus e diagramas</p>
       </div>
 
       <div className="flex flex-col gap-6">
@@ -187,54 +183,56 @@ export function ShopPage({
           </div>
         </section>
 
-        {/* Gacha pack */}
+        {/* Weekly character showcase */}
         <section>
-          <h2 className="mb-2 font-display text-xs font-bold uppercase tracking-widest text-white/50">Pacote de invocação</h2>
-          <div className="flex flex-col items-start gap-3 rounded-xl border border-arcane-400/25 bg-void-800/50 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-arcane-400/30 bg-arcane-400/10">
-                <Icon name="package" size={22} className="text-arcane-300" />
-              </div>
-              <div>
-                <p className="font-display text-sm font-bold text-white">1 personagem aleatório</p>
-                <p className="text-xs text-white/50">Duplicado vira +1 diagrama, que pode ser vendido.</p>
-              </div>
-            </div>
-            <button
-              onClick={handlePullGacha}
-              disabled={pulling || credits < GACHA_PACK_PRICE}
-              className="flex shrink-0 items-center gap-2 rounded-lg bg-code-500 px-4 py-2 font-display text-xs font-bold uppercase tracking-wide text-void-950 transition hover:bg-code-400 disabled:opacity-50"
-            >
-              {pulling && <Icon name="loader" size={13} className="animate-spin" />}
-              <Icon name="coins" size={13} />
-              {GACHA_PACK_PRICE}
-            </button>
-          </div>
-
-          {revealInfo && (
-            <div className="mt-3 flex items-center gap-3 rounded-xl border border-code-500/30 bg-code-900/20 p-4">
-              <CharacterPortrait
-                name={revealInfo.name}
-                element={revealInfo.element}
-                faction={revealInfo.faction}
-                portraitUrl={revealInfo.portraitUrl}
-                size={56}
-              />
-              <div className="min-w-0 flex-1">
-                <p className="font-display text-sm font-bold text-white">
-                  {reveal!.outcome === 'new' ? 'Novo personagem desbloqueado!' : 'Personagem repetido'}
-                </p>
-                <div className="flex items-center gap-2">
-                  <span className="truncate text-xs text-white/70">{revealInfo.name}</span>
-                  <RosterChips faction={revealInfo.faction} element={revealInfo.element} rarity={revealInfo.rarity} />
+          <h2 className="mb-2 font-display text-xs font-bold uppercase tracking-widest text-white/50">Personagens em Destaque</h2>
+          <p className="mb-2 text-[11px] text-white/40">Rotação semanal — compra direta, sem sorteio. 1 personagem liberado para todos; 2 exclusivos para Root Access.</p>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {showcaseIds.map((characterId, index) => {
+              const info = byId.get(characterId);
+              const locked = index >= SHOWCASE_FREE_SLOTS && !vipActive;
+              const affordable = credits >= SHOWCASE_CHARACTER_PRICE_CREDITS;
+              const buying = buyingShowcaseId === characterId;
+              return (
+                <div key={characterId} className="flex flex-col items-center gap-2 rounded-xl border border-arcane-400/25 bg-void-800/50 p-4 text-center">
+                  <div className="relative">
+                    <CharacterPortrait
+                      name={info?.name ?? characterId}
+                      element={info?.element ?? 'Encryption'}
+                      rarity={info?.rarity ?? FALLBACK_RARITY}
+                      portraitUrl={info?.portraitUrl}
+                      size={64}
+                    />
+                    {index >= SHOWCASE_FREE_SLOTS && (
+                      <span className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-signal-cyan text-void-950">
+                        <Icon name="crown" size={12} />
+                      </span>
+                    )}
+                  </div>
+                  <p className="truncate text-sm font-bold text-white">{info?.name ?? characterId}</p>
+                  {info && <RosterChips faction={info.faction} element={info.element} rarity={info.rarity} />}
+                  <button
+                    onClick={() => handleBuyShowcase(characterId, index)}
+                    disabled={buying || locked || !affordable}
+                    className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg bg-arcane-400 px-3 py-2 font-display text-xs font-bold uppercase tracking-wide text-void-950 transition hover:bg-arcane-400/80 disabled:opacity-50"
+                  >
+                    {buying && <Icon name="loader" size={13} className="animate-spin" />}
+                    {locked ? (
+                      <>
+                        <Icon name="lock" size={12} />
+                        Root Access
+                      </>
+                    ) : (
+                      <>
+                        <Icon name="coins" size={12} />
+                        {SHOWCASE_CHARACTER_PRICE_CREDITS}
+                      </>
+                    )}
+                  </button>
                 </div>
-                {reveal!.outcome === 'duplicate' && <p className="mt-1 text-[11px] text-white/50">Convertido em +1 diagrama.</p>}
-              </div>
-              <button onClick={() => setReveal(null)} className="shrink-0 rounded-lg p-1.5 text-white/40 transition hover:text-white/70">
-                <Icon name="x" size={16} />
-              </button>
-            </div>
-          )}
+              );
+            })}
+          </div>
         </section>
 
         {/* Fragments / diagramas */}
@@ -257,12 +255,12 @@ export function ShopPage({
                       <CharacterPortrait
                         name={info?.name ?? characterId}
                         element={info?.element ?? 'Encryption'}
-                        faction={info?.faction ?? 'Firewall'}
+                        rarity={info?.rarity ?? FALLBACK_RARITY}
                         portraitUrl={info?.portraitUrl}
                         size={40}
                       />
                       <div className="min-w-0">
-                        <p className="truncate text-sm text-white">{info?.name ?? characterId}</p>
+                        <p className="truncate text-sm text-white">{diagramName(info?.name ?? characterId)}</p>
                         <p className="text-xs text-white/50">{count}x diagrama</p>
                       </div>
                     </div>
@@ -276,7 +274,10 @@ export function ShopPage({
                   </div>
                 );
               })}
-              <p className="text-[11px] text-white/30">Trocar diagramas com outros jogadores ainda não está disponível — em breve no Mercado.</p>
+              <p className="text-[11px] text-white/30">
+                Prefere negociar com outros jogadores por um preço melhor? Assinantes de Root Access podem publicar e comprar `.dat` no
+                Mercado.
+              </p>
             </div>
           )}
         </section>

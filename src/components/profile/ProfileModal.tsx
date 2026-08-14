@@ -230,7 +230,7 @@ export function ProfileModal({
                     <div className="flex flex-wrap gap-2">
                       {defenseRoster.map((c) => (
                         <div key={c.templateId} className="flex w-16 flex-col items-center gap-1 text-center">
-                          <CharacterPortrait name={c.name} element={c.element} faction={c.faction} portraitUrl={c.portraitUrl} size={48} />
+                          <CharacterPortrait name={c.name} element={c.element} rarity={c.rarity} portraitUrl={c.portraitUrl} size={48} />
                           <span className="w-full truncate text-[10px] text-white/70">{c.name}</span>
                           <span className="text-[9px] text-white/40">Nv.{c.level}</span>
                         </div>
@@ -241,7 +241,7 @@ export function ProfileModal({
                   <div className="flex flex-wrap gap-2">
                     {roster.map((c) => (
                       <div key={c.templateId} className="flex w-16 flex-col items-center gap-1 text-center">
-                        <CharacterPortrait name={c.name} element={c.element} faction={c.faction} portraitUrl={c.portraitUrl} size={48} />
+                        <CharacterPortrait name={c.name} element={c.element} rarity={c.rarity} portraitUrl={c.portraitUrl} size={48} />
                         <span className="w-full truncate text-[10px] text-white/70">{c.name}</span>
                         <span className="text-[9px] text-white/40">Nv.{c.level}</span>
                       </div>

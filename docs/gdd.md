@@ -27,10 +27,10 @@ Não são papéis rígidos de combate, mas arquétipos que orientam design de ha
 
 ## 3. Personagens
 
-- Raridades: **Alpha → Beta → RC → Stable → LTS → Quantum**
+- Raridades: **Alpha → Beta → Stable → LTS**
 - Cada personagem pertence a uma mitologia (define sinergia) e a uma facção (define arquétipo)
 - Personagens de raridade **Stable ou acima têm 1 habilidade passiva**; os demais têm **habilidade ativa** disparada por gatilho
-- Personagens excepcionalmente fortes e raros (ex: Chronos) só podem existir nas raridades **Stable, LTS ou Quantum** — nunca em Alpha/Beta/RC
+- Personagens excepcionalmente fortes e raros (ex: Chronos) só podem existir nas raridades **Stable ou LTS** — nunca em Alpha/Beta
 - Cada personagem oferece **3 opções de habilidade** para o jogador escolher (fixa até redefinir), geradas por uma matriz de Gatilho × Efeito × Alvo curada manualmente por personagem (lista completa de gatilhos no documento de Combate Detalhado)
 
 ## 4. Sistema de Combate
@@ -40,7 +40,7 @@ Detalhamento completo (atributos, elementos, efeitos de status, gatilhos de habi
 - Tempo real (2x disponível no PvE; PvP sempre em tempo real puro), times de até 5, ~30s de duração alvo
 - Atributos: HP, ATK, DEF (todos começam em 0), INI, ESQ
 - Elementos são tipos de código malicioso/defensivo (Vírus, Brute Force, Nanites, Encryption, Backdoor) — batalha é tratada como uma simulação rodada por IAs, cada personagem é a persona `.exe` de uma IA
-- Habilidade passiva única (Stable+) ou ativa com 3 opções (Alpha/Beta/RC)
+- Habilidade passiva única (Stable+) ou ativa com 3 opções (Alpha/Beta)
 - Sinergia mitológica por quantidade de personagens da mesma mitologia no time
 
 ## 5. Mundos e Fases (PvE)
@@ -75,7 +75,7 @@ Detalhamento completo (atributos, elementos, efeitos de status, gatilhos de habi
 - **Nível** do personagem (stats brutos)
 - **Estrelas de carta**: melhoradas com Créditos; cada estrela dá bônus de HP/ATK; ao atingir a 5ª estrela, permite subir a raridade da carta, zerando as estrelas de novo
 - **Fragmentos (`.dat`)**: ao obter um personagem duplicado cujo `.exe` já existe no inventário, a duplicata é convertida automaticamente em `.dat` (fragmentos daquele personagem) — funciona como um "diagrama" usado para evoluir a versão do personagem, e pode ser vendido
-- **Módulos (`.dll`)**: buffs universais equipáveis (ex: +0,5% ESQ / +0,5% Crítico por unidade), com raridade em camadas Alpha > Beta > RC > Stable > LTS > Quantum
+- **Módulos (`.dll`)**: buffs universais equipáveis (ex: +0,5% ESQ / +0,5% Crítico por unidade), com raridade em camadas Alpha > Beta > Stable > LTS
 
 ## 8. Sistema de Itens (extensões de arquivo)
 
@@ -95,16 +95,14 @@ Detalhamento completo (atributos, elementos, efeitos de status, gatilhos de habi
 
 ### Valores de `.sh` (boosts e pacotes)
 
-Progressão geométrica entre Alpha (base) e Quantum (topo):
+Progressão geométrica entre Alpha (base) e LTS (topo):
 
 | Raridade | Boost de Créditos/XP | Pacote de Créditos (× recompensa média de 1 estágio completo) |
 |---|---|---|
 | Alpha | 1,25x | 5x |
 | Beta | 1,5x | 8x |
-| RC | 2x | 13x |
 | Stable | 3x | 20x |
 | LTS | 4x | 32x |
-| Quantum | 5x | 50x |
 
 ## 9. Economia
 
@@ -128,46 +126,44 @@ Odds calibradas com base em referências de mercado (Genshin Impact: ~0,6% base 
 | Raridade | Taxa base |
 |---|---|
 | Alpha | 50% |
-| Beta | 30% |
-| RC | 13% |
+| Beta | 43% |
 | Stable | 5% |
-| LTS | 1,5% |
-| Quantum | 0,5% |
+| LTS | 2% |
 
-Pity suave a partir do pull 55 (taxa de Quantum sobe progressivamente); garantia total de Quantum no pull 90.
+Pity suave a partir do pull 55 (taxa de LTS sobe progressivamente); garantia total de LTS no pull 90.
 
 ### Gacha Hard (caro)
 
 | Raridade | Taxa base |
 |---|---|
 | Alpha | 40% |
-| Beta | 30% |
-| RC | 18% |
+| Beta | 48% |
 | Stable | 8% |
-| LTS | 3% |
-| Quantum | 1% |
+| LTS | 4% |
 
-Pity suave a partir do pull 45; garantia total de Quantum no pull 75.
+Pity suave a partir do pull 45; garantia total de LTS no pull 75.
 
 ### Banner semanal — Personagem Especial
 
 - Mesmas taxas do Gacha Hard, custando 25% a mais
-- Sistema "50/50": ao puxar um Quantum, 50% de chance de ser o Personagem Especial em destaque, 50% de ser um Quantum aleatório do pool geral; se perder, o próximo Quantum puxado é garantidamente o Especial
-- Garantia absoluta do Especial a cada **150 invocações**, mesmo sem Quantum (hard pity do banner)
+- Sistema "50/50": ao puxar um LTS, 50% de chance de ser o Personagem Especial em destaque, 50% de ser um LTS aleatório do pool geral; se perder, o próximo LTS puxado é garantidamente o Especial
+- Garantia absoluta do Especial a cada **150 invocações**, mesmo sem LTS (hard pity do banner)
 
 ### Regras gerais
 
 - Invocação x10 custa **10% menos** que 10 invocações individuais
 
-### Vitrine semanal (Fase 2)
+### Vitrine da Loja (personagens em destaque)
 
-- 6 personagens comprados diretamente com Créditos
-- Raridade sorteada entre RC/Beta/Alpha: **RC 10% / Beta 65% / Alpha 25%** (chance bem mais alta de Beta, bem mais baixa de RC)
+Diferente da Invocação acima (aleatória, na tela dedicada de Invocações), a Loja mostra uma vitrine de **3 personagens fixos**, comprados diretamente com Créditos, sem sorteio:
+
+- Rotação **semanal** — os 3 personagens trocam uma vez por semana, iguais para todos os jogadores naquele período
+- **1 slot liberado para todos**; os outros **2 slots são exclusivos de assinantes Root Access** (VIP)
+- Comprar um personagem já possuído converte a compra em `.dat` (mesmo comportamento de uma duplicata de Invocação)
 
 ## 11. Roadmap (Fase 2+)
 
 - Replays de PvP
-- Vitrine semanal de personagens
 
 ## 12. Pontos em aberto
 

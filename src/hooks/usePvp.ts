@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { loadCharactersByIds } from '../engine/core/loader';
-import { runBattle } from '../engine/core/battle';
 import type { OwnedCharacter } from './useOwnedCharacters';
 
 export interface PvpOpponent {
@@ -27,17 +25,15 @@ export interface UsePvpResult {
   defenseTeam: OwnedCharacter[];
   setDefenseTeam: (characters: OwnedCharacter[]) => Promise<void>;
   findOpponents: () => Promise<PvpOpponent[]>;
-  /** Runs a full attack against `opponent`'s saved defense team via the same deterministic engine as PvE, persists the result, and returns a summary. Async PvP per docs/gdd.md section 6 — no live opponent connection needed. */
-  attack: (opponent: PvpOpponent, attackerRoster: OwnedCharacter[]) => Promise<PvpAttackResult | null>;
-}
-
-/** K-factor ELO-ish rating exchange. Ties (draws) count as a defender win — the attacker failed to break through. */
-const K_FACTOR = 32;
-const REWARD_CREDITS_WIN = 30;
-const REWARD_CREDITS_LOSS = 5;
-
-function expectedScore(a: number, b: number): number {
-  return 1 / (1 + 10 ** ((b - a) / 400));
+  /**
+   * Runs a full attack against `opponent`'s saved defense team, entirely
+   * server-side via the `pvp-attack` Supabase Edge Function — the result
+   * affects a real opponent's rating, so the battle can't be computed (and
+   * trusted) in the attacker's own browser. The function fetches the
+   * attacker's roster itself from `player_characters`; nothing about the
+   * attacker's team is sent from the client.
+   */
+  attack: (opponent: PvpOpponent) => Promise<PvpAttackResult | null>;
 }
 
 interface DefenseSnapshotCharacter {
@@ -121,42 +117,24 @@ export function usePvp(userId: string | undefined): UsePvpResult {
   }, [userId, rating]);
 
   const attack = useCallback(
-    async (opponent: PvpOpponent, attackerRoster: OwnedCharacter[]): Promise<PvpAttackResult | null> => {
-      if (!userId || attackerRoster.length === 0) return null;
+    async (opponent: PvpOpponent): Promise<PvpAttackResult | null> => {
+      if (!userId) return null;
 
-      const { data: defenseRow } = await supabase.from('pvp_defense_teams').select('characters').eq('user_id', opponent.userId).maybeSingle();
-      const defenderSnapshot = ((defenseRow?.characters as unknown as DefenseSnapshotCharacter[]) ?? []);
-      if (defenderSnapshot.length === 0) return null;
-
-      const attackers = loadCharactersByIds(attackerRoster.map((c) => ({ id: c.characterId, xp: c.xp })));
-      const defenders = loadCharactersByIds(defenderSnapshot.map((c) => ({ id: c.characterId, xp: c.xp })));
-      const result = runBattle(attackers, defenders, { seed: Date.now() >>> 0 });
-      const won = result.winner === 'allies';
-
-      const expected = expectedScore(rating, opponent.rating);
-      const attackerDelta = Math.round(K_FACTOR * ((won ? 1 : 0) - expected));
-      const defenderDelta = -attackerDelta;
-      const newRating = Math.max(0, rating + attackerDelta);
-
-      const { error: rpcError } = await supabase.rpc('resolve_pvp_attack', {
-        p_defender_id: opponent.userId,
-        p_winner: won ? 'attacker' : 'defender',
-        p_log: result.log,
-        p_attacker_rating_delta: attackerDelta,
-        p_defender_rating_delta: defenderDelta,
+      const { data, error: invokeError } = await supabase.functions.invoke<PvpAttackResult>('pvp-attack', {
+        body: { defenderId: opponent.userId },
       });
-      if (rpcError) {
-        setError(rpcError.message);
+      if (invokeError || !data) {
+        setError(invokeError?.message ?? 'Attack failed');
         return null;
       }
 
-      setRating(newRating);
-      if (won) setWins((w) => w + 1);
+      setRating(data.newRating);
+      if (data.won) setWins((w) => w + 1);
       else setLosses((l) => l + 1);
 
-      return { won, ratingDelta: attackerDelta, newRating, rewardCredits: won ? REWARD_CREDITS_WIN : REWARD_CREDITS_LOSS };
+      return data;
     },
-    [userId, rating],
+    [userId],
   );
 
   return { loading, error, rating, wins, losses, defenseTeam, setDefenseTeam, findOpponents, attack };

@@ -1,13 +1,18 @@
 import { ALL_CHARACTER_IDS, characterIdsByMythology, loadCharactersByIds } from '../engine/core/loader';
 import { xpProgress } from '../engine/core/leveling';
-import type { RngLike } from '../engine/core/rng';
-import { CHARACTER_INFO, type CharacterInfo } from './characterInfo';
+import { Rng, type RngLike } from '../engine/core/rng';
+import { CHARACTER_INFO, type AbilityInfo, type CharacterInfo } from './characterInfo';
 import { DISPLAY_PORTRAIT_BY_TEMPLATE_ID, DISPLAY_RARITY_BY_TEMPLATE_ID, FALLBACK_ELEMENT, FALLBACK_FACTION, FALLBACK_RARITY } from './engineDisplay';
 import type { OwnedCharacter } from '../hooks/useOwnedCharacters';
-import type { BaseStats } from '../engine/schema';
+import type { AbilityTrigger, BaseStats } from '../engine/schema';
 import type { Element, Faction, Rarity } from '../types';
 
-export interface RosterCharacter extends CharacterInfo {
+/** An ability entry with its real engine trigger resolved in — see toRosterCharacter's zip below. */
+export interface ResolvedAbilityInfo extends AbilityInfo {
+  trigger: AbilityTrigger;
+}
+
+export interface RosterCharacter extends Omit<CharacterInfo, 'abilities'> {
   templateId: string;
   name: string;
   faction: Faction;
@@ -22,6 +27,7 @@ export interface RosterCharacter extends CharacterInfo {
   portraitUrl?: string;
   /** Real combat stats: same-mythology synergy bonus (by team size) and level scaling already folded in. */
   stats: BaseStats;
+  abilities: ResolvedAbilityInfo[];
   alwaysActsFirst: boolean;
   statusDurationBonus: number;
   /** Star-up progress — always 0 until a star/rarity-upgrade system exists (docs/gdd.md section 7). */
@@ -33,8 +39,22 @@ const UNKNOWN_INFO: CharacterInfo = {
   abilities: [{ name: null, kind: 'Passiva', description: 'Sem habilidade registrada.' }],
 };
 
+/**
+ * Team-power figure. Only HP/ATK count — DEF/INI/ESQ/ICE are ability-granted
+ * build choices (schema.ts), not generic power, so they don't factor in here.
+ */
+export function characterPower(stats: BaseStats): number {
+  return Math.round(stats.hp * 0.1 + stats.atk * 2);
+}
+
 function toRosterCharacter(c: ReturnType<typeof loadCharactersByIds>[number], mythology: string, xp: number): RosterCharacter {
   const progress = xpProgress(xp);
+  const info = CHARACTER_INFO[c.templateId] ?? UNKNOWN_INFO;
+  // CHARACTER_INFO's hand-authored abilities are always written in the same
+  // order/length as the character's real engine abilities (c.abilities) —
+  // zip in each one's actual trigger so UI (Team page's "Order of Action")
+  // can show when it fires without duplicating trigger data by hand.
+  const abilities: ResolvedAbilityInfo[] = info.abilities.map((a, i) => ({ ...a, trigger: c.abilities[i]?.trigger ?? 'battleStart' }));
   return {
     templateId: c.templateId,
     name: c.name,
@@ -51,7 +71,8 @@ function toRosterCharacter(c: ReturnType<typeof loadCharactersByIds>[number], my
     alwaysActsFirst: c.alwaysActsFirst,
     statusDurationBonus: c.statusDurationBonus,
     stars: c.stars,
-    ...(CHARACTER_INFO[c.templateId] ?? UNKNOWN_INFO),
+    lore: info.lore,
+    abilities,
   };
 }
 
@@ -71,8 +92,25 @@ export function buildOwnedRoster(owned: OwnedCharacter[]): RosterCharacter[] {
 }
 
 /**
+ * The full compendium, but owned characters show their real accumulated-XP
+ * level instead of always 0 — unlike buildOwnedRoster, each character is
+ * still loaded alone (no synergy folded in), matching buildCompendium's
+ * "raw browsing stats" so Personagens isn't showing a hypothetical
+ * all-owned-characters-as-one-team number.
+ */
+export function buildFullRosterView(owned: OwnedCharacter[]): RosterCharacter[] {
+  const xpByCharacterId = new Map(owned.map((o) => [o.characterId, o.xp]));
+  return characterIdsByMythology().flatMap(({ mythology, ids }) =>
+    ids.map((id) => {
+      const xp = xpByCharacterId.get(id) ?? 0;
+      return toRosterCharacter(loadCharactersByIds([{ id, xp }])[0], mythology, xp);
+    }),
+  );
+}
+
+/**
  * 3 onboarding starter options — one random character from each mythology,
- * independent of rarity (a new player might land a Quantum flagship or an
+ * independent of rarity (a new player might land an LTS flagship or an
  * Alpha just as easily; not gated to any particular tier). Always level 0.
  */
 export function pickStarterOptions(rng: RngLike): RosterCharacter[] {
@@ -85,6 +123,11 @@ export function pickStarterOptions(rng: RngLike): RosterCharacter[] {
 /** All character ids, for anything that needs to enumerate the full pool without hardcoding it. */
 export { ALL_CHARACTER_IDS };
 
+/** A duplicate character's tradeable item is a `.dat` (docs/monetizacao-guilda.md), not the owned character's `.exe` — use only for fragment/diagram display, never for the owned character itself. */
+export function diagramName(name: string): string {
+  return name.replace(/\.exe$/, '.dat');
+}
+
 /**
  * Rolls one random character id for a gacha pull — uniform across the full
  * pool, independent of mythology or rarity (no pity/odds system yet, unlike
@@ -93,4 +136,34 @@ export { ALL_CHARACTER_IDS };
  */
 export function pullGachaCharacter(rng: RngLike): string {
   return rng.pick(ALL_CHARACTER_IDS);
+}
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * A UTC-epoch week index — not a calendar-locale ISO week, just
+ * `time / WEEK_MS` floored. Same value for every player at any given moment,
+ * and ticks over exactly once every 7 days; used to seed the Loja's weekly
+ * character showcase (see pickWeeklyShowcase below).
+ */
+export function currentShowcaseWeek(now: Date = new Date()): number {
+  return Math.floor(now.getTime() / WEEK_MS);
+}
+
+/**
+ * Picks 3 distinct character ids for the Loja's weekly showcase, seeded by
+ * currentShowcaseWeek() so every player sees the same 3 characters until the
+ * week rolls over. Slot 0 is always purchasable; slots 1-2 are Root
+ * Access-only (see ShopPage) — that's an access rule the caller applies, not
+ * something encoded here.
+ */
+export function pickWeeklyShowcase(weekSeed: number): string[] {
+  const rng = new Rng(weekSeed >>> 0);
+  const pool = [...ALL_CHARACTER_IDS];
+  const picks: string[] = [];
+  for (let i = 0; i < 3 && pool.length > 0; i++) {
+    const index = Math.floor(rng.next() * pool.length);
+    picks.push(pool.splice(index, 1)[0]);
+  }
+  return picks;
 }

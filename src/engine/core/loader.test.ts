@@ -10,10 +10,12 @@ describe('loadJurupariAllies', () => {
     // Every character starts at the Alpha (lowest) tier: HP 800, ATK 80 -> +21% synergy
     expect(jurupari.maxHp).toBe(Math.round(800 * 1.21));
     expect(jurupari.base.atk).toBe(Math.round(80 * 1.21));
-    // DEF/INI/ESQ are untouched by synergy
+    // DEF/INI/ESQ/ICE are ability-granted only (schema.ts) — 0 for every ally today, untouched by
+    // synergy or level scaling.
     expect(jurupari.base.def).toBe(0);
-    expect(jurupari.base.ini).toBe(80);
-    expect(jurupari.base.esq).toBeCloseTo(0.05);
+    expect(jurupari.base.ini).toBe(0);
+    expect(jurupari.base.esq).toBe(0);
+    expect(jurupari.base.ice).toBe(0);
   });
 
   it('gives Jurupari.exe its +1 round status duration passive and Saci.exe its always-first passive', () => {

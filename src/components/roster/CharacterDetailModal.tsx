@@ -20,7 +20,7 @@ export function CharacterDetailModal({ character, owned, onClose }: CharacterDet
           <CharacterPortrait
             name={character.name}
             element={character.element}
-            faction={character.faction}
+            rarity={character.rarity}
             portraitUrl={character.portraitUrl}
             size={88}
           />

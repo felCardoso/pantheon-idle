@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { Icon } from '../common/Icon';
 import { PixelFigure } from './PixelFigure';
 import { StatusBadge } from './StatusBadge';
-import { ELEMENT_COLOR, FACTION_COLOR, NEGATIVE_STATUSES } from '../../data/theme';
+import { ELEMENT_COLOR, RARITY_COLOR, NEGATIVE_STATUSES } from '../../data/theme';
 import type { BattleUnit } from '../../types';
 import type { FloatingText } from '../../hooks/useBattleSimulation';
 
@@ -28,7 +28,7 @@ const FLOATER_PREFIX: Record<FloatingText['kind'], string> = {
 
 export function UnitCard({ unit, delay = 0, floatingTexts = [] }: UnitCardProps) {
   const elementColor = ELEMENT_COLOR[unit.element];
-  const factionColor = FACTION_COLOR[unit.faction];
+  const rarityColor = RARITY_COLOR[unit.rarity];
   const isDead = unit.hp <= 0;
   const hpPct = Math.max(0, Math.min(100, (unit.hp / unit.maxHp) * 100));
   const shieldPct = Math.max(0, Math.min(100, (unit.shield / unit.maxHp) * 100));
@@ -58,7 +58,7 @@ export function UnitCard({ unit, delay = 0, floatingTexts = [] }: UnitCardProps)
       <div
         className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg sm:h-16 sm:w-16 sm:rounded-xl"
         style={{
-          background: `linear-gradient(150deg, ${factionColor}22, #0a0a12)`,
+          background: `linear-gradient(150deg, ${rarityColor}22, #0a0a12)`,
           border: `1.5px solid ${elementColor}aa`,
           boxShadow: isDead ? 'none' : `0 0 14px -2px ${elementColor}88`,
         }}

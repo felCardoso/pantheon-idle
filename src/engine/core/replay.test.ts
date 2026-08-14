@@ -103,6 +103,23 @@ describe('replay', () => {
     expect(state.units[target.id].shield).toBe(50);
   });
 
+  it('iceReflect applies shield-then-HP damage to its target, same as a normal attack', () => {
+    const attacker = makeCombatant({ name: 'Attacker', maxHp: 1000 });
+    const nameToId = buildNameToId([attacker], []);
+    let state = createInitialReplayState([attacker], []);
+    // createInitialReplayState always starts at shield 0; force a starting shield to prove the split works.
+    state = { ...state, units: { ...state.units, [attacker.id]: { ...state.units[attacker.id], shield: 30 } } };
+
+    state = applyReplayEntry(
+      state,
+      { kind: 'iceReflect', source: 'Defender', target: 'Attacker', amount: 50, shieldAbsorbed: 30, hpDamage: 20, targetDied: false },
+      nameToId,
+    );
+
+    expect(state.units[attacker.id].shield).toBe(0);
+    expect(state.units[attacker.id].hp).toBe(980);
+  });
+
   it('enrage applies each listed per-unit true-damage amount', () => {
     const a = makeCombatant({ name: 'A', maxHp: 1000 });
     const b = makeCombatant({ name: 'B', maxHp: 500 });

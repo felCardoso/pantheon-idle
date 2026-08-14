@@ -7,8 +7,9 @@ import { BattleStage } from './battle/BattleStage';
 import { TeamPage } from './roster/TeamPage';
 import { CharactersPage } from './roster/CharactersPage';
 import { ShopPage } from './shop/ShopPage';
+import { GachaPage } from './gacha/GachaPage';
 import { ClusterPage } from './cluster/ClusterPage';
-import { ArenaPage } from './arena/ArenaPage';
+import { MarketPage } from './market/MarketPage';
 import { ProfileModal } from './profile/ProfileModal';
 import { OnboardingScreen } from './onboarding/OnboardingScreen';
 import { WikiModal } from './wiki/WikiModal';
@@ -26,9 +27,11 @@ import {
   type TeamVisibility,
 } from '../hooks/usePlayerProgress';
 import { useOwnedCharacters, type OwnedCharacter } from '../hooks/useOwnedCharacters';
+import { usePlayerTeams } from '../hooks/usePlayerTeams';
 import { useProfile, type UpdateUsernameResult } from '../hooks/useProfile';
 import { useCluster } from '../hooks/useCluster';
 import { usePvp } from '../hooks/usePvp';
+import { useMarket } from '../hooks/useMarket';
 import type { ChatMessage, MenuItem } from '../types';
 
 interface GameShellProps {
@@ -44,6 +47,9 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
     teamVisibility,
     vipActive,
     vipExpiresAt,
+    unlockedTeamSlots,
+    pveTeamSlot,
+    pvpTeamSlot,
     loading: progressLoading,
     saveProgress,
     claimStarterBoost,
@@ -51,20 +57,48 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
     setTeamVisibility,
     purchaseVip,
     claimDailyVipBonus,
+    purchaseTeamSlot,
+    setPveTeamSlot,
+    setPvpTeamSlot,
   } = usePlayerProgress(userId);
-  const { ownedCharacters, fragments, loading: ownedLoading, claimStarter, addXp, acquireCharacter, sellFragment } =
+  const { ownedCharacters, fragments, loading: ownedLoading, claimStarter, addXp, acquireCharacter, sellFragment, refreshFragments } =
     useOwnedCharacters(userId);
   const { username, avatarCharacterId, loading: profileLoading, updateUsername, updateAvatar } = useProfile(userId);
   const cluster = useCluster(userId);
   const pvp = usePvp(userId);
+  const teams = usePlayerTeams(userId);
+  const market = useMarket(userId);
 
   if (progressLoading || !progress || ownedLoading || !ownedCharacters) return <Splash />;
 
   if (ownedCharacters.length === 0) {
-    return <OnboardingScreen onSelect={claimStarter} />;
+    return (
+      <OnboardingScreen
+        onSelect={async (characterId) => {
+          // Both start optimistically-updating local state before either awaits its Supabase
+          // write, so Promise.all (not sequential awaits) avoids a flash of empty teams once
+          // ownedCharacters.length flips this component over to GameShellReady below.
+          await Promise.all([claimStarter(characterId), teams.initializeAllTeams(characterId)]);
+        }}
+      />
+    );
   }
 
   const bonusMultiplier = 1 + (vipActive ? VIP_CREDIT_XP_BONUS_PERCENT : 0) + (cluster.cluster ? CLUSTER_CREDIT_XP_BONUS_PERCENT : 0);
+
+  async function handleAcquireCharacter(characterId: string): Promise<'new' | 'duplicate'> {
+    const outcome = await acquireCharacter(characterId);
+    if (outcome === 'new') await teams.autoAddToTeam1(characterId);
+    return outcome;
+  }
+
+  const pveTeam = teams.teams.find((t) => t.slot === pveTeamSlot);
+  const pveOwnedIds = new Set(pveTeam?.characterIds ?? []);
+  const pveResolvedCharacters = ownedCharacters.filter((c) => pveOwnedIds.has(c.characterId));
+  // Defensive fallback — battles always need at least 1 character (useBattleSimulation has "no
+  // fallback team"); this can only be empty during the brief window before a fresh account's
+  // teams finish initializing.
+  const pveCharacters = pveResolvedCharacters.length > 0 ? pveResolvedCharacters : ownedCharacters.slice(0, 5);
 
   return (
     <GameShellReady
@@ -79,10 +113,12 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
       initialCredits={progress.credits}
       initialXp={progress.xp}
       ownedCharacters={ownedCharacters}
+      pveCharacters={pveCharacters}
       fragments={fragments}
       addXp={addXp}
-      acquireCharacter={acquireCharacter}
+      acquireCharacter={handleAcquireCharacter}
       sellFragment={sellFragment}
+      refreshFragments={refreshFragments}
       saveProgress={saveProgress}
       starterBoostClaimed={starterBoostClaimed}
       claimStarterBoost={claimStarterBoost}
@@ -97,6 +133,14 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
       bonusMultiplier={bonusMultiplier}
       cluster={cluster}
       pvp={pvp}
+      teams={teams}
+      unlockedTeamSlots={unlockedTeamSlots}
+      pveTeamSlot={pveTeamSlot}
+      pvpTeamSlot={pvpTeamSlot}
+      purchaseTeamSlot={purchaseTeamSlot}
+      setPveTeamSlot={setPveTeamSlot}
+      setPvpTeamSlot={setPvpTeamSlot}
+      market={market}
     />
   );
 }
@@ -113,10 +157,13 @@ interface GameShellReadyProps {
   initialCredits: number;
   initialXp: number;
   ownedCharacters: OwnedCharacter[];
+  /** Just the currently-selected PvE team's members (see GameShell's pveCharacters), what actually fights. */
+  pveCharacters: OwnedCharacter[];
   fragments: Record<string, number>;
   addXp: (amount: number) => void;
   acquireCharacter: (characterId: string) => Promise<'new' | 'duplicate'>;
   sellFragment: (characterId: string) => void;
+  refreshFragments: () => Promise<void>;
   saveProgress: (next: { fase: number; estagio: number; credits: number; xp: number }) => void;
   starterBoostClaimed: boolean;
   claimStarterBoost: () => void;
@@ -131,6 +178,14 @@ interface GameShellReadyProps {
   bonusMultiplier: number;
   cluster: ReturnType<typeof useCluster>;
   pvp: ReturnType<typeof usePvp>;
+  teams: ReturnType<typeof usePlayerTeams>;
+  unlockedTeamSlots: number;
+  pveTeamSlot: number;
+  pvpTeamSlot: number;
+  purchaseTeamSlot: () => Promise<boolean>;
+  setPveTeamSlot: (slot: number) => void;
+  setPvpTeamSlot: (slot: number) => void;
+  market: ReturnType<typeof useMarket>;
 }
 
 /**
@@ -149,10 +204,12 @@ function GameShellReady({
   initialCredits,
   initialXp,
   ownedCharacters,
+  pveCharacters,
   fragments,
   addXp,
   acquireCharacter,
   sellFragment,
+  refreshFragments,
   saveProgress,
   starterBoostClaimed,
   claimStarterBoost,
@@ -167,6 +224,14 @@ function GameShellReady({
   bonusMultiplier,
   cluster,
   pvp,
+  teams,
+  unlockedTeamSlots,
+  pveTeamSlot,
+  pvpTeamSlot,
+  purchaseTeamSlot,
+  setPveTeamSlot,
+  setPvpTeamSlot,
+  market,
 }: GameShellReadyProps) {
   const [activeMenuId, setActiveMenuId] = useState('battle');
   const [wikiOpen, setWikiOpen] = useState(false);
@@ -176,7 +241,7 @@ function GameShellReady({
   const [toast, setToast] = useState<string | null>(null);
 
   const battle = useBattleSimulation({
-    initialOwnedCharacters: ownedCharacters,
+    initialOwnedCharacters: pveCharacters,
     initialPosition: { fase: initialFase, estagio: initialEstagio },
     initialCredits,
     initialXp,
@@ -251,9 +316,23 @@ function GameShellReady({
 
         <div className="flex min-h-0 flex-1 flex-col pb-16 lg:pb-0">
           {activeMenuId === 'team' ? (
-            <TeamPage ownedCharacters={ownedCharacters} />
+            <TeamPage
+              ownedCharacters={ownedCharacters}
+              teams={teams}
+              unlockedTeamSlots={unlockedTeamSlots}
+              vipActive={vipActive}
+              tokens={tokens}
+              onPurchaseTeamSlot={purchaseTeamSlot}
+              pveTeamSlot={pveTeamSlot}
+              pvpTeamSlot={pvpTeamSlot}
+              onSetPveTeamSlot={setPveTeamSlot}
+              onSetPvpTeamSlot={setPvpTeamSlot}
+              pvp={pvp}
+              onRewardCredits={battle.adjustCredits}
+              onToast={setToast}
+            />
           ) : activeMenuId === 'characters' ? (
-            <CharactersPage ownedIds={ownedCharacters.map((c) => c.characterId)} />
+            <CharactersPage ownedCharacters={ownedCharacters} />
           ) : activeMenuId === 'shop' ? (
             <ShopPage
               credits={battle.credits}
@@ -271,10 +350,20 @@ function GameShellReady({
               onClaimDailyVipBonus={claimDailyVipBonus}
               inCluster={!!cluster.cluster}
             />
+          ) : activeMenuId === 'summon' ? (
+            <GachaPage credits={battle.credits} onAcquireCharacter={acquireCharacter} onAdjustCredits={battle.adjustCredits} />
           ) : activeMenuId === 'guild' ? (
             <ClusterPage userId={userId} cluster={cluster} bandwidth={0} onToast={setToast} />
-          ) : activeMenuId === 'arena' ? (
-            <ArenaPage ownedCharacters={ownedCharacters} pvp={pvp} onRewardCredits={battle.adjustCredits} onToast={setToast} />
+          ) : activeMenuId === 'market' ? (
+            <MarketPage
+              market={market}
+              fragments={fragments}
+              vipActive={vipActive}
+              credits={battle.credits}
+              onAdjustCredits={battle.adjustCredits}
+              onRefreshFragments={refreshFragments}
+              onToast={setToast}
+            />
           ) : (
             <BattleStage
               allies={battle.allies}
