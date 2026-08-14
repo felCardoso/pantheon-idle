@@ -1,0 +1,48 @@
+[
+  {
+    "id": "jurupari",
+    "name": "Jurupari.exe",
+    "faction": "Malware",
+    "element": "Backdoor",
+    "rarity": "Alpha",
+    "mythology": "Folclore Brasileiro",
+    "stars": 0,
+    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },
+    "statusDurationBonus": 1,
+    "abilities": []
+  },
+  {
+    "id": "curupira",
+    "name": "Curupira.exe",
+    "faction": "Firewall",
+    "element": "Vírus",
+    "rarity": "Alpha",
+    "mythology": "Folclore Brasileiro",
+    "stars": 0,
+    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },
+    "abilities": ["curupira-lentidao-counter"]
+  },
+  {
+    "id": "caipora",
+    "name": "Caipora.exe",
+    "faction": "Crypto-Miner",
+    "element": "Brute Force",
+    "rarity": "Alpha",
+    "mythology": "Folclore Brasileiro",
+    "stars": 0,
+    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },
+    "abilities": ["caipora-enfraquecimento"]
+  },
+  {
+    "id": "saci",
+    "name": "Saci.exe",
+    "faction": "Exploit",
+    "element": "Nanites",
+    "rarity": "Alpha",
+    "mythology": "Folclore Brasileiro",
+    "stars": 0,
+    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },
+    "alwaysActsFirst": true,
+    "abilities": []
+  }
+]

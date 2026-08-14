@@ -56,7 +56,7 @@ export function ArenaPage({ ownedCharacters, pvp, onRewardCredits, onToast }: Ar
   async function handleAttack(opponent: PvpOpponent) {
     if (attacking || ownedCharacters.length === 0) return;
     setAttacking(opponent.userId);
-    const result = await pvp.attack(opponent, ownedCharacters);
+    const result = await pvp.attack(opponent);
     setAttacking(null);
     if (!result) {
       onToast('Não foi possível atacar — o oponente pode não ter um time de defesa.');
