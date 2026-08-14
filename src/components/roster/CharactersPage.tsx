@@ -130,7 +130,7 @@ export function CharactersPage({ ownedIds }: CharactersPageProps) {
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-void-950 via-void-950/75 to-transparent" />
 
                 {/* level badge, top-left */}
-                <span className="absolute left-1.5 top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full border border-white/25 bg-void-950/80 px-1 font-mono text-[10px] font-bold text-white">
+                <span className="absolute left-1.5 top-1.5 z-10 flex h-6 min-w-6 items-center justify-center rounded-full border border-white/40 bg-void-950 px-1 font-mono text-[11px] font-bold text-white">
                   {c.level}
                 </span>
 
