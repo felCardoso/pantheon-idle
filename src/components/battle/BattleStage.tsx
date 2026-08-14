@@ -1,7 +1,7 @@
 import { UnitCard } from './UnitCard';
 import { Icon } from '../common/Icon';
 import type { BattleUnit, StageInfo } from '../../types';
-import type { FloatingText } from '../../hooks/useBattleSimulation';
+import type { FloatingText, Reward } from '../../hooks/useBattleSimulation';
 
 interface BattleStageProps {
   allies: BattleUnit[];
@@ -11,6 +11,8 @@ interface BattleStageProps {
   onSetPlaying: (playing: boolean) => void;
   finished: boolean;
   winner: 'allies' | 'enemies' | 'draw' | null;
+  /** Credits/XP earned by the battle that just finished — shown on the overlay below the result label. */
+  lastReward: Reward | null;
   onNextBattle: () => void;
   floaters: FloatingText[];
 }
@@ -29,6 +31,7 @@ export function BattleStage({
   onSetPlaying,
   finished,
   winner,
+  lastReward,
   onNextBattle,
   floaters,
 }: BattleStageProps) {
@@ -119,13 +122,20 @@ export function BattleStage({
           >
             {WINNER_LABEL[winner]}
           </p>
-          <button
-            onClick={onNextBattle}
-            className="flex items-center gap-2 rounded-lg bg-code-500 px-5 py-2.5 font-display text-xs font-bold uppercase tracking-wide text-void-950 transition hover:bg-code-400"
-          >
-            <Icon name="play" size={15} />
-            Nova batalha
-          </button>
+          {lastReward && (
+            <p className="font-mono text-sm text-white/70">
+              +{lastReward.credits} C{lastReward.xp > 0 ? ` / +${lastReward.xp} XP` : ''}
+            </p>
+          )}
+          {!playing && (
+            <button
+              onClick={onNextBattle}
+              className="flex items-center gap-2 rounded-lg bg-code-500 px-5 py-2.5 font-display text-xs font-bold uppercase tracking-wide text-void-950 transition hover:bg-code-400"
+            >
+              <Icon name="play" size={15} />
+              Nova batalha
+            </button>
+          )}
         </div>
       )}
     </main>

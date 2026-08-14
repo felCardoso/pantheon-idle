@@ -150,6 +150,7 @@ function GameShellReady({
               onSetPlaying={battle.setPlaying}
               finished={battle.finished}
               winner={battle.winner}
+              lastReward={battle.lastReward}
               onNextBattle={battle.startNewBattle}
               floaters={battle.floaters}
             />

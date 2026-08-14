@@ -83,6 +83,8 @@ interface PlaybackState {
   winner: 'allies' | 'enemies' | 'draw' | null;
   totalCredits: number;
   totalXp: number;
+  /** Credits/XP earned from this specific battle — set once it ends, shown on the winner overlay. */
+  lastReward: Reward | null;
 }
 
 type Action = { type: 'reset'; session: BattleSession } | { type: 'tick' } | { type: 'pruneFloaters' };
@@ -100,7 +102,7 @@ const REWARDS: Record<'comuns' | 'boss', { win: { credits: number; xp: number };
   boss: { win: { credits: 80, xp: 40 }, lossOrDraw: { credits: 10 } },
 };
 
-interface Reward {
+export interface Reward {
   credits: number;
   xp: number;
 }
@@ -171,6 +173,7 @@ function buildInitialState(
     winner: null,
     totalCredits: initialCredits,
     totalXp: initialXp,
+    lastReward: null,
   };
 }
 
@@ -187,6 +190,7 @@ function reducer(state: PlaybackState, action: Action): PlaybackState {
       floaters: [],
       finished: action.session.log.length === 0,
       winner: null,
+      lastReward: null,
     };
   }
 
@@ -206,11 +210,13 @@ function reducer(state: PlaybackState, action: Action): PlaybackState {
   let logFeed = state.logFeed;
   let totalCredits = state.totalCredits;
   let totalXp = state.totalXp;
+  let lastReward = state.lastReward;
   if (entry.kind === 'battleEnd') {
     const reward = rewardFor(entry.winner, state.session);
     logFeed = [...state.logFeed, buildBattleSummary(entry.winner, state.session, reward)];
     totalCredits += reward.credits;
     totalXp += reward.xp;
+    lastReward = reward;
   }
 
   const now = Date.now();
@@ -230,6 +236,7 @@ function reducer(state: PlaybackState, action: Action): PlaybackState {
     logFeed,
     totalCredits,
     totalXp,
+    lastReward,
     floaters: [...state.floaters, ...newFloaters],
     winner,
     finished: index >= state.session.log.length,
@@ -288,6 +295,8 @@ export interface BattleSimulation {
   /** Créditos/XP earned since `initialCredits`/`initialXp` — the caller is responsible for persisting these. */
   credits: number;
   xp: number;
+  /** Créditos/XP earned from the battle that just finished, for the winner overlay — null until one ends. */
+  lastReward: Reward | null;
   playing: boolean;
   finished: boolean;
   winner: 'allies' | 'enemies' | 'draw' | null;
@@ -371,6 +380,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     floaters: state.floaters,
     credits: state.totalCredits,
     xp: state.totalXp,
+    lastReward: state.lastReward,
     playing,
     finished: state.finished,
     winner: state.winner,
