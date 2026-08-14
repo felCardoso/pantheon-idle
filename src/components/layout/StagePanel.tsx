@@ -1,5 +1,5 @@
 import { Icon } from '../common/Icon';
-import { comparePositions } from '../../engine/core/progression';
+import { comparePositions, isBossStage } from '../../engine/core/progression';
 import type { StageInfo } from '../../types';
 
 interface StagePanelProps {
@@ -105,23 +105,32 @@ export function StagePanel({
               const isViewing = nodeEstagio === stage.stage;
               const isFrontierMarker = !isViewing && comparePositions(nodePosition, frontier) === 0;
               const isSelectable = isDone && !isViewing;
+              const isBoss = isBossStage(nodePosition);
               return (
                 <div key={i} className="flex flex-1 items-center gap-1.5">
                   <button
                     type="button"
                     disabled={!isSelectable}
                     onClick={() => isSelectable && onSelectStage(nodeEstagio)}
-                    title={isSelectable ? `Jogar Estágio ${nodeEstagio}` : `Estágio ${nodeEstagio}`}
-                    className={`h-2.5 w-2.5 shrink-0 rounded-full border transition ${
+                    title={isBoss ? 'Chefe de Mundo' : isSelectable ? `Jogar Estágio ${nodeEstagio}` : `Estágio ${nodeEstagio}`}
+                    className={`flex shrink-0 items-center justify-center rounded-full border transition ${
+                      isBoss ? 'h-4 w-4' : 'h-2.5 w-2.5'
+                    } ${
                       isViewing
                         ? 'border-arcane-400 bg-arcane-400 shadow-[0_0_8px_var(--color-arcane-400)]'
-                        : isSelectable
-                          ? 'cursor-pointer border-code-500 bg-code-500 hover:scale-125'
-                          : isFrontierMarker
-                            ? 'border-arcane-400/60 bg-void-700'
-                            : 'border-void-500 bg-void-700'
+                        : isBoss
+                          ? isSelectable
+                            ? 'cursor-pointer border-signal-red bg-signal-red/80 text-void-950 hover:scale-125'
+                            : 'border-signal-red/50 bg-void-700 text-signal-red/70'
+                          : isSelectable
+                            ? 'cursor-pointer border-code-500 bg-code-500 hover:scale-125'
+                            : isFrontierMarker
+                              ? 'border-arcane-400/60 bg-void-700'
+                              : 'border-void-500 bg-void-700'
                     }`}
-                  />
+                  >
+                    {isBoss && <Icon name="skull" size={10} />}
+                  </button>
                   {i < stage.totalStages - 1 && <div className={`h-px flex-1 ${isDone ? 'bg-code-500/60' : 'bg-void-600'}`} />}
                 </div>
               );
