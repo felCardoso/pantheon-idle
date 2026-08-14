@@ -122,12 +122,15 @@ function GameShellReady({
       prevBattleXpRef.current = battle.xp;
       return;
     }
-    saveProgress({ fase: battle.stage.phase, estagio: battle.stage.stage, credits: battle.credits, xp: battle.xp });
+    // frontierFase/frontierEstagio (not battle.stage.phase/stage) is the player's real saved
+    // position — replaying an earlier estágio via the mini-map moves the live-viewed stage
+    // without ever regressing this.
+    saveProgress({ fase: battle.frontierFase, estagio: battle.frontierEstagio, credits: battle.credits, xp: battle.xp });
     // Every owned character fights together, so whatever XP the battle just paid out also levels them up.
     const gained = battle.xp - prevBattleXpRef.current;
     prevBattleXpRef.current = battle.xp;
     if (gained > 0) addXp(gained);
-  }, [battle.stage.phase, battle.stage.stage, battle.credits, battle.xp, saveProgress, addXp]);
+  }, [battle.frontierFase, battle.frontierEstagio, battle.credits, battle.xp, saveProgress, addXp]);
 
   useEffect(() => {
     if (!toast) return;
@@ -191,10 +194,12 @@ function GameShellReady({
         <div className="lg:flex lg:w-72 lg:min-h-0 lg:shrink-0 lg:flex-col">
           <StagePanel
             stage={battle.stage}
+            frontierEstagio={battle.frontierEstagio}
             open={stageOpen}
             onClose={() => setStageOpen(false)}
             onAdvance={battle.startNewBattle}
             onRepeat={battle.repeatBattle}
+            onSelectStage={battle.playStage}
           />
           <ChatPanel messages={chatMessages} open={chatOpen} onClose={() => setChatOpen(false)} />
         </div>
