@@ -87,7 +87,11 @@ interface PlaybackState {
   lastReward: Reward | null;
 }
 
-type Action = { type: 'reset'; session: BattleSession } | { type: 'tick' } | { type: 'pruneFloaters' };
+type Action =
+  | { type: 'reset'; session: BattleSession }
+  | { type: 'tick' }
+  | { type: 'pruneFloaters' }
+  | { type: 'adjustCredits'; delta: number };
 
 let chatIdCounter = 0;
 let floaterIdCounter = 0;
@@ -200,6 +204,10 @@ function reducer(state: PlaybackState, action: Action): PlaybackState {
     return floaters.length === state.floaters.length ? state : { ...state, floaters };
   }
 
+  if (action.type === 'adjustCredits') {
+    return { ...state, totalCredits: Math.max(0, state.totalCredits + action.delta) };
+  }
+
   if (state.finished || state.index >= state.session.log.length) {
     return state.finished ? state : { ...state, finished: true };
   }
@@ -305,6 +313,8 @@ export interface BattleSimulation {
   startNewBattle: () => void;
   /** Replays this exact estágio with the exact same seed ("Repetir estágio"). */
   repeatBattle: () => void;
+  /** Spends (negative) or grants (positive) credits outside of battle rewards — the Loja's purchase/sale/claim primitive. Clamped at 0. */
+  adjustCredits: (delta: number) => void;
 }
 
 export function useBattleSimulation(options: UseBattleSimulationOptions): BattleSimulation {
@@ -363,6 +373,8 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     setPlaying(true);
   }, [state.session.seed, state.session.fase, state.session.estagio, initialOwnedCharacters]);
 
+  const adjustCredits = useCallback((delta: number) => dispatch({ type: 'adjustCredits', delta }), []);
+
   return {
     allies: toBattleUnits(state.session.allies, state.replay, state.replay.allyOrder),
     enemies: toBattleUnits(state.session.enemies, state.replay, state.replay.enemyOrder),
@@ -387,5 +399,6 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     setPlaying,
     startNewBattle,
     repeatBattle,
+    adjustCredits,
   };
 }

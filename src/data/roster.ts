@@ -83,3 +83,13 @@ export function pickStarterOptions(rng: RngLike): RosterCharacter[] {
 
 /** All character ids, for anything that needs to enumerate the full pool without hardcoding it. */
 export { ALL_CHARACTER_IDS };
+
+/**
+ * Rolls one random character id for a gacha pull — uniform across the full
+ * pool, independent of mythology or rarity (no pity/odds system yet, unlike
+ * docs/gdd.md section 10's eventual design). The caller decides what a
+ * duplicate becomes (see useOwnedCharacters.acquireCharacter).
+ */
+export function pullGachaCharacter(rng: RngLike): string {
+  return rng.pick(ALL_CHARACTER_IDS);
+}

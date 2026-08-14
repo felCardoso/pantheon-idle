@@ -11,6 +11,7 @@ type Mode = 'signIn' | 'signUp';
 export function AuthScreen({ auth }: AuthScreenProps) {
   const [mode, setMode] = useState<Mode>('signIn');
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +22,7 @@ export function AuthScreen({ auth }: AuthScreenProps) {
     setError(null);
     setSubmitting(true);
 
-    const result = mode === 'signIn' ? await auth.signIn(email, password) : await auth.signUp(email, password);
+    const result = mode === 'signIn' ? await auth.signIn(email, password) : await auth.signUp(email, password, username);
 
     setSubmitting(false);
     if (result.error) {
@@ -103,6 +104,25 @@ export function AuthScreen({ auth }: AuthScreenProps) {
                   className="w-full bg-transparent font-mono text-sm text-white/90 placeholder:text-white/30 focus:outline-none"
                 />
               </label>
+
+              {mode === 'signUp' && (
+                <label className="flex items-center gap-2 rounded-lg border border-void-600 bg-void-800/60 px-3 py-2.5 focus-within:border-code-500/60">
+                  <Icon name="user" size={15} className="shrink-0 text-white/40" />
+                  <input
+                    type="text"
+                    required
+                    minLength={3}
+                    maxLength={20}
+                    pattern="[a-zA-Z0-9_]+"
+                    title="3–20 caracteres: letras, números e underscore"
+                    autoComplete="username"
+                    placeholder="nome de usuário"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="w-full bg-transparent font-mono text-sm text-white/90 placeholder:text-white/30 focus:outline-none"
+                  />
+                </label>
+              )}
 
               <label className="flex items-center gap-2 rounded-lg border border-void-600 bg-void-800/60 px-3 py-2.5 focus-within:border-code-500/60">
                 <Icon name="lock" size={15} className="shrink-0 text-white/40" />
