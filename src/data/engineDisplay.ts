@@ -64,6 +64,20 @@ export const DISPLAY_PORTRAIT_BY_TEMPLATE_ID: Record<string, string> = {
   caipora: caiporaArt,
 };
 
+/**
+ * Where each character's face sits in their card art, as a percentage point
+ * (x, y) from the image's top-left — used by AvatarCrop to zoom a square
+ * portrait into a face-focused profile avatar instead of showing the full
+ * body. Calibrated by eye against the actual art; a character without an
+ * entry here falls back to DISPLAY_AVATAR_FOCUS_FALLBACK.
+ */
+export const DISPLAY_AVATAR_FOCUS_BY_TEMPLATE_ID: Record<string, { x: number; y: number }> = {
+  saci: { x: 50, y: 22 },
+  caipora: { x: 55, y: 23 },
+};
+
+export const DISPLAY_AVATAR_FOCUS_FALLBACK = { x: 50, y: 25 };
+
 export const FALLBACK_FACTION: Faction = 'Malware';
 export const FALLBACK_RARITY: Rarity = 'Alpha';
 export const FALLBACK_ELEMENT: Element = 'Backdoor';

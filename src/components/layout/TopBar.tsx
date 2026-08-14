@@ -1,10 +1,12 @@
-import { useState } from 'react';
 import { Icon } from '../common/Icon';
+import { AvatarCrop } from '../profile/AvatarCrop';
+import { DISPLAY_PORTRAIT_BY_TEMPLATE_ID } from '../../data/engineDisplay';
 import type { PlayerState } from '../../types';
 
 interface TopBarProps {
   player: PlayerState;
-  onSignOut: () => void;
+  avatarCharacterId: string | null;
+  onOpenProfile: () => void;
   onOpenWiki: () => void;
   onOpenNotifications: () => void;
   onOpenSettings: () => void;
@@ -15,8 +17,8 @@ function formatNumber(n: number): string {
   return `${n}`;
 }
 
-export function TopBar({ player, onSignOut, onOpenWiki, onOpenNotifications, onOpenSettings }: TopBarProps) {
-  const [profileOpen, setProfileOpen] = useState(false);
+export function TopBar({ player, avatarCharacterId, onOpenProfile, onOpenWiki, onOpenNotifications, onOpenSettings }: TopBarProps) {
+  const avatarPortraitUrl = avatarCharacterId ? DISPLAY_PORTRAIT_BY_TEMPLATE_ID[avatarCharacterId] : undefined;
 
   return (
     <header className="relative z-40 flex h-14 items-center gap-2 border-b border-code-500/20 bg-void-900/90 px-2 backdrop-blur-md sm:h-16 sm:gap-3 sm:px-4">
@@ -105,34 +107,17 @@ export function TopBar({ player, onSignOut, onOpenWiki, onOpenNotifications, onO
         >
           <Icon name="settings" size={18} />
         </button>
-        <div className="relative ml-1">
-          <button
-            onClick={() => setProfileOpen((v) => !v)}
-            title="Perfil"
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-code-500/40 bg-code-900/60 text-code-300 transition hover:border-code-400"
-          >
+        <button
+          onClick={onOpenProfile}
+          title="Perfil"
+          className="ml-1 flex h-8 w-8 items-center justify-center rounded-full border border-code-500/40 bg-code-900/60 text-code-300 transition hover:border-code-400"
+        >
+          {avatarCharacterId && avatarPortraitUrl ? (
+            <AvatarCrop templateId={avatarCharacterId} portraitUrl={avatarPortraitUrl} alt={player.name} size={30} />
+          ) : (
             <Icon name="user" size={16} />
-          </button>
-
-          {profileOpen && (
-            <>
-              <div className="fixed inset-0 z-30" onClick={() => setProfileOpen(false)} aria-hidden />
-              <div className="absolute right-0 top-full z-40 mt-2 w-56 rounded-lg border border-code-500/25 bg-void-900/95 p-3 shadow-lg backdrop-blur-md">
-                <p className="truncate font-mono text-xs text-white/60">{player.name}</p>
-                <button
-                  onClick={() => {
-                    setProfileOpen(false);
-                    onSignOut();
-                  }}
-                  className="mt-2 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-signal-red transition hover:bg-signal-red/10"
-                >
-                  <Icon name="log-out" size={14} />
-                  Sair
-                </button>
-              </div>
-            </>
           )}
-        </div>
+        </button>
       </div>
     </header>
   );

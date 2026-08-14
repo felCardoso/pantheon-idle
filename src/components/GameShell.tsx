@@ -7,6 +7,7 @@ import { BattleStage } from './battle/BattleStage';
 import { TeamPage } from './roster/TeamPage';
 import { CharactersPage } from './roster/CharactersPage';
 import { ShopPage } from './shop/ShopPage';
+import { ProfileModal } from './profile/ProfileModal';
 import { OnboardingScreen } from './onboarding/OnboardingScreen';
 import { WikiModal } from './wiki/WikiModal';
 import { Toast } from './common/Toast';
@@ -16,9 +17,9 @@ import { PLAYER_STATE } from '../data/mock/player';
 import { MENU_ITEMS } from '../data/mock/menu';
 import { CHAT_MESSAGES } from '../data/mock/chat';
 import { useBattleSimulation } from '../hooks/useBattleSimulation';
-import { usePlayerProgress } from '../hooks/usePlayerProgress';
+import { usePlayerProgress, type TeamVisibility } from '../hooks/usePlayerProgress';
 import { useOwnedCharacters, type OwnedCharacter } from '../hooks/useOwnedCharacters';
-import { useProfile } from '../hooks/useProfile';
+import { useProfile, type UpdateUsernameResult } from '../hooks/useProfile';
 import type { MenuItem } from '../types';
 
 interface GameShellProps {
@@ -27,10 +28,20 @@ interface GameShellProps {
 }
 
 export function GameShell({ userId, onSignOut }: GameShellProps) {
-  const { progress, starterBoostClaimed, loading: progressLoading, saveProgress, claimStarterBoost } = usePlayerProgress(userId);
+  const {
+    progress,
+    starterBoostClaimed,
+    tokens,
+    teamVisibility,
+    loading: progressLoading,
+    saveProgress,
+    claimStarterBoost,
+    spendTokens,
+    setTeamVisibility,
+  } = usePlayerProgress(userId);
   const { ownedCharacters, fragments, loading: ownedLoading, claimStarter, addXp, acquireCharacter, sellFragment } =
     useOwnedCharacters(userId);
-  const { username } = useProfile(userId);
+  const { username, avatarCharacterId, loading: profileLoading, updateUsername, updateAvatar } = useProfile(userId);
 
   if (progressLoading || !progress || ownedLoading || !ownedCharacters) return <Splash />;
 
@@ -41,6 +52,9 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
   return (
     <GameShellReady
       username={username}
+      avatarCharacterId={profileLoading ? null : avatarCharacterId}
+      updateUsername={updateUsername}
+      updateAvatar={updateAvatar}
       onSignOut={onSignOut}
       initialFase={progress.fase}
       initialEstagio={progress.estagio}
@@ -54,12 +68,19 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
       saveProgress={saveProgress}
       starterBoostClaimed={starterBoostClaimed}
       claimStarterBoost={claimStarterBoost}
+      tokens={tokens}
+      spendTokens={spendTokens}
+      teamVisibility={teamVisibility}
+      setTeamVisibility={setTeamVisibility}
     />
   );
 }
 
 interface GameShellReadyProps {
   username: string | null;
+  avatarCharacterId: string | null;
+  updateUsername: (name: string) => Promise<UpdateUsernameResult>;
+  updateAvatar: (characterId: string) => void;
   onSignOut: () => void;
   initialFase: number;
   initialEstagio: number;
@@ -73,6 +94,10 @@ interface GameShellReadyProps {
   saveProgress: (next: { fase: number; estagio: number; credits: number; xp: number }) => void;
   starterBoostClaimed: boolean;
   claimStarterBoost: () => void;
+  tokens: number;
+  spendTokens: (amount: number) => Promise<boolean>;
+  teamVisibility: TeamVisibility;
+  setTeamVisibility: (value: TeamVisibility) => void;
 }
 
 /**
@@ -81,6 +106,9 @@ interface GameShellReadyProps {
  */
 function GameShellReady({
   username,
+  avatarCharacterId,
+  updateUsername,
+  updateAvatar,
   onSignOut,
   initialFase,
   initialEstagio,
@@ -94,9 +122,14 @@ function GameShellReady({
   saveProgress,
   starterBoostClaimed,
   claimStarterBoost,
+  tokens,
+  spendTokens,
+  teamVisibility,
+  setTeamVisibility,
 }: GameShellReadyProps) {
   const [activeMenuId, setActiveMenuId] = useState('battle');
   const [wikiOpen, setWikiOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [stageOpen, setStageOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -108,10 +141,10 @@ function GameShellReady({
     initialXp,
   });
   const chatMessages = useMemo(() => [...CHAT_MESSAGES, ...battle.logFeed], [battle.logFeed]);
-  // Credits/XP are real (persisted in Supabase); name is the real username once loaded, falling back to the mock placeholder otherwise.
+  // Credits/XP/tokens are real (persisted in Supabase); name is the real username once loaded, falling back to the mock placeholder otherwise.
   const player = useMemo(
-    () => ({ ...PLAYER_STATE, name: username ?? PLAYER_STATE.name, credits: battle.credits, xp: battle.xp }),
-    [username, battle.credits, battle.xp],
+    () => ({ ...PLAYER_STATE, name: username ?? PLAYER_STATE.name, credits: battle.credits, xp: battle.xp, tokens }),
+    [username, battle.credits, battle.xp, tokens],
   );
 
   const hasMounted = useRef(false);
@@ -150,7 +183,8 @@ function GameShellReady({
     <div className="flex h-dvh flex-col overflow-hidden font-body">
       <TopBar
         player={player}
-        onSignOut={onSignOut}
+        avatarCharacterId={avatarCharacterId}
+        onOpenProfile={() => setProfileOpen(true)}
         onOpenWiki={() => setWikiOpen(true)}
         onOpenNotifications={() => setToast('Notificações — em breve')}
         onOpenSettings={() => setToast('Configurações — em breve')}
@@ -224,6 +258,25 @@ function GameShellReady({
       </div>
 
       {wikiOpen && <WikiModal onClose={() => setWikiOpen(false)} />}
+      {profileOpen && (
+        <ProfileModal
+          onClose={() => setProfileOpen(false)}
+          onSignOut={onSignOut}
+          username={username}
+          avatarCharacterId={avatarCharacterId}
+          onUpdateAvatar={updateAvatar}
+          onUpdateUsername={updateUsername}
+          tokens={tokens}
+          onSpendTokens={spendTokens}
+          ownedCharacters={ownedCharacters}
+          frontierFase={battle.frontierFase}
+          teamVisibility={teamVisibility}
+          onChangeTeamVisibility={setTeamVisibility}
+          rankTier={player.rankTier}
+          rankValue={player.rankValue}
+          guildName={player.guildName}
+        />
+      )}
       <Toast message={toast} />
     </div>
   );

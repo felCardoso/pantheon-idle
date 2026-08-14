@@ -1,4 +1,4 @@
-/** Hand-written to match supabase/migrations/000{1..6}_*.sql — no Supabase CLI access to codegen this. */
+/** Hand-written to match supabase/migrations/000{1..8}_*.sql — no Supabase CLI access to codegen this. */
 export interface Database {
   public: {
     Tables: {
@@ -10,6 +10,8 @@ export interface Database {
           credits: number;
           xp: number;
           starter_boost_claimed: boolean;
+          tokens: number;
+          team_visibility: string;
           updated_at: string;
         };
         Insert: {
@@ -19,6 +21,8 @@ export interface Database {
           credits?: number;
           xp?: number;
           starter_boost_claimed?: boolean;
+          tokens?: number;
+          team_visibility?: string;
           updated_at?: string;
         };
         Update: {
@@ -28,6 +32,8 @@ export interface Database {
           credits?: number;
           xp?: number;
           starter_boost_claimed?: boolean;
+          tokens?: number;
+          team_visibility?: string;
           updated_at?: string;
         };
         Relationships: [];
@@ -57,16 +63,19 @@ export interface Database {
         Row: {
           user_id: string;
           username: string;
+          avatar_character_id: string | null;
           created_at: string;
         };
         Insert: {
           user_id: string;
           username: string;
+          avatar_character_id?: string | null;
           created_at?: string;
         };
         Update: {
           user_id?: string;
           username?: string;
+          avatar_character_id?: string | null;
           created_at?: string;
         };
         Relationships: [];
