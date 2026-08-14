@@ -14,6 +14,21 @@ const DEFAULT_PROGRESS: PlayerProgress = { fase: 1, estagio: 1, credits: 0, xp: 
 const DEFAULT_TOKENS = 300;
 const DEFAULT_TEAM_VISIBILITY: TeamVisibility = 'pve';
 
+/**
+ * Root Access (VIP) — docs/monetizacao-guilda.md section 1. No real payment
+ * processor is wired up yet, so the only purchase path today is spending
+ * Tokens here — a placeholder for the "cobrada em dinheiro real" recurring
+ * billing the docs describe. `VIP_CREDIT_XP_BONUS_PERCENT` is applied to
+ * battle rewards in useBattleSimulation.ts.
+ */
+export const VIP_COST_TOKENS = 500;
+export const VIP_DURATION_DAYS = 30;
+export const VIP_CREDIT_XP_BONUS_PERCENT = 0.15;
+export const VIP_DAILY_BONUS_TOKENS = 50;
+
+/** The Cluster's own passive bonus (docs section 2) — separate constant since it stacks with, not replaces, Root Access's. */
+export const CLUSTER_CREDIT_XP_BONUS_PERCENT = 0.25;
+
 export interface UsePlayerProgressResult {
   /** null while loading; falls back to DEFAULT_PROGRESS if the row/table isn't there yet. */
   progress: PlayerProgress | null;
@@ -23,6 +38,11 @@ export interface UsePlayerProgressResult {
   tokens: number;
   /** Which team shows on the (future) public profile. */
   teamVisibility: TeamVisibility;
+  /** True whenever vipExpiresAt is set and in the future — the single source of truth for "is Root Access active." */
+  vipActive: boolean;
+  vipExpiresAt: string | null;
+  /** Cluster-only currency (docs section 2) — no earn path yet (the DDoS Raid that grants it isn't built), so this stays at 0 until then. */
+  bandwidth: number;
   loading: boolean;
   /** Non-null if the last load/save hit an error (e.g. the migration hasn't been run yet) — play continues, just unsaved. */
   error: string | null;
@@ -32,6 +52,19 @@ export interface UsePlayerProgressResult {
   /** Deducts tokens if affordable, persists, and returns whether it succeeded. */
   spendTokens: (amount: number) => Promise<boolean>;
   setTeamVisibility: (value: TeamVisibility) => Promise<void>;
+  /** Spends VIP_COST_TOKENS for VIP_DURATION_DAYS of Root Access, stacking onto any remaining time if already active. Returns whether it succeeded (fails if tokens are short). */
+  purchaseVip: () => Promise<boolean>;
+  /** Grants VIP_DAILY_BONUS_TOKENS once per UTC calendar day while Root Access is active. Returns whether it actually granted anything. */
+  claimDailyVipBonus: () => Promise<boolean>;
+}
+
+function isVipActive(vipExpiresAt: string | null): boolean {
+  return !!vipExpiresAt && new Date(vipExpiresAt).getTime() > Date.now();
+}
+
+function isSameUtcDay(a: string, b: Date): boolean {
+  const d = new Date(a);
+  return d.getUTCFullYear() === b.getUTCFullYear() && d.getUTCMonth() === b.getUTCMonth() && d.getUTCDate() === b.getUTCDate();
 }
 
 /** Loads (creating on first login) and persists a player's world position + wallet in `player_progress`. */
@@ -40,6 +73,9 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
   const [starterBoostClaimed, setStarterBoostClaimed] = useState(false);
   const [tokens, setTokens] = useState(0);
   const [teamVisibility, setTeamVisibilityState] = useState<TeamVisibility>(DEFAULT_TEAM_VISIBILITY);
+  const [vipExpiresAt, setVipExpiresAt] = useState<string | null>(null);
+  const [vipDailyBonusClaimedAt, setVipDailyBonusClaimedAt] = useState<string | null>(null);
+  const [bandwidth, setBandwidth] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,6 +85,9 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
       setStarterBoostClaimed(false);
       setTokens(0);
       setTeamVisibilityState(DEFAULT_TEAM_VISIBILITY);
+      setVipExpiresAt(null);
+      setVipDailyBonusClaimedAt(null);
+      setBandwidth(0);
       setLoading(false);
       return;
     }
@@ -60,7 +99,7 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
     (async () => {
       const { data, error: selectError } = await supabase
         .from('player_progress')
-        .select('fase, estagio, credits, xp, starter_boost_claimed, tokens, team_visibility')
+        .select('fase, estagio, credits, xp, starter_boost_claimed, tokens, team_visibility, vip_expires_at, vip_daily_bonus_claimed_at, bandwidth')
         .eq('user_id', userId)
         .maybeSingle();
 
@@ -72,6 +111,9 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
         setStarterBoostClaimed(false);
         setTokens(DEFAULT_TOKENS);
         setTeamVisibilityState(DEFAULT_TEAM_VISIBILITY);
+        setVipExpiresAt(null);
+        setVipDailyBonusClaimedAt(null);
+        setBandwidth(0);
         setLoading(false);
         return;
       }
@@ -81,6 +123,9 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
         setStarterBoostClaimed(data.starter_boost_claimed);
         setTokens(data.tokens);
         setTeamVisibilityState((data.team_visibility as TeamVisibility) ?? DEFAULT_TEAM_VISIBILITY);
+        setVipExpiresAt(data.vip_expires_at);
+        setVipDailyBonusClaimedAt(data.vip_daily_bonus_claimed_at);
+        setBandwidth(data.bandwidth);
       } else {
         const { error: insertError } = await supabase
           .from('player_progress')
@@ -91,6 +136,9 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
           setStarterBoostClaimed(false);
           setTokens(DEFAULT_TOKENS);
           setTeamVisibilityState(DEFAULT_TEAM_VISIBILITY);
+          setVipExpiresAt(null);
+          setVipDailyBonusClaimedAt(null);
+          setBandwidth(0);
         }
       }
       if (!cancelled) setLoading(false);
@@ -140,16 +188,53 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
     [userId],
   );
 
+  const purchaseVip = useCallback(async (): Promise<boolean> => {
+    if (!userId || tokens < VIP_COST_TOKENS) return false;
+    const nextTokens = tokens - VIP_COST_TOKENS;
+    // Stacks onto remaining time if already active, rather than resetting the clock.
+    const base = isVipActive(vipExpiresAt) ? new Date(vipExpiresAt as string) : new Date();
+    const nextExpiresAt = new Date(base.getTime() + VIP_DURATION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    setTokens(nextTokens);
+    setVipExpiresAt(nextExpiresAt);
+    const { error: updateError } = await supabase
+      .from('player_progress')
+      .update({ tokens: nextTokens, vip_expires_at: nextExpiresAt })
+      .eq('user_id', userId);
+    setError(updateError ? updateError.message : null);
+    return true;
+  }, [userId, tokens, vipExpiresAt]);
+
+  const claimDailyVipBonus = useCallback(async (): Promise<boolean> => {
+    if (!userId || !isVipActive(vipExpiresAt)) return false;
+    const now = new Date();
+    if (vipDailyBonusClaimedAt && isSameUtcDay(vipDailyBonusClaimedAt, now)) return false;
+    const nextTokens = tokens + VIP_DAILY_BONUS_TOKENS;
+    const nowIso = now.toISOString();
+    setTokens(nextTokens);
+    setVipDailyBonusClaimedAt(nowIso);
+    const { error: updateError } = await supabase
+      .from('player_progress')
+      .update({ tokens: nextTokens, vip_daily_bonus_claimed_at: nowIso })
+      .eq('user_id', userId);
+    setError(updateError ? updateError.message : null);
+    return true;
+  }, [userId, tokens, vipExpiresAt, vipDailyBonusClaimedAt]);
+
   return {
     progress,
     starterBoostClaimed,
     tokens,
     teamVisibility,
+    vipActive: isVipActive(vipExpiresAt),
+    vipExpiresAt,
+    bandwidth,
     loading,
     error,
     saveProgress,
     claimStarterBoost,
     spendTokens,
     setTeamVisibility,
+    purchaseVip,
+    claimDailyVipBonus,
   };
 }

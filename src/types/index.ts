@@ -48,7 +48,6 @@ export interface PlayerState {
   name: string;
   rankTier: string;
   rankValue: string;
-  guildName: string;
   credits: number;
   xp: number;
   tokens: number;

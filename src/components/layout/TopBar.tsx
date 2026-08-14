@@ -12,6 +12,9 @@ interface TopBarProps {
   onOpenSettings: () => void;
   /** Credits/tokens badges are shortcuts into the Loja — where both currencies actually get spent. */
   onOpenShop: () => void;
+  /** Real Cluster name, or null if the player hasn't joined one yet. */
+  clusterName: string | null;
+  onOpenCluster: () => void;
 }
 
 function formatNumber(n: number): string {
@@ -19,7 +22,17 @@ function formatNumber(n: number): string {
   return `${n}`;
 }
 
-export function TopBar({ player, avatarCharacterId, onOpenProfile, onOpenWiki, onOpenNotifications, onOpenSettings, onOpenShop }: TopBarProps) {
+export function TopBar({
+  player,
+  avatarCharacterId,
+  onOpenProfile,
+  onOpenWiki,
+  onOpenNotifications,
+  onOpenSettings,
+  onOpenShop,
+  clusterName,
+  onOpenCluster,
+}: TopBarProps) {
   const avatarPortraitUrl = avatarCharacterId ? DISPLAY_PORTRAIT_BY_TEMPLATE_ID[avatarCharacterId] : undefined;
 
   return (
@@ -35,10 +48,14 @@ export function TopBar({ player, avatarCharacterId, onOpenProfile, onOpenWiki, o
         </div>
       </button>
 
-      {/* Guild */}
-      <button className="hidden shrink-0 items-center gap-2 rounded-lg border border-code-500/25 bg-void-800/60 px-3 py-1.5 transition hover:border-code-400/60 md:flex">
+      {/* Cluster */}
+      <button
+        onClick={onOpenCluster}
+        title={clusterName ? 'Ver Cluster' : 'Entrar em um Cluster'}
+        className="hidden shrink-0 items-center gap-2 rounded-lg border border-code-500/25 bg-void-800/60 px-3 py-1.5 transition hover:border-code-400/60 md:flex"
+      >
         <Icon name="shield" size={16} className="text-code-400" />
-        <span className="max-w-[9rem] truncate text-xs text-white/70">{player.guildName}</span>
+        <span className="max-w-[9rem] truncate text-xs text-white/70">{clusterName ?? 'Sem Cluster'}</span>
       </button>
 
       {/* Buffs */}

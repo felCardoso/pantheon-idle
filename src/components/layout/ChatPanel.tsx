@@ -6,6 +6,10 @@ interface ChatPanelProps {
   messages: ChatMessage[];
   open: boolean;
   onClose: () => void;
+  /** Real Cluster chat (docs/monetizacao-guilda.md section 2) — replaces the generic mock/local-state behavior for the "Guilda" tab specifically. */
+  clusterMessages: ChatMessage[];
+  inCluster: boolean;
+  onSendClusterMessage: (text: string) => void;
 }
 
 const TABS: { id: ChatTabId; label: string; icon: string }[] = [
@@ -22,18 +26,23 @@ const TONE_CLASS: Record<NonNullable<ChatMessage['tone']>, string> = {
   system: 'text-arcane-300',
 };
 
-export function ChatPanel({ messages, open, onClose }: ChatPanelProps) {
+export function ChatPanel({ messages, open, onClose, clusterMessages, inCluster, onSendClusterMessage }: ChatPanelProps) {
   const [activeTab, setActiveTab] = useState<ChatTabId>('log');
   const [draft, setDraft] = useState('');
   const [localMessages, setLocalMessages] = useState<ChatMessage[]>([]);
 
   const allMessages = useMemo(() => [...messages, ...localMessages], [messages, localMessages]);
-  const filtered = allMessages.filter((m) => m.tab === activeTab);
-  const canPost = activeTab === 'global' || activeTab === 'guild';
+  const filtered = activeTab === 'guild' ? clusterMessages : allMessages.filter((m) => m.tab === activeTab);
+  const canPost = activeTab === 'global' || (activeTab === 'guild' && inCluster);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!draft.trim() || !canPost) return;
+    if (activeTab === 'guild') {
+      onSendClusterMessage(draft.trim());
+      setDraft('');
+      return;
+    }
     setLocalMessages((prev) => [
       ...prev,
       {
@@ -79,7 +88,11 @@ export function ChatPanel({ messages, open, onClose }: ChatPanelProps) {
         </div>
 
         <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto px-3 py-2 font-mono text-xs">
-          {filtered.length === 0 && <p className="pt-4 text-center text-white/30">Nada por aqui ainda.</p>}
+          {filtered.length === 0 && (
+            <p className="pt-4 text-center text-white/30">
+              {activeTab === 'guild' && !inCluster ? 'Entre em um Cluster para conversar aqui.' : 'Nada por aqui ainda.'}
+            </p>
+          )}
           {filtered.map((m) => (
             <p key={m.id} className={TONE_CLASS[m.tone ?? 'default']}>
               <span className="text-white/30">[{m.time}]</span>{' '}

@@ -26,7 +26,11 @@ interface ProfileModalProps {
   onChangeTeamVisibility: (value: TeamVisibility) => void;
   rankTier: string;
   rankValue: string;
-  guildName: string;
+  clusterName: string | null;
+  pvpRating: number;
+  pvpWins: number;
+  pvpLosses: number;
+  pvpDefenseTeam: OwnedCharacter[];
 }
 
 type Tab = 'perfil' | 'conquistas' | 'historico';
@@ -57,7 +61,11 @@ export function ProfileModal({
   onChangeTeamVisibility,
   rankTier,
   rankValue,
-  guildName,
+  clusterName,
+  pvpRating,
+  pvpWins,
+  pvpLosses,
+  pvpDefenseTeam,
 }: ProfileModalProps) {
   const [tab, setTab] = useState<Tab>('perfil');
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
@@ -65,6 +73,7 @@ export function ProfileModal({
 
   const avatarPortraitUrl = avatarCharacterId ? DISPLAY_PORTRAIT_BY_TEMPLATE_ID[avatarCharacterId] : undefined;
   const roster = buildOwnedRoster(ownedCharacters);
+  const defenseRoster = buildOwnedRoster(pvpDefenseTeam);
 
   return (
     <Modal title="Perfil" icon="user" onClose={onClose}>
@@ -144,7 +153,11 @@ export function ProfileModal({
                 </div>
                 <div className="flex items-center gap-1.5 rounded-full border border-code-500/25 bg-void-800/60 px-3 py-1.5">
                   <Icon name="shield" size={14} className="text-code-400" />
-                  <span className="text-xs text-white/70">{guildName}</span>
+                  <span className="text-xs text-white/70">{clusterName ?? 'Sem Cluster'}</span>
+                </div>
+                <div className="flex items-center gap-1.5 rounded-full border border-signal-red/25 bg-void-800/60 px-3 py-1.5">
+                  <Icon name="crosshair" size={14} className="text-signal-red" />
+                  <span className="font-mono text-xs text-white/70">{pvpRating} rating</span>
                 </div>
               </div>
 
@@ -173,8 +186,8 @@ export function ProfileModal({
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                 {[
                   { label: 'Rank máximo', value: rankValue, icon: 'crown' },
-                  { label: 'Vitórias PvP', value: '0', icon: 'swords' },
-                  { label: 'Derrotas', value: '0', icon: 'shield-off' },
+                  { label: 'Vitórias PvP', value: String(pvpWins), icon: 'swords' },
+                  { label: 'Derrotas', value: String(pvpLosses), icon: 'shield-off' },
                   { label: 'Fase atual', value: String(frontierFase), icon: 'map' },
                   { label: 'Personagens', value: `${ownedCharacters.length}/${ALL_CHARACTER_IDS.length}`, icon: 'id-card' },
                 ].map((card) => (
@@ -209,9 +222,21 @@ export function ProfileModal({
                 {teamVisibility === 'hidden' ? (
                   <p className="rounded-lg border border-void-600 bg-void-800/30 p-4 text-center text-xs text-white/40">Time oculto.</p>
                 ) : teamVisibility === 'pvp' ? (
-                  <p className="rounded-lg border border-void-600 bg-void-800/30 p-4 text-center text-xs text-white/40">
-                    Time de PvP ainda não existe como um time separado — em breve.
-                  </p>
+                  defenseRoster.length === 0 ? (
+                    <p className="rounded-lg border border-void-600 bg-void-800/30 p-4 text-center text-xs text-white/40">
+                      Nenhum time de defesa salvo ainda — configure um na Arena.
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {defenseRoster.map((c) => (
+                        <div key={c.templateId} className="flex w-16 flex-col items-center gap-1 text-center">
+                          <CharacterPortrait name={c.name} element={c.element} faction={c.faction} portraitUrl={c.portraitUrl} size={48} />
+                          <span className="w-full truncate text-[10px] text-white/70">{c.name}</span>
+                          <span className="text-[9px] text-white/40">Nv.{c.level}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {roster.map((c) => (
