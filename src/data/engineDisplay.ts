@@ -1,6 +1,13 @@
-import caiporaArt from '../assets/caipora.png';
-import saciArt from '../assets/saci.png';
-import type { Element, Faction, Rarity } from '../types';
+import amaterasuArt from "../assets/amaterasu.png";
+import athenaArt from "../assets/athena.png";
+import caiporaArt from "../assets/caipora.png";
+import herculesArt from "../assets/hercules.png";
+import jurupariArt from "../assets/jurupari.png";
+import medusaArt from "../assets/medusa.png";
+import minotaurArt from "../assets/minotaur.png";
+import odinArt from "../assets/odin.png";
+import saciArt from "../assets/saci.png";
+import type { Element, Faction, Rarity } from "../types";
 
 /**
  * Enemies have no real level system (no XP, they're not owned/progressed) —
@@ -10,9 +17,9 @@ import type { Element, Faction, Rarity } from '../types';
  * carried on the Combatant itself, not looked up by templateId.
  */
 export const ENEMY_LEVEL_BY_TEMPLATE_ID: Record<string, number> = {
-  'script-kiddie': 12,
-  'firewall-turret': 12,
-  'corrupted-daemon': 12,
+  "script-kiddie": 12,
+  "firewall-turret": 12,
+  "corrupted-daemon": 12,
   anhanga: 60,
 };
 
@@ -33,28 +40,25 @@ export const ENEMY_LEVEL_BY_TEMPLATE_ID: Record<string, number> = {
  */
 export const DISPLAY_RARITY_BY_TEMPLATE_ID: Record<string, Rarity> = {
   // Folclore Brasileiro
-  jurupari: 'Alpha',
-  curupira: 'Alpha',
-  caipora: 'Alpha',
-  saci: 'Alpha',
+  jurupari: "Alpha",
+  curupira: "Alpha",
+  caipora: "Alpha",
+  saci: "Alpha",
   // Mitologia Nórdica
-  odin: 'Alpha',
-  freya: 'Alpha',
-  thor: 'Alpha',
-  ratatoskr: 'Alpha',
+  odin: "Alpha",
+  freya: "Alpha",
+  thor: "Alpha",
+  ratatoskr: "Alpha",
   // Mitologia Grega
-  zeus: 'Alpha',
-  hades: 'Alpha',
-  atena: 'Alpha',
-  satiro: 'Alpha',
-  medusa: 'Alpha',
-  hercules: 'Alpha',
-  minotauro: 'Alpha',
+  zeus: "Alpha",
+  hades: "Alpha",
+  atena: "Alpha",
+  satiro: "Alpha",
   // Jurupari.iso enemies
-  'script-kiddie': 'Alpha',
-  'firewall-turret': 'Alpha',
-  'corrupted-daemon': 'Alpha',
-  anhanga: 'Quantum',
+  "script-kiddie": "Alpha",
+  "firewall-turret": "Alpha",
+  "corrupted-daemon": "Alpha",
+  anhanga: "Quantum",
 };
 
 /**
@@ -63,8 +67,15 @@ export const DISPLAY_RARITY_BY_TEMPLATE_ID: Record<string, Rarity> = {
  * pixel-silhouette placeholder until real art lands for them too.
  */
 export const DISPLAY_PORTRAIT_BY_TEMPLATE_ID: Record<string, string> = {
-  saci: saciArt,
+  amaterasu: amaterasuArt,
+  athena: athenaArt,
   caipora: caiporaArt,
+  hercules: herculesArt,
+  jurupari: jurupariArt,
+  medusa: medusaArt,
+  minotaur: minotaurArt,
+  odin: odinArt,
+  saci: saciArt,
 };
 
 /**
@@ -74,13 +85,23 @@ export const DISPLAY_PORTRAIT_BY_TEMPLATE_ID: Record<string, string> = {
  * body. Calibrated by eye against the actual art; a character without an
  * entry here falls back to DISPLAY_AVATAR_FOCUS_FALLBACK.
  */
-export const DISPLAY_AVATAR_FOCUS_BY_TEMPLATE_ID: Record<string, { x: number; y: number }> = {
-  saci: { x: 50, y: 22 },
+export const DISPLAY_AVATAR_FOCUS_BY_TEMPLATE_ID: Record<
+  string,
+  { x: number; y: number }
+> = {
+  amaterasu: { x: 50, y: 23 },
+  athena: { x: 50, y: 23 },
   caipora: { x: 55, y: 23 },
+  hercules: { x: 50, y: 23 },
+  jurupari: { x: 50, y: 23 },
+  medusa: { x: 50, y: 23 },
+  minotaur: { x: 50, y: 23 },
+  odin: { x: 50, y: 23 },
+  saci: { x: 50, y: 22 },
 };
 
 export const DISPLAY_AVATAR_FOCUS_FALLBACK = { x: 50, y: 25 };
 
-export const FALLBACK_FACTION: Faction = 'Malware';
-export const FALLBACK_RARITY: Rarity = 'Alpha';
-export const FALLBACK_ELEMENT: Element = 'Backdoor';
+export const FALLBACK_FACTION: Faction = "Malware";
+export const FALLBACK_RARITY: Rarity = "Alpha";
+export const FALLBACK_ELEMENT: Element = "Backdoor";
