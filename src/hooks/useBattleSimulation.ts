@@ -1,8 +1,17 @@
 import { useCallback, useEffect, useReducer, useState } from 'react';
 import { loadCharactersByIds, loadJurupariBoss, loadJurupariComuns } from '../engine/core/loader';
 import { runBattle } from '../engine/core/battle';
+import { Rng } from '../engine/core/rng';
 import { applyReplayEntry, buildNameToId, createInitialReplayState, type ReplayState } from '../engine/core/replay';
-import { difficultyMultiplier, ESTAGIOS_PER_FASE, isBossStage, nextStage, teamSizeMultiplier, type WorldPosition } from '../engine/core/progression';
+import {
+  difficultyMultiplier,
+  enemyCountRange,
+  ESTAGIOS_PER_FASE,
+  isBossStage,
+  nextStage,
+  teamSizeMultiplier,
+  type WorldPosition,
+} from '../engine/core/progression';
 import type { BattleLogEntry, Combatant } from '../engine/core/types';
 import {
   DISPLAY_PORTRAIT_BY_TEMPLATE_ID,
@@ -29,12 +38,24 @@ interface BattleSession extends WorldPosition {
  * Enemies are calibrated against the original 4-character team; a player's
  * owned roster can now be smaller (a solo starter, until Invocação ships), so
  * scale enemy stats down proportionally on top of the per-estágio difficulty.
+ * Non-boss waves also roll a random enemy count within that estágio's
+ * enemyCountRange, using a separate Rng seeded off the battle's own seed so
+ * the roll is deterministic (repeatBattle reproduces it) without perturbing
+ * the battle simulation's own Rng sequence.
  */
 function createSession(seed: number, position: WorldPosition, ownedCharacters: OwnedCharacter[]): BattleSession {
   const boss = isBossStage(position);
   const allies = loadCharactersByIds(ownedCharacters.map((o) => ({ id: o.characterId, xp: o.xp })));
   const sizeFactor = teamSizeMultiplier(ownedCharacters.length);
-  const enemies = boss ? loadJurupariBoss(sizeFactor) : loadJurupariComuns(difficultyMultiplier(position) * sizeFactor);
+  let enemies: Combatant[];
+  if (boss) {
+    enemies = loadJurupariBoss(sizeFactor);
+  } else {
+    const [min, max] = enemyCountRange(position.estagio);
+    const compositionRng = new Rng(seed);
+    const count = min + Math.floor(compositionRng.next() * (max - min + 1));
+    enemies = loadJurupariComuns(count, difficultyMultiplier(position) * sizeFactor);
+  }
   const result = runBattle(allies, enemies, { seed });
   return { seed, ...position, isBoss: boss, ownedCharacters, allies, enemies, log: result.log, nameToId: buildNameToId(allies, enemies) };
 }
