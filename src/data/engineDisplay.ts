@@ -4,15 +4,19 @@ import olympusBg from "../assets/worlds/olympus.png";
 import orunBg from "../assets/worlds/orun.png";
 import takamagaharaBg from "../assets/worlds/takamagahara.png";
 import yggdrasilBg from "../assets/worlds/yggrdasil.png";
+
 import amaterasuArt from "../assets/characters/amaterasu.png";
-import athenaArt from "../assets/characters/athena.png";
+import atenaArt from "../assets/characters/atena.png";
 import caiporaArt from "../assets/characters/caipora.png";
+import freyaArt from "../assets/characters/freya.png";
 import herculesArt from "../assets/characters/hercules.png";
 import jurupariArt from "../assets/characters/jurupari.png";
 import medusaArt from "../assets/characters/medusa.png";
-import minotaurArt from "../assets/characters/minotaur.png";
+import minotauroArt from "../assets/characters/minotauro.png";
 import odinArt from "../assets/characters/odin.png";
+import ratatoskrArt from "../assets/characters/ratatoskr.png";
 import saciArt from "../assets/characters/saci.png";
+
 import type { Element, Faction, Rarity } from "../types";
 
 /**
@@ -74,13 +78,15 @@ export const DISPLAY_RARITY_BY_TEMPLATE_ID: Record<string, Rarity> = {
  */
 export const DISPLAY_PORTRAIT_BY_TEMPLATE_ID: Record<string, string> = {
   amaterasu: amaterasuArt,
-  athena: athenaArt,
+  atena: atenaArt,
   caipora: caiporaArt,
+  freya: freyaArt,
   hercules: herculesArt,
   jurupari: jurupariArt,
   medusa: medusaArt,
-  minotaur: minotaurArt,
+  minotauro: minotauroArt,
   odin: odinArt,
+  ratatoskr: ratatoskrArt,
   saci: saciArt,
 };
 
@@ -96,13 +102,15 @@ export const DISPLAY_AVATAR_FOCUS_BY_TEMPLATE_ID: Record<
   { x: number; y: number }
 > = {
   amaterasu: { x: 50, y: 23 },
-  athena: { x: 50, y: 23 },
+  atena: { x: 50, y: 23 },
   caipora: { x: 55, y: 23 },
+  freya: { x: 50, y: 23 },
   hercules: { x: 50, y: 23 },
   jurupari: { x: 50, y: 23 },
   medusa: { x: 50, y: 23 },
-  minotaur: { x: 50, y: 23 },
+  minotauro: { x: 50, y: 23 },
   odin: { x: 50, y: 23 },
+  ratatoskr: { x: 50, y: 23 },
   saci: { x: 50, y: 22 },
 };
 
