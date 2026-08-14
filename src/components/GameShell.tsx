@@ -7,6 +7,7 @@ import { BattleStage } from './battle/BattleStage';
 import { TeamPage } from './roster/TeamPage';
 import { CharactersPage } from './roster/CharactersPage';
 import { ShopPage } from './shop/ShopPage';
+import { GachaPage } from './gacha/GachaPage';
 import { ClusterPage } from './cluster/ClusterPage';
 import { MarketPage } from './market/MarketPage';
 import { ProfileModal } from './profile/ProfileModal';
@@ -349,6 +350,8 @@ function GameShellReady({
               onClaimDailyVipBonus={claimDailyVipBonus}
               inCluster={!!cluster.cluster}
             />
+          ) : activeMenuId === 'summon' ? (
+            <GachaPage credits={battle.credits} onAcquireCharacter={acquireCharacter} onAdjustCredits={battle.adjustCredits} />
           ) : activeMenuId === 'guild' ? (
             <ClusterPage userId={userId} cluster={cluster} bandwidth={0} onToast={setToast} />
           ) : activeMenuId === 'market' ? (

@@ -80,7 +80,7 @@ Bônus de atributos (HP/ATK) por quantidade de personagens da **mesma mitologia*
 ## 6. Habilidades
 
 - Personagens de raridade **Stable ou acima têm 1 habilidade passiva** única (curada pelo design, sem escolha do jogador)
-- Personagens **Alpha, Beta ou RC têm habilidade ativa**, com **3 opções** que o jogador escolhe (fixa até redefinir)
+- Personagens **Alpha ou Beta têm habilidade ativa**, com **3 opções** que o jogador escolhe (fixa até redefinir)
 - Geração das 3 opções: matriz de **Gatilho × Efeito × Alvo**, curada manualmente por personagem — não randômica pro jogador. Isso acelera o design (montar combinações a partir de peças já existentes) sem parecer genérico, porque o design escolhe quais combinações fazem sentido pra cada personagem
 
 ### Gatilhos disponíveis

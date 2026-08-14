@@ -39,9 +39,9 @@ Direto da Planilha de Balanceamento (stats base por raridade, nível 1, 0 estrel
 
 | Personagem | Raridade | Facção | Elemento | HP | ATK | DEF | INI | ESQ |
 |---|---|---|---|---|---|---|---|---|
-| **Jurupari.exe** | Quantum | Malware | Backdoor | 3000 | 300 | 0 | 110 | 10% |
+| **Jurupari.exe** | LTS | Malware | Backdoor | 3000 | 300 | 0 | 110 | 10% |
 | **Boitatá.exe** | LTS | Firewall | Vírus | 2200 | 220 | 0 | 100 | 9% |
-| **Iara.exe** | RC | Crypto-Miner | Brute Force | 1300 | 130 | 0 | 90 | 7% |
+| **Iara.exe** | Beta | Crypto-Miner | Brute Force | 1300 | 130 | 0 | 90 | 7% |
 | **Saci.exe** | Alpha | Exploit | Nanites | 800 | 80 | 0 | 80 | 5% |
 
 ## 5. Habilidades calibradas (valores reais em vez de placeholder)
@@ -58,7 +58,7 @@ Direto da Planilha de Balanceamento (stats base por raridade, nível 1, 0 estrel
 ### Saci.exe (ativa — Opção 1 escolhida pro MVP)
 "Início de batalha → ganha **+30 INI** (30% acima do próprio valor base) pelo resto da batalha"
 
-*(As outras 2 opções de cada personagem Alpha/Beta/RC continuam disponíveis conforme os documentos de Roster — aqui só fixei 1 de cada pra ter um build jogável imediato no MVP.)*
+*(As outras 2 opções de cada personagem Alpha/Beta continuam disponíveis conforme os documentos de Roster — aqui só fixei 1 de cada pra ter um build jogável imediato no MVP.)*
 
 ## 6. Inimigos comuns calibrados — Jurupari.iso
 
@@ -76,7 +76,7 @@ Usando os arquétipos do documento de Inimigos, com stats propostos pro Estágio
 
 | Stat | Valor |
 |---|---|
-| HP | 12.000 (equivalente a ~4x o HP de um personagem Quantum — pensado pra durar vários turnos contra um time de 5) |
+| HP | 12.000 (equivalente a ~4x o HP de um personagem LTS — pensado pra durar vários turnos contra um time de 5) |
 | ATK | 250 |
 | DEF | 50 |
 | INI | 95 |

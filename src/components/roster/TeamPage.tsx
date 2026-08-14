@@ -30,8 +30,8 @@ interface TeamPageProps {
   onToast: (message: string) => void;
 }
 
-const RARITY_ORDER: Record<Rarity, number> = { Quantum: 0, LTS: 1, Stable: 2, RC: 3, Beta: 4, Alpha: 5 };
-const RARITIES: Rarity[] = ['Alpha', 'Beta', 'RC', 'Stable', 'LTS', 'Quantum'];
+const RARITY_ORDER: Record<Rarity, number> = { LTS: 0, Stable: 1, Beta: 2, Alpha: 3 };
+const RARITIES: Rarity[] = ['Alpha', 'Beta', 'Stable', 'LTS'];
 type SortKey = 'rarity' | 'level' | 'name';
 
 const TRIGGER_LABEL: Record<AbilityTrigger, string> = {

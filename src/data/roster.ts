@@ -1,6 +1,6 @@
 import { ALL_CHARACTER_IDS, characterIdsByMythology, loadCharactersByIds } from '../engine/core/loader';
 import { xpProgress } from '../engine/core/leveling';
-import type { RngLike } from '../engine/core/rng';
+import { Rng, type RngLike } from '../engine/core/rng';
 import { CHARACTER_INFO, type AbilityInfo, type CharacterInfo } from './characterInfo';
 import { DISPLAY_PORTRAIT_BY_TEMPLATE_ID, DISPLAY_RARITY_BY_TEMPLATE_ID, FALLBACK_ELEMENT, FALLBACK_FACTION, FALLBACK_RARITY } from './engineDisplay';
 import type { OwnedCharacter } from '../hooks/useOwnedCharacters';
@@ -110,7 +110,7 @@ export function buildFullRosterView(owned: OwnedCharacter[]): RosterCharacter[] 
 
 /**
  * 3 onboarding starter options — one random character from each mythology,
- * independent of rarity (a new player might land a Quantum flagship or an
+ * independent of rarity (a new player might land an LTS flagship or an
  * Alpha just as easily; not gated to any particular tier). Always level 0.
  */
 export function pickStarterOptions(rng: RngLike): RosterCharacter[] {
@@ -136,4 +136,34 @@ export function diagramName(name: string): string {
  */
 export function pullGachaCharacter(rng: RngLike): string {
   return rng.pick(ALL_CHARACTER_IDS);
+}
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * A UTC-epoch week index — not a calendar-locale ISO week, just
+ * `time / WEEK_MS` floored. Same value for every player at any given moment,
+ * and ticks over exactly once every 7 days; used to seed the Loja's weekly
+ * character showcase (see pickWeeklyShowcase below).
+ */
+export function currentShowcaseWeek(now: Date = new Date()): number {
+  return Math.floor(now.getTime() / WEEK_MS);
+}
+
+/**
+ * Picks 3 distinct character ids for the Loja's weekly showcase, seeded by
+ * currentShowcaseWeek() so every player sees the same 3 characters until the
+ * week rolls over. Slot 0 is always purchasable; slots 1-2 are Root
+ * Access-only (see ShopPage) — that's an access rule the caller applies, not
+ * something encoded here.
+ */
+export function pickWeeklyShowcase(weekSeed: number): string[] {
+  const rng = new Rng(weekSeed >>> 0);
+  const pool = [...ALL_CHARACTER_IDS];
+  const picks: string[] = [];
+  for (let i = 0; i < 3 && pool.length > 0; i++) {
+    const index = Math.floor(rng.next() * pool.length);
+    picks.push(pool.splice(index, 1)[0]);
+  }
+  return picks;
 }

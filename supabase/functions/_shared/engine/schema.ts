@@ -7,7 +7,7 @@ export type Faction = 'Firewall' | 'Malware' | 'Crypto-Miner' | 'Exploit';
 
 export type Element = 'Vírus' | 'Brute Force' | 'Nanites' | 'Encryption' | 'Backdoor';
 
-export type Rarity = 'Alpha' | 'Beta' | 'RC' | 'Stable' | 'LTS' | 'Quantum';
+export type Rarity = 'Alpha' | 'Beta' | 'Stable' | 'LTS';
 
 export type StatusType =
   | 'virus'

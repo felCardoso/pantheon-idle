@@ -1,6 +1,6 @@
 # Personagens de Jurupari.iso
 
-## Jurupari.exe — Quantum · Malware · Backdoor
+## Jurupari.exe — LTS · Malware · Backdoor
 
 Um processo antigo e pouco documentado; as infecções que espalha parecem se recusar a sair do sistema.
 
@@ -12,7 +12,7 @@ Uma rotina de proteção que revida com força sempre que provocada; poucos atac
 
 **Passiva:** ao ser atacado, tem chance de infectar quem o atacou.
 
-## Iara.exe — RC · Crypto-Miner · Brute Force
+## Iara.exe — Beta · Crypto-Miner · Brute Force
 
 Sua rotina de dados hipnotiza processos inimigos, atraindo-os pra fora de sincronia antes que percebam.
 
@@ -26,4 +26,4 @@ Aparece, desaparece, reaparece; brinca com a latência do sistema até confundir
 
 ---
 
-*Cada personagem em Alpha, Beta ou RC tem 3 opções de habilidade ativa para você escolher e fixar. Personagens Stable ou acima têm uma única habilidade passiva, definida desde a origem do processo.*
+*Cada personagem em Alpha ou Beta tem 3 opções de habilidade ativa para você escolher e fixar. Personagens Stable ou acima têm uma única habilidade passiva, definida desde a origem do processo.*
