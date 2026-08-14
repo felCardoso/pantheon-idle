@@ -57,10 +57,11 @@ export function OnboardingScreen({ onSelect }: OnboardingScreenProps) {
               <div className="rounded-lg border border-void-600 bg-void-800/60 p-2.5">
                 <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-arcane-300">
                   <Icon name="sparkles" size={12} />
-                  {c.abilityName ?? c.abilityKind}
-                  {c.abilityName && <span className="font-normal text-white/40">· {c.abilityKind}</span>}
+                  {c.abilities[0].name ?? c.abilities[0].kind}
+                  {c.abilities[0].name && <span className="font-normal text-white/40">· {c.abilities[0].kind}</span>}
+                  {c.abilities.length > 1 && <span className="font-normal text-white/40">· +{c.abilities.length - 1}</span>}
                 </div>
-                <p className="mt-1 text-xs leading-relaxed text-white/70">{c.abilityDescription}</p>
+                <p className="mt-1 text-xs leading-relaxed text-white/70">{c.abilities[0].description}</p>
               </div>
 
               <button

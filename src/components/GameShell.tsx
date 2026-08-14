@@ -229,6 +229,7 @@ function GameShellReady({
           <StagePanel
             stage={battle.stage}
             frontierEstagio={battle.frontierEstagio}
+            stayOnStage={battle.stayOnStage}
             open={stageOpen}
             onClose={() => setStageOpen(false)}
             onAdvance={battle.startNewBattle}

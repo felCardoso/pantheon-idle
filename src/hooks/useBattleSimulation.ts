@@ -318,10 +318,12 @@ export interface BattleSimulation {
   finished: boolean;
   winner: 'allies' | 'enemies' | 'draw' | null;
   setPlaying: (playing: boolean) => void;
-  /** Jumps immediately to the next attempt: next estágio on a win, retry this one on a loss/draw ("Avançar"). */
+  /** Jumps immediately to the next attempt: next estágio on a win, retry this one on a loss/draw ("Avançar"). Also exits repeat-loop mode. */
   startNewBattle: () => void;
-  /** Replays this exact estágio with the exact same seed ("Repetir estágio"). */
+  /** Replays this exact estágio with the exact same seed, and enters a sticky loop: every subsequent finished battle (win or lose) keeps retrying this estágio — with a fresh seed each time — instead of advancing, until Avançar or the mini-map is used ("Repetir estágio"). */
   repeatBattle: () => void;
+  /** Whether "Repetir estágio" mode is currently active — the source of truth for which of Avançar/Repetir should be highlighted as primary. */
+  stayOnStage: boolean;
   /** Spends (negative) or grants (positive) credits outside of battle rewards — the Loja's purchase/sale/claim primitive. Clamped at 0. */
   adjustCredits: (delta: number) => void;
   /** The player's real saved position (mini-map dots before this are completed) — distinct from `stage` while detouring via playStage. */
@@ -341,6 +343,10 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     initialXp = 0,
   } = options;
   const [playing, setPlaying] = useState(true);
+  // Sticky "Repetir estágio" mode: while true, every finished battle (win or lose) retries the
+  // same non-detour position instead of advancing on a win — set by repeatBattle, cleared by
+  // startNewBattle/playStage. Kept outside the reducer since it's UI-driven mode, not battle state.
+  const [stayOnStage, setStayOnStage] = useState(false);
   const [state, dispatch] = useReducer(reducer, undefined, () =>
     buildInitialState(Date.now() >>> 0, initialPosition, initialOwnedCharacters, initialCredits, initialXp),
   );
@@ -358,7 +364,9 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
   }, [state.floaters.length]);
 
   // World progression: on a win, move to the next estágio (or loop to 1-1 after the boss);
-  // on a loss/draw, retry the same estágio with a fresh seed. Only while Auto is on.
+  // on a loss/draw, retry the same estágio with a fresh seed. Only while Auto is on. While
+  // stayOnStage is set (Repetir estágio), keeps retrying the same non-detour position instead,
+  // never advancing the frontier even on a win.
   // Uses the *current* initialOwnedCharacters (not state.session.ownedCharacters, which is
   // frozen at whatever the previous battle started with) so XP earned since the last battle
   // is reflected in the next one's stats, not just in the Team page display.
@@ -366,15 +374,16 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     if (!state.finished || !playing) return;
     const position: WorldPosition = { fase: state.session.fase, estagio: state.session.estagio };
     const isDetour = position.fase !== state.frontier.fase || position.estagio !== state.frontier.estagio;
-    const target = isDetour ? state.frontier : state.winner === 'allies' ? nextStage(position) : position;
-    const nextFrontier = isDetour ? state.frontier : target;
+    const target = isDetour ? state.frontier : stayOnStage ? position : state.winner === 'allies' ? nextStage(position) : position;
+    const nextFrontier = isDetour || stayOnStage ? state.frontier : target;
     const timer = setTimeout(() => {
       dispatch({ type: 'reset', session: createSession(Date.now() >>> 0, target, initialOwnedCharacters), frontier: nextFrontier });
     }, autoAdvanceDelayMs);
     return () => clearTimeout(timer);
-  }, [state.finished, state.winner, state.session, state.frontier, playing, autoAdvanceDelayMs, initialOwnedCharacters]);
+  }, [state.finished, state.winner, state.session, state.frontier, playing, stayOnStage, autoAdvanceDelayMs, initialOwnedCharacters]);
 
   const startNewBattle = useCallback(() => {
+    setStayOnStage(false);
     const position: WorldPosition = { fase: state.session.fase, estagio: state.session.estagio };
     const isDetour = position.fase !== state.frontier.fase || position.estagio !== state.frontier.estagio;
     const target = isDetour ? state.frontier : state.winner === 'allies' ? nextStage(position) : position;
@@ -384,6 +393,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
   }, [state.session.fase, state.session.estagio, state.frontier, state.winner, initialOwnedCharacters]);
 
   const repeatBattle = useCallback(() => {
+    setStayOnStage(true);
     dispatch({
       type: 'reset',
       session: createSession(state.session.seed, { fase: state.session.fase, estagio: state.session.estagio }, initialOwnedCharacters),
@@ -394,6 +404,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
 
   const playStage = useCallback(
     (estagio: number) => {
+      setStayOnStage(false);
       dispatch({
         type: 'reset',
         session: createSession(Date.now() >>> 0, { fase: state.frontier.fase, estagio }, initialOwnedCharacters),
@@ -430,6 +441,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     setPlaying,
     startNewBattle,
     repeatBattle,
+    stayOnStage,
     adjustCredits,
     frontierFase: state.frontier.fase,
     frontierEstagio: state.frontier.estagio,

@@ -60,6 +60,25 @@ describe('loadCharactersByIds', () => {
     expect(leveled.level).toBe(1);
     expect(leveled.maxHp).toBe(Math.round(800 * 1.02));
   });
+
+  it('loads Medusa/Hércules/Minotauro, each carrying all 4 of their described abilities (the engine fires every ability a character owns independently)', () => {
+    const [medusa, hercules, minotauro] = loadCharactersByIds([
+      { id: 'medusa', xp: 0 },
+      { id: 'hercules', xp: 0 },
+      { id: 'minotauro', xp: 0 },
+    ]);
+    expect(medusa.name).toBe('Medusa.exe');
+    expect(medusa.abilities.map((a) => a.id)).toEqual([
+      'medusa-petrificar',
+      'medusa-veneno',
+      'medusa-armadura-pedra',
+      'medusa-espinhos-veneno',
+    ]);
+    expect(hercules.name).toBe('Hércules.exe');
+    expect(hercules.abilities).toHaveLength(4);
+    expect(minotauro.name).toBe('Minotauro.exe');
+    expect(minotauro.abilities).toHaveLength(4);
+  });
 });
 
 describe('loadJurupariComuns / loadJurupariBoss', () => {

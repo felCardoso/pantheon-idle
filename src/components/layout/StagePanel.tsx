@@ -6,6 +6,8 @@ interface StagePanelProps {
   stage: StageInfo;
   /** The player's real saved progress within the current fase — distinct from `stage.stage` while detouring (playing an earlier estágio via the mini-map). Estágios before this are completed and selectable. */
   frontierEstagio: number;
+  /** Whether "Repetir estágio" mode is active — drives which of Avançar/Repetir is highlighted as primary. */
+  stayOnStage: boolean;
   open: boolean;
   onClose: () => void;
   onAdvance: () => void;
@@ -14,20 +16,9 @@ interface StagePanelProps {
   onSelectStage: (estagio: number) => void;
 }
 
-export function StagePanel({ stage, frontierEstagio, open, onClose, onAdvance, onRepeat, onSelectStage }: StagePanelProps) {
+export function StagePanel({ stage, frontierEstagio, stayOnStage, open, onClose, onAdvance, onRepeat, onSelectStage }: StagePanelProps) {
   const [retreatOnLoss, setRetreatOnLoss] = useState(true);
-  const [primaryAction, setPrimaryAction] = useState<'advance' | 'repeat'>('advance');
   const isDetouring = stage.stage !== frontierEstagio;
-
-  function handleAdvance() {
-    setPrimaryAction('advance');
-    onAdvance();
-  }
-
-  function handleRepeat() {
-    setPrimaryAction('repeat');
-    onRepeat();
-  }
 
   return (
     <>
@@ -72,6 +63,12 @@ export function StagePanel({ stage, frontierEstagio, open, onClose, onAdvance, o
               Repetição — seu progresso real está no Estágio {frontierEstagio}
             </p>
           )}
+          {!isDetouring && stayOnStage && (
+            <p className="mt-1 flex items-center gap-1 text-[10px] uppercase tracking-wide text-code-300">
+              <Icon name="rotate-ccw" size={10} />
+              Repetindo este estágio automaticamente
+            </p>
+          )}
           <div className="mt-2 flex items-center gap-1.5">
             {Array.from({ length: 5 }).map((_, i) => {
               const nodeEstagio = i + 1;
@@ -105,9 +102,9 @@ export function StagePanel({ stage, frontierEstagio, open, onClose, onAdvance, o
 
         <div className="flex flex-col gap-2">
           <button
-            onClick={handleAdvance}
+            onClick={onAdvance}
             className={`flex items-center justify-center gap-2 rounded-lg py-2.5 font-display text-xs font-bold uppercase tracking-wide transition ${
-              primaryAction === 'advance'
+              !stayOnStage
                 ? 'bg-code-500 text-void-950 hover:bg-code-400'
                 : 'border border-void-500 text-white/80 hover:border-code-400 hover:text-code-300'
             }`}
@@ -116,9 +113,9 @@ export function StagePanel({ stage, frontierEstagio, open, onClose, onAdvance, o
             {isDetouring ? 'Voltar ao progresso' : 'Avançar'}
           </button>
           <button
-            onClick={handleRepeat}
+            onClick={onRepeat}
             className={`flex items-center justify-center gap-2 rounded-lg py-2.5 font-display text-xs font-bold uppercase tracking-wide transition ${
-              primaryAction === 'repeat'
+              stayOnStage
                 ? 'bg-code-500 text-void-950 hover:bg-code-400'
                 : 'border border-void-500 text-white/80 hover:border-code-400 hover:text-code-300'
             }`}

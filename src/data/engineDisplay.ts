@@ -47,6 +47,9 @@ export const DISPLAY_RARITY_BY_TEMPLATE_ID: Record<string, Rarity> = {
   hades: 'Alpha',
   atena: 'Alpha',
   satiro: 'Alpha',
+  medusa: 'Alpha',
+  hercules: 'Alpha',
+  minotauro: 'Alpha',
   // Jurupari.iso enemies
   'script-kiddie': 'Alpha',
   'firewall-turret': 'Alpha',
