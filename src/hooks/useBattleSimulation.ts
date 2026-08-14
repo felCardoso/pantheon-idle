@@ -8,8 +8,9 @@ import {
   enemyCountRange,
   ESTAGIOS_PER_FASE,
   isBossStage,
-  nextStage,
+  resolveProgression,
   teamSizeMultiplier,
+  TOTAL_FASES,
   type WorldPosition,
 } from '../engine/core/progression';
 import type { BattleLogEntry, Combatant } from '../engine/core/types';
@@ -86,16 +87,19 @@ interface PlaybackState {
   /** Credits/XP earned from this specific battle — set once it ends, shown on the winner overlay. */
   lastReward: Reward | null;
   /**
-   * The player's real saved progress. Distinct from `session.fase/estagio`
-   * (what's currently on screen) so that replaying an earlier estágio via
-   * playStage — a "detour" — never regresses saved progress: it only ever
-   * moves forward, via a normal win-advance from a non-detour session.
+   * The player's real saved progress — the highest position ever reached.
+   * Distinct from `session.fase/estagio` (what's currently on screen), and
+   * never regresses even when the live position does (e.g. after a retreat,
+   * or replaying an earlier estágio via playStage). See progression.ts's
+   * resolveProgression for the full transition rules.
    */
   frontier: WorldPosition;
+  /** Non-null while grinding back up after a retirar-se-ao-perder retreat — see progression.ts's resolveProgression. */
+  recoveryWinsRemaining: number | null;
 }
 
 type Action =
-  | { type: 'reset'; session: BattleSession; frontier: WorldPosition }
+  | { type: 'reset'; session: BattleSession; frontier: WorldPosition; recoveryWinsRemaining: number | null }
   | { type: 'tick' }
   | { type: 'pruneFloaters' }
   | { type: 'adjustCredits'; delta: number };
@@ -186,6 +190,7 @@ function buildInitialState(
     totalXp: initialXp,
     lastReward: null,
     frontier: position,
+    recoveryWinsRemaining: null,
   };
 }
 
@@ -204,6 +209,7 @@ function reducer(state: PlaybackState, action: Action): PlaybackState {
       winner: null,
       lastReward: null,
       frontier: action.frontier,
+      recoveryWinsRemaining: action.recoveryWinsRemaining,
     };
   }
 
@@ -318,16 +324,23 @@ export interface BattleSimulation {
   finished: boolean;
   winner: 'allies' | 'enemies' | 'draw' | null;
   setPlaying: (playing: boolean) => void;
-  /** Jumps immediately to the next attempt: next estágio on a win, retry this one on a loss/draw ("Avançar"). */
+  /** Switches to advance mode ("Avançar") and immediately jumps to the next attempt, per resolveProgression. A no-op if already in advance mode — the auto-advance effect is already driving it. */
   startNewBattle: () => void;
-  /** Replays this exact estágio with the exact same seed ("Repetir estágio"). */
+  /** Switches to repeat mode ("Repetir estágio") and immediately retries the same estágio, per resolveProgression's repeat-mode rules. A no-op if already in repeat mode. Every subsequent finished battle keeps retrying until Avançar or the mini-map is used. */
   repeatBattle: () => void;
+  /** 'advance' (Avançar) or 'repeat' (Repetir estágio) — the source of truth for which button should be highlighted as primary, and which resolveProgression rules apply on each finish. */
+  mode: 'advance' | 'repeat';
+  /** "Retirar-se ao perder" — when on, a loss that would otherwise just retry retreats one estágio instead (see progression.ts's resolveProgression). */
+  retreatOnLoss: boolean;
+  setRetreatOnLoss: (value: boolean) => void;
+  /** Non-null while grinding back up after a retreat: how many more consecutive wins (at the current estágio) are needed before an advance is attempted again. */
+  recoveryWinsRemaining: number | null;
   /** Spends (negative) or grants (positive) credits outside of battle rewards — the Loja's purchase/sale/claim primitive. Clamped at 0. */
   adjustCredits: (delta: number) => void;
-  /** The player's real saved position (mini-map dots before this are completed) — distinct from `stage` while detouring via playStage. */
+  /** The player's real saved position (mini-map dots before this are completed) — distinct from `stage` while replaying an earlier estágio or mid-retreat. */
   frontierFase: number;
   frontierEstagio: number;
-  /** Jumps to replay a previously-completed estágio within the current fase (the mini-map) without disturbing saved progress — the next Avançar/auto-advance returns to the frontier instead of continuing from here. */
+  /** Jumps to replay a specific estágio within the currently-viewed fase (the mini-map), leaving frontier untouched. */
   playStage: (estagio: number) => void;
 }
 
@@ -341,6 +354,10 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     initialXp = 0,
   } = options;
   const [playing, setPlaying] = useState(true);
+  // 'advance' (Avançar) or 'repeat' (Repetir estágio) — which resolveProgression rules apply on
+  // each finish. Kept outside the reducer since it's UI-driven mode, not battle state.
+  const [mode, setMode] = useState<'advance' | 'repeat'>('advance');
+  const [retreatOnLoss, setRetreatOnLoss] = useState(true);
   const [state, dispatch] = useReducer(reducer, undefined, () =>
     buildInitialState(Date.now() >>> 0, initialPosition, initialOwnedCharacters, initialCredits, initialXp),
   );
@@ -357,51 +374,95 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     return () => clearInterval(id);
   }, [state.floaters.length]);
 
-  // World progression: on a win, move to the next estágio (or loop to 1-1 after the boss);
-  // on a loss/draw, retry the same estágio with a fresh seed. Only while Auto is on.
+  // World progression — see progression.ts's resolveProgression for the full Avançar/Repetir/
+  // retirar-se-ao-perder rules this follows. Only while Auto is on.
   // Uses the *current* initialOwnedCharacters (not state.session.ownedCharacters, which is
   // frozen at whatever the previous battle started with) so XP earned since the last battle
   // is reflected in the next one's stats, not just in the Team page display.
   useEffect(() => {
     if (!state.finished || !playing) return;
     const position: WorldPosition = { fase: state.session.fase, estagio: state.session.estagio };
-    const isDetour = position.fase !== state.frontier.fase || position.estagio !== state.frontier.estagio;
-    const target = isDetour ? state.frontier : state.winner === 'allies' ? nextStage(position) : position;
-    const nextFrontier = isDetour ? state.frontier : target;
+    const won = state.winner === 'allies';
+    const result = resolveProgression(
+      { position, frontier: state.frontier, recoveryWinsRemaining: state.recoveryWinsRemaining },
+      { mode, retreatOnLoss, won },
+    );
     const timer = setTimeout(() => {
-      dispatch({ type: 'reset', session: createSession(Date.now() >>> 0, target, initialOwnedCharacters), frontier: nextFrontier });
+      dispatch({
+        type: 'reset',
+        session: createSession(Date.now() >>> 0, result.position, initialOwnedCharacters),
+        frontier: result.frontier,
+        recoveryWinsRemaining: result.recoveryWinsRemaining,
+      });
     }, autoAdvanceDelayMs);
     return () => clearTimeout(timer);
-  }, [state.finished, state.winner, state.session, state.frontier, playing, autoAdvanceDelayMs, initialOwnedCharacters]);
+  }, [
+    state.finished,
+    state.winner,
+    state.session,
+    state.frontier,
+    state.recoveryWinsRemaining,
+    playing,
+    mode,
+    retreatOnLoss,
+    autoAdvanceDelayMs,
+    initialOwnedCharacters,
+  ]);
 
   const startNewBattle = useCallback(() => {
+    // Already advancing — the auto-advance effect is already driving this; a redundant click
+    // shouldn't force an extra resolveProgression pass against whatever the battle's current
+    // (possibly mid-fight) winner happens to be.
+    if (mode === 'advance') return;
+    setMode('advance');
     const position: WorldPosition = { fase: state.session.fase, estagio: state.session.estagio };
-    const isDetour = position.fase !== state.frontier.fase || position.estagio !== state.frontier.estagio;
-    const target = isDetour ? state.frontier : state.winner === 'allies' ? nextStage(position) : position;
-    const nextFrontier = isDetour ? state.frontier : target;
-    dispatch({ type: 'reset', session: createSession(Date.now() >>> 0, target, initialOwnedCharacters), frontier: nextFrontier });
-    setPlaying(true);
-  }, [state.session.fase, state.session.estagio, state.frontier, state.winner, initialOwnedCharacters]);
-
-  const repeatBattle = useCallback(() => {
+    const won = state.winner === 'allies';
+    const result = resolveProgression(
+      { position, frontier: state.frontier, recoveryWinsRemaining: state.recoveryWinsRemaining },
+      { mode: 'advance', retreatOnLoss, won },
+    );
     dispatch({
       type: 'reset',
-      session: createSession(state.session.seed, { fase: state.session.fase, estagio: state.session.estagio }, initialOwnedCharacters),
-      frontier: state.frontier,
+      session: createSession(Date.now() >>> 0, result.position, initialOwnedCharacters),
+      frontier: result.frontier,
+      recoveryWinsRemaining: result.recoveryWinsRemaining,
     });
     setPlaying(true);
-  }, [state.session.seed, state.session.fase, state.session.estagio, state.frontier, initialOwnedCharacters]);
+  }, [mode, state.session.fase, state.session.estagio, state.winner, state.frontier, state.recoveryWinsRemaining, retreatOnLoss, initialOwnedCharacters]);
+
+  const repeatBattle = useCallback(() => {
+    // Already repeating — nothing to change; avoids restarting the current battle mid-fight.
+    if (mode === 'repeat') return;
+    setMode('repeat');
+    const position: WorldPosition = { fase: state.session.fase, estagio: state.session.estagio };
+    const won = state.winner === 'allies';
+    const result = resolveProgression(
+      { position, frontier: state.frontier, recoveryWinsRemaining: state.recoveryWinsRemaining },
+      { mode: 'repeat', retreatOnLoss, won },
+    );
+    // Reuse the exact same seed for a true instant-replay when nothing moved; a retreat lands on
+    // a different estágio entirely, so a fresh seed makes more sense there.
+    const seed = result.position.fase === position.fase && result.position.estagio === position.estagio ? state.session.seed : Date.now() >>> 0;
+    dispatch({
+      type: 'reset',
+      session: createSession(seed, result.position, initialOwnedCharacters),
+      frontier: result.frontier,
+      recoveryWinsRemaining: result.recoveryWinsRemaining,
+    });
+    setPlaying(true);
+  }, [mode, state.session.fase, state.session.estagio, state.session.seed, state.winner, state.frontier, state.recoveryWinsRemaining, retreatOnLoss, initialOwnedCharacters]);
 
   const playStage = useCallback(
     (estagio: number) => {
       dispatch({
         type: 'reset',
-        session: createSession(Date.now() >>> 0, { fase: state.frontier.fase, estagio }, initialOwnedCharacters),
+        session: createSession(Date.now() >>> 0, { fase: state.session.fase, estagio }, initialOwnedCharacters),
         frontier: state.frontier,
+        recoveryWinsRemaining: null,
       });
       setPlaying(true);
     },
-    [state.frontier, initialOwnedCharacters],
+    [state.session.fase, state.frontier, initialOwnedCharacters],
   );
 
   const adjustCredits = useCallback((delta: number) => dispatch({ type: 'adjustCredits', delta }), []);
@@ -414,7 +475,8 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
       worldSubtitle: 'Folclore Brasileiro',
       phase: state.session.fase,
       stage: state.session.estagio,
-      totalStages: ESTAGIOS_PER_FASE,
+      // The final fase has a 6th slot for the boss, one past its 5 regular estágios.
+      totalStages: state.session.fase === TOTAL_FASES ? ESTAGIOS_PER_FASE + 1 : ESTAGIOS_PER_FASE,
       isBoss: state.session.isBoss,
       round: state.replay.round,
       turn: state.replay.turnInRound,
@@ -430,6 +492,10 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     setPlaying,
     startNewBattle,
     repeatBattle,
+    mode,
+    retreatOnLoss,
+    setRetreatOnLoss,
+    recoveryWinsRemaining: state.recoveryWinsRemaining,
     adjustCredits,
     frontierFase: state.frontier.fase,
     frontierEstagio: state.frontier.estagio,

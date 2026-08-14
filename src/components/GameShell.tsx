@@ -228,7 +228,12 @@ function GameShellReady({
         <div className="lg:flex lg:w-72 lg:min-h-0 lg:shrink-0 lg:flex-col">
           <StagePanel
             stage={battle.stage}
+            frontierFase={battle.frontierFase}
             frontierEstagio={battle.frontierEstagio}
+            mode={battle.mode}
+            retreatOnLoss={battle.retreatOnLoss}
+            onToggleRetreatOnLoss={() => battle.setRetreatOnLoss(!battle.retreatOnLoss)}
+            recoveryWinsRemaining={battle.recoveryWinsRemaining}
             open={stageOpen}
             onClose={() => setStageOpen(false)}
             onAdvance={battle.startNewBattle}
