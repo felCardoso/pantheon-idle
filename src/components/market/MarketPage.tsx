@@ -4,6 +4,7 @@ import { CharacterPortrait } from '../roster/CharacterPortrait';
 import { buildCompendium, diagramName } from '../../data/roster';
 import { FALLBACK_RARITY } from '../../data/engineDisplay';
 import type { UseMarketResult } from '../../hooks/useMarket';
+import type { Rarity } from '../../types';
 
 interface MarketPageProps {
   market: UseMarketResult;
@@ -19,8 +20,14 @@ interface MarketPageProps {
 }
 
 const MIN_PRICE_CREDITS = 50;
-/** First-pass number, easy to retune later. */
-const FRAGMENT_CONVERSION_BYTES = 8;
+/** First-pass numbers, easy to retune later — rarer diagrams convert into more Bytes. */
+const FRAGMENT_CONVERSION_BYTES_BY_RARITY: Record<Rarity, number> = {
+  Alpha: 5,
+  Beta: 10,
+  Stable: 25,
+  LTS: 50,
+  'Zero-Day': 100,
+};
 
 type MarketTab = 'inventory' | 'offers' | 'market';
 
@@ -53,11 +60,12 @@ export function MarketPage({
 
   async function handleConvertFragment(characterId: string) {
     if (convertingId) return;
+    const rate = FRAGMENT_CONVERSION_BYTES_BY_RARITY[byId.get(characterId)?.rarity ?? FALLBACK_RARITY];
     setConvertingId(characterId);
     onSellFragment(characterId);
-    await onAdjustBytes(FRAGMENT_CONVERSION_BYTES);
+    await onAdjustBytes(rate);
     setConvertingId(null);
-    onToast(`+${FRAGMENT_CONVERSION_BYTES} bytes pela conversão do diagrama.`);
+    onToast(`+${rate} bytes pela conversão do diagrama.`);
   }
 
   async function handlePublish() {
@@ -135,7 +143,7 @@ export function MarketPage({
         <section>
           <p className="mb-3 flex items-center gap-1.5 text-[11px] text-white/40">
             <Icon name="binary" size={12} className="text-signal-cyan" />
-            Cada diagrama convertido rende +{FRAGMENT_CONVERSION_BYTES} bytes. Seu saldo: {bytes} bytes.
+            Diagramas rendem mais bytes quanto maior a raridade do personagem. Seu saldo: {bytes} bytes.
           </p>
           {fragmentEntries.length === 0 ? (
             <p className="rounded-xl border border-void-600 bg-void-800/30 p-4 text-xs text-white/40">
@@ -145,6 +153,7 @@ export function MarketPage({
             <div className="flex flex-col gap-2">
               {fragmentEntries.map(([characterId, count]) => {
                 const info = byId.get(characterId);
+                const rate = FRAGMENT_CONVERSION_BYTES_BY_RARITY[info?.rarity ?? FALLBACK_RARITY];
                 return (
                   <div key={characterId} className="flex items-center justify-between gap-3 rounded-lg border border-void-600 bg-void-800/50 p-3">
                     <div className="flex min-w-0 items-center gap-3">
@@ -167,7 +176,7 @@ export function MarketPage({
                     >
                       {convertingId === characterId && <Icon name="loader" size={12} className="animate-spin" />}
                       <Icon name="binary" size={12} />
-                      Converter +{FRAGMENT_CONVERSION_BYTES}
+                      Converter +{rate}
                     </button>
                   </div>
                 );
