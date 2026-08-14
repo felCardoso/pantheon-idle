@@ -25,21 +25,40 @@ describe('loadJurupariAllies', () => {
 
 describe('loadCharactersByIds', () => {
   it('looks up characters across mythologies by id', () => {
-    const team = loadCharactersByIds(['jurupari', 'odin', 'zeus']);
+    const team = loadCharactersByIds([
+      { id: 'jurupari', xp: 0 },
+      { id: 'odin', xp: 0 },
+      { id: 'zeus', xp: 0 },
+    ]);
     expect(team.map((c) => c.name)).toEqual(['Jurupari.exe', 'Odin.exe', 'Zeus.exe']);
   });
 
   it('applies the synergy bonus by team size regardless of which ids are passed', () => {
-    const solo = loadCharactersByIds(['saci']);
+    const solo = loadCharactersByIds([{ id: 'saci', xp: 0 }]);
     expect(solo[0].maxHp).toBe(800); // no bonus at team size 1 (no "1" entry in synergyByCount)
 
-    const trio = loadCharactersByIds(['jurupari', 'odin', 'zeus']);
+    const trio = loadCharactersByIds([
+      { id: 'jurupari', xp: 0 },
+      { id: 'odin', xp: 0 },
+      { id: 'zeus', xp: 0 },
+    ]);
     // docs/combate.md: +12% at team size 3
     expect(trio[0].maxHp).toBe(Math.round(800 * 1.12));
   });
 
   it('throws for an unknown character id', () => {
-    expect(() => loadCharactersByIds(['not-a-real-character'])).toThrow(/Unknown character id/);
+    expect(() => loadCharactersByIds([{ id: 'not-a-real-character', xp: 0 }])).toThrow(/Unknown character id/);
+  });
+
+  it('derives level from xp and scales stats via levelMultiplier (+2%/level)', () => {
+    const [fresh] = loadCharactersByIds([{ id: 'saci', xp: 0 }]);
+    expect(fresh.level).toBe(0);
+    expect(fresh.maxHp).toBe(800);
+
+    // 100 xp crosses the level-0 threshold -> level 1 -> +2%
+    const [leveled] = loadCharactersByIds([{ id: 'saci', xp: 100 }]);
+    expect(leveled.level).toBe(1);
+    expect(leveled.maxHp).toBe(Math.round(800 * 1.02));
   });
 });
 

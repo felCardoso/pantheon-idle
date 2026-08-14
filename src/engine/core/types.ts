@@ -22,6 +22,8 @@ export interface Combatant {
   element: Element | null;
   isAlly: boolean;
   stars: number;
+  /** Derived from accumulated XP (see engine/core/leveling.ts); 0 for enemies. */
+  level: number;
   /** Effective base stats for this battle (synergy bonus already folded in for allies). */
   base: BaseStats;
   maxHp: number;

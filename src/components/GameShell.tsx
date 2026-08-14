@@ -16,7 +16,7 @@ import { MENU_ITEMS } from '../data/mock/menu';
 import { CHAT_MESSAGES } from '../data/mock/chat';
 import { useBattleSimulation } from '../hooks/useBattleSimulation';
 import { usePlayerProgress } from '../hooks/usePlayerProgress';
-import { useOwnedCharacters } from '../hooks/useOwnedCharacters';
+import { useOwnedCharacters, type OwnedCharacter } from '../hooks/useOwnedCharacters';
 import type { MenuItem } from '../types';
 
 interface GameShellProps {
@@ -27,11 +27,11 @@ interface GameShellProps {
 
 export function GameShell({ userId, userEmail, onSignOut }: GameShellProps) {
   const { progress, loading: progressLoading, saveProgress } = usePlayerProgress(userId);
-  const { ownedIds, loading: ownedLoading, claimStarter } = useOwnedCharacters(userId);
+  const { ownedCharacters, loading: ownedLoading, claimStarter, addXp } = useOwnedCharacters(userId);
 
-  if (progressLoading || !progress || ownedLoading || !ownedIds) return <Splash />;
+  if (progressLoading || !progress || ownedLoading || !ownedCharacters) return <Splash />;
 
-  if (ownedIds.length === 0) {
+  if (ownedCharacters.length === 0) {
     return <OnboardingScreen onSelect={claimStarter} />;
   }
 
@@ -43,7 +43,8 @@ export function GameShell({ userId, userEmail, onSignOut }: GameShellProps) {
       initialEstagio={progress.estagio}
       initialCredits={progress.credits}
       initialXp={progress.xp}
-      ownedIds={ownedIds}
+      ownedCharacters={ownedCharacters}
+      addXp={addXp}
       saveProgress={saveProgress}
     />
   );
@@ -56,7 +57,8 @@ interface GameShellReadyProps {
   initialEstagio: number;
   initialCredits: number;
   initialXp: number;
-  ownedIds: string[];
+  ownedCharacters: OwnedCharacter[];
+  addXp: (amount: number) => void;
   saveProgress: (next: { fase: number; estagio: number; credits: number; xp: number }) => void;
 }
 
@@ -64,7 +66,17 @@ interface GameShellReadyProps {
  * Mounted only once the saved progress has loaded, so useBattleSimulation's
  * lazy reducer init reads the real starting point instead of always 1-1/0/0.
  */
-function GameShellReady({ userEmail, onSignOut, initialFase, initialEstagio, initialCredits, initialXp, ownedIds, saveProgress }: GameShellReadyProps) {
+function GameShellReady({
+  userEmail,
+  onSignOut,
+  initialFase,
+  initialEstagio,
+  initialCredits,
+  initialXp,
+  ownedCharacters,
+  addXp,
+  saveProgress,
+}: GameShellReadyProps) {
   const [activeMenuId, setActiveMenuId] = useState('battle');
   const [wikiOpen, setWikiOpen] = useState(false);
   const [stageOpen, setStageOpen] = useState(false);
@@ -72,7 +84,7 @@ function GameShellReady({ userEmail, onSignOut, initialFase, initialEstagio, ini
   const [toast, setToast] = useState<string | null>(null);
 
   const battle = useBattleSimulation({
-    initialAllyIds: ownedIds,
+    initialOwnedCharacters: ownedCharacters,
     initialPosition: { fase: initialFase, estagio: initialEstagio },
     initialCredits,
     initialXp,
@@ -82,13 +94,19 @@ function GameShellReady({ userEmail, onSignOut, initialFase, initialEstagio, ini
   const player = useMemo(() => ({ ...PLAYER_STATE, credits: battle.credits, xp: battle.xp }), [battle.credits, battle.xp]);
 
   const hasMounted = useRef(false);
+  const prevBattleXpRef = useRef(initialXp);
   useEffect(() => {
     if (!hasMounted.current) {
       hasMounted.current = true;
+      prevBattleXpRef.current = battle.xp;
       return;
     }
     saveProgress({ fase: battle.stage.phase, estagio: battle.stage.stage, credits: battle.credits, xp: battle.xp });
-  }, [battle.stage.phase, battle.stage.stage, battle.credits, battle.xp, saveProgress]);
+    // Every owned character fights together, so whatever XP the battle just paid out also levels them up.
+    const gained = battle.xp - prevBattleXpRef.current;
+    prevBattleXpRef.current = battle.xp;
+    if (gained > 0) addXp(gained);
+  }, [battle.stage.phase, battle.stage.stage, battle.credits, battle.xp, saveProgress, addXp]);
 
   useEffect(() => {
     if (!toast) return;
@@ -120,9 +138,9 @@ function GameShellReady({ userEmail, onSignOut, initialFase, initialEstagio, ini
 
         <div className="flex min-h-0 flex-1 flex-col pb-16 lg:pb-0">
           {activeMenuId === 'team' ? (
-            <TeamPage ownedIds={ownedIds} />
+            <TeamPage ownedCharacters={ownedCharacters} />
           ) : activeMenuId === 'characters' ? (
-            <CharactersPage ownedIds={ownedIds} />
+            <CharactersPage ownedIds={ownedCharacters.map((c) => c.characterId)} />
           ) : (
             <BattleStage
               allies={battle.allies}

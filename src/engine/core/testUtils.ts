@@ -46,6 +46,7 @@ export function makeCombatant(overrides: Partial<Combatant> & { baseStats?: Part
     element: overrides.element ?? null,
     isAlly: overrides.isAlly ?? true,
     stars: overrides.stars ?? 0,
+    level: overrides.level ?? 0,
     base,
     maxHp,
     hp: overrides.hp ?? maxHp,
