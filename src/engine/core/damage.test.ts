@@ -17,17 +17,17 @@ describe('resolveAttack — docs/mvp.md section 2 resolution order', () => {
     expect(defender.hp).toBe(defender.maxHp);
   });
 
-  it('applies the DEF mitigation formula: dmg * 100 / (100 + DEF)', () => {
+  it('applies the DEF mitigation formula: dmg * (1 - DEF), a direct percentage', () => {
     const attacker = makeCombatant({ baseStats: { atk: 200, esq: 0 } });
-    const defender = makeCombatant({ baseStats: { def: 100, esq: 0 } });
+    const defender = makeCombatant({ baseStats: { def: 0.3, esq: 0 } });
     // sequence: dodge-check (fail, >= esq 0) , crit-check (fail, >= 0.05)
     const rng = new ScriptedRng([0.99, 0.99]);
 
     const result = resolveAttack(attacker, defender, rng);
 
-    // DEF 100 halves the damage exactly, per mvp.md's worked example.
-    expect(result.finalDamage).toBe(100);
-    expect(defender.hp).toBe(defender.maxHp - 100);
+    // DEF 0.3 ignores 30% of the physical damage.
+    expect(result.finalDamage).toBe(140);
+    expect(defender.hp).toBe(defender.maxHp - 140);
   });
 
   it('a critical hit multiplies damage by the configured crit multiplier (1.5x)', () => {

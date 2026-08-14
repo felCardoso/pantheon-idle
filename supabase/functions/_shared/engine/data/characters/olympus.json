@@ -7,7 +7,7 @@
     "rarity": "Alpha",
     "mythology": "Mitologia Grega",
     "stars": 0,
-    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },
+    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 0, "esq": 0, "ice": 0 },
     "abilities": ["zeus-atordoamento-team"]
   },
   {
@@ -18,7 +18,7 @@
     "rarity": "Alpha",
     "mythology": "Mitologia Grega",
     "stars": 0,
-    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },
+    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 0, "esq": 0, "ice": 0 },
     "abilities": ["hades-self-shield"]
   },
   {
@@ -29,7 +29,7 @@
     "rarity": "Alpha",
     "mythology": "Mitologia Grega",
     "stars": 0,
-    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },
+    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 0, "esq": 0, "ice": 0 },
     "abilities": ["atena-corrosao"]
   },
   {
@@ -40,7 +40,7 @@
     "rarity": "Alpha",
     "mythology": "Mitologia Grega",
     "stars": 0,
-    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },
+    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 0, "esq": 0, "ice": 0 },
     "abilities": ["satiro-veneno"]
   },
   {
@@ -51,7 +51,7 @@
     "rarity": "Alpha",
     "mythology": "Mitologia Grega",
     "stars": 0,
-    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },
+    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 0, "esq": 0, "ice": 0 },
     "abilities": ["medusa-petrificar", "medusa-veneno", "medusa-armadura-pedra", "medusa-espinhos-veneno"]
   },
   {
@@ -62,7 +62,7 @@
     "rarity": "Alpha",
     "mythology": "Mitologia Grega",
     "stars": 0,
-    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },
+    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 0, "esq": 0, "ice": 0 },
     "abilities": ["hercules-impacto", "hercules-furia", "hercules-clava-primordial", "hercules-pele-leao"]
   },
   {
@@ -73,7 +73,7 @@
     "rarity": "Alpha",
     "mythology": "Mitologia Grega",
     "stars": 0,
-    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },
+    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 0, "esq": 0, "ice": 0 },
     "abilities": ["minotauro-provocar", "minotauro-labrys", "minotauro-fear", "minotauro-aterrorizar"]
   }
 ]

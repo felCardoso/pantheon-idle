@@ -70,6 +70,8 @@ export type BattleLogEntry =
   | { kind: 'statusExpired'; target: string; status: StatusType }
   | { kind: 'heal'; target: string; amount: number; source: string }
   | { kind: 'shieldGranted'; target: string; amount: number; source: string }
+  /** ICE reflection: `source` is the defender whose ICE fired, `target` is the original attacker taking it back. */
+  | { kind: 'iceReflect'; source: string; target: string; amount: number; shieldAbsorbed: number; hpDamage: number; targetDied: boolean }
   | { kind: 'death'; unit: string }
   | { kind: 'enrage'; round: number; percent: number; damages: { target: string; amount: number }[] }
   | { kind: 'battleEnd'; winner: 'allies' | 'enemies' | 'draw'; reason: 'elimination' | 'roundLimit' };

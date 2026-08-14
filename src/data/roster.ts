@@ -40,15 +40,11 @@ const UNKNOWN_INFO: CharacterInfo = {
 };
 
 /**
- * First-pass, easy-to-retune team-power figure — no existing "poder" stat in
- * the docs to match, so this weights each combat stat to land in a similar
- * order of magnitude across the roster and grows with the same investment
- * (level, mythology synergy) that already matters in battle. DEF is 0 for
- * every character today, but stays in the formula so a future non-zero DEF
- * contributes automatically.
+ * Team-power figure. Only HP/ATK count — DEF/INI/ESQ/ICE are ability-granted
+ * build choices (schema.ts), not generic power, so they don't factor in here.
  */
 export function characterPower(stats: BaseStats): number {
-  return Math.round(stats.hp * 0.1 + stats.atk * 2 + stats.def * 2 + stats.ini * 1 + stats.esq * 1000);
+  return Math.round(stats.hp * 0.1 + stats.atk * 2);
 }
 
 function toRosterCharacter(c: ReturnType<typeof loadCharactersByIds>[number], mythology: string, xp: number): RosterCharacter {

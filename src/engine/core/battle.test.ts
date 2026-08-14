@@ -76,3 +76,32 @@ describe('runBattle — full Jurupari.iso integration smoke test', () => {
     expect(result.rounds).toBeLessThanOrEqual(45);
   });
 });
+
+describe('runBattle — ICE reflection', () => {
+  it('reflects a fraction of the physical damage received back onto the attacker, logged independently of the attack entry', () => {
+    const allies = [makeCombatant({ name: 'Attacker', baseStats: { atk: 100, esq: 0, ini: 1 }, hp: 10000, maxHp: 10000 })];
+    const enemies = [makeCombatant({ name: 'Defender', baseStats: { esq: 0, ice: 0.5, ini: 0 }, hp: 10000, maxHp: 10000 })];
+
+    const result = runBattle(allies, enemies, { seed: 7 });
+
+    const attackEntry = result.log.find((e): e is Extract<typeof e, { kind: 'attack' }> => e.kind === 'attack')!;
+    const iceEntry = result.log.find((e): e is Extract<typeof e, { kind: 'iceReflect' }> => e.kind === 'iceReflect')!;
+    expect(attackEntry).toBeDefined();
+    expect(iceEntry).toBeDefined();
+    expect(iceEntry.source).toBe('Defender');
+    expect(iceEntry.target).toBe('Attacker');
+    expect(iceEntry.amount).toBeCloseTo(attackEntry.result.finalDamage * 0.5);
+  });
+
+  it('still reflects even when the primary hit kills the defender — only the defender\'s own retaliation is cancelled by death', () => {
+    const allies = [makeCombatant({ name: 'Attacker', baseStats: { atk: 10000, esq: 0, ini: 1 }, hp: 10000, maxHp: 10000 })];
+    const enemies = [makeCombatant({ name: 'Defender', baseStats: { esq: 0, ice: 0.1, ini: 0 }, hp: 1, maxHp: 1 })];
+
+    const result = runBattle(allies, enemies, { seed: 3 });
+
+    const deathEntries = result.log.filter((e): e is Extract<typeof e, { kind: 'death' }> => e.kind === 'death');
+    const iceEntry = result.log.find((e): e is Extract<typeof e, { kind: 'iceReflect' }> => e.kind === 'iceReflect');
+    expect(deathEntries.some((d) => d.unit === 'Defender')).toBe(true);
+    expect(iceEntry).toBeDefined();
+  });
+});

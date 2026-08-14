@@ -20,12 +20,26 @@ export type StatusType =
   | 'regeneracao'
   | 'marcado';
 
+/**
+ * HP/ATK are the only stats that grow generically (level + mythology
+ * synergy — see loader.ts's buildCombatant). DEF/INI/ESQ/ICE are build
+ * choices, not investable stats: every character starts at 0 for all four
+ * and they only ever move when a specific ability or rune grants them —
+ * docs/combate.md already establishes this for DEF ("é um investimento
+ * ativo, não um stat passivo de todo personagem"); the same rule now
+ * applies to INI/ESQ/ICE too.
+ */
 export interface BaseStats {
   hp: number;
   atk: number;
+  /** Fraction of physical damage mitigated, e.g. 0.15 = ignores 15%. Ability/rune-granted only. */
   def: number;
+  /** Turn-order priority, normally 0-1. Ability-granted only; ties keep team-list order (stable sort). */
   ini: number;
-  esq: number; // fraction, e.g. 0.10 = 10%
+  /** Chance to fully dodge an attack, e.g. 0.10 = 10%. Ability/rune-granted only. */
+  esq: number;
+  /** ICE ("Intrusion Countermeasure Electronics") — fraction of physical damage received that reflects back onto the attacker. Ability/rune-granted only. */
+  ice: number;
 }
 
 /** How an effect's numeric strength is computed. */

@@ -7,7 +7,7 @@
     "rarity": "Alpha",
     "mythology": "Mitologia Japonesa",
     "stars": 0,
-    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },
+    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 0, "esq": 0, "ice": 0 },
     "abilities": ["amaterasu-regen-team", "amaterasu-shield-team", "amaterasu-reflexo-solar"]
   }
 ]

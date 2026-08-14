@@ -42,8 +42,8 @@ export function resolveAttack(
   // 2. Dano bruto
   const rawDamage = effectiveAtk(attacker) * multiplier;
 
-  // 3. Mitigação por DEF
-  let damage = rawDamage * (100 / (100 + effectiveDef(defender)));
+  // 3. Mitigação por DEF (fração direta do dano físico ignorada, ex.: 0.15 = ignora 15%)
+  let damage = rawDamage * (1 - effectiveDef(defender));
 
   // 4. Crítico (Marcado guarantees it, and is consumed by the hit that uses it)
   let crit = isMarked(defender);

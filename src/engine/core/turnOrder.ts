@@ -6,6 +6,9 @@ import { effectiveIni } from './statusEffects';
  * first" passive overrides INI entirely (per design intent: it never risks
  * losing its action to dying before its turn), everyone else falls back to
  * INI descending, recomputed every round since Lentidão can change it mid-battle.
+ * INI is 0 by default for every character (schema.ts — ability-granted only),
+ * so most casts tie; `.sort` is stable (ES2019+), so ties simply act in
+ * whatever order they were passed in (team-list order).
  */
 export function computeTurnOrder(units: Combatant[]): Combatant[] {
   return units

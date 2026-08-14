@@ -49,6 +49,11 @@ export function formatLogEntry(entry: BattleLogEntry): string | null {
       return `  ${entry.source} cura ${entry.target} em ${entry.amount} HP.`;
     case 'shieldGranted':
       return `  ${entry.source} concede ${entry.amount} de escudo a ${entry.target}.`;
+    case 'iceReflect': {
+      const shieldNote = entry.shieldAbsorbed > 0 ? ` (${Math.round(entry.shieldAbsorbed)} absorvido pelo escudo, ${Math.round(entry.hpDamage)} no HP)` : '';
+      const deathNote = entry.targetDied ? ' — derrotado!' : '';
+      return `  ICE de ${entry.source} reflete ${Math.round(entry.amount)} de dano em ${entry.target}${shieldNote}${deathNote}`;
+    }
     case 'death':
       return null; // already noted inline by the attack/tick/enrage line
     case 'enrage':

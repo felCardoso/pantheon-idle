@@ -2,7 +2,7 @@ import type { BattleLogEntry, Combatant } from './types.ts';
 import { Rng } from './rng.ts';
 import { CONSTANTS } from './loader.ts';
 import { resolveAttack } from './damage.ts';
-import { endOfRoundTick, isStunned } from './statusEffects.ts';
+import { effectiveIce, endOfRoundTick, isStunned } from './statusEffects.ts';
 import { fireTrigger, type TriggerContext } from './abilityEngine.ts';
 import { computeTurnOrder } from './turnOrder.ts';
 
@@ -111,6 +111,34 @@ export function runBattle(allies: Combatant[], enemies: Combatant[], options: Ba
             attacker: unit,
             attackResult: result,
           });
+
+          // ICE: reflects a fraction of the physical damage the defender just received back onto
+          // the attacker — fires as part of *receiving* the hit, not as the defender's own turn,
+          // so it still applies even when the defender died from this blow (their own retaliation
+          // is what gets cancelled by death, not ICE).
+          const iceFraction = effectiveIce(defender);
+          if (result.finalDamage > 0 && iceFraction > 0) {
+            const reflected = result.finalDamage * iceFraction;
+            let iceShieldAbsorbed = 0;
+            let iceHpDamage = reflected;
+            if (unit.shield > 0) {
+              iceShieldAbsorbed = Math.min(unit.shield, reflected);
+              unit.shield -= iceShieldAbsorbed;
+              iceHpDamage = reflected - iceShieldAbsorbed;
+            }
+            unit.hp = Math.max(0, unit.hp - iceHpDamage);
+            const targetDied = unit.hp <= 0;
+            pushLog({
+              kind: 'iceReflect',
+              source: defender.name,
+              target: unit.name,
+              amount: reflected,
+              shieldAbsorbed: iceShieldAbsorbed,
+              hpDamage: iceHpDamage,
+              targetDied,
+            });
+            if (targetDied) pushLog({ kind: 'death', unit: unit.name });
+          }
         }
       }
 

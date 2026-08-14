@@ -34,6 +34,7 @@ export function makeCombatant(overrides: Partial<Combatant> & { baseStats?: Part
     def: 0,
     ini: 50,
     esq: 0,
+    ice: 0,
     ...overrides.baseStats,
   };
   const maxHp = overrides.maxHp ?? base.hp;

@@ -7,7 +7,7 @@
     "rarity": "Alpha",
     "mythology": "Mitologia Nórdica",
     "stars": 0,
-    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },
+    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 0, "esq": 0, "ice": 0 },
     "abilities": ["odin-shield-team"]
   },
   {
@@ -18,7 +18,7 @@
     "rarity": "Alpha",
     "mythology": "Mitologia Nórdica",
     "stars": 0,
-    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },
+    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 0, "esq": 0, "ice": 0 },
     "abilities": ["freya-regen-team"]
   },
   {
@@ -29,7 +29,7 @@
     "rarity": "Alpha",
     "mythology": "Mitologia Nórdica",
     "stars": 0,
-    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },
+    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 0, "esq": 0, "ice": 0 },
     "abilities": ["thor-sangramento"]
   },
   {
@@ -40,7 +40,7 @@
     "rarity": "Alpha",
     "mythology": "Mitologia Nórdica",
     "stars": 0,
-    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },
+    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 0, "esq": 0, "ice": 0 },
     "abilities": ["ratatoskr-marcado"]
   }
 ]

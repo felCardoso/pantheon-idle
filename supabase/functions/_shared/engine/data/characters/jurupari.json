@@ -7,7 +7,7 @@
     "rarity": "Alpha",
     "mythology": "Folclore Brasileiro",
     "stars": 0,
-    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },
+    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 0, "esq": 0, "ice": 0 },
     "statusDurationBonus": 1,
     "abilities": []
   },
@@ -19,7 +19,7 @@
     "rarity": "Alpha",
     "mythology": "Folclore Brasileiro",
     "stars": 0,
-    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },
+    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 0, "esq": 0, "ice": 0 },
     "abilities": ["curupira-lentidao-counter"]
   },
   {
@@ -30,7 +30,7 @@
     "rarity": "Alpha",
     "mythology": "Folclore Brasileiro",
     "stars": 0,
-    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },
+    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 0, "esq": 0, "ice": 0 },
     "abilities": ["caipora-enfraquecimento"]
   },
   {
@@ -41,7 +41,7 @@
     "rarity": "Alpha",
     "mythology": "Folclore Brasileiro",
     "stars": 0,
-    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 80, "esq": 0.05 },
+    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 0, "esq": 0, "ice": 0 },
     "alwaysActsFirst": true,
     "abilities": []
   }

@@ -62,9 +62,9 @@ function buildCombatant(
   const scale = (1 + synergyBonus) * statMultiplier;
   const hp = Math.round(data.baseStats.hp * scale);
   const atk = Math.round(data.baseStats.atk * scale);
-  const def = Math.round(data.baseStats.def * statMultiplier);
-  const ini = Math.round(data.baseStats.ini * statMultiplier);
-  const esq = data.baseStats.esq * statMultiplier;
+  // DEF/INI/ESQ/ICE are ability-granted build choices, not generic growing stats (schema.ts) —
+  // never scaled by level or synergy, always exactly whatever the character's kit grants.
+  const { def, ini, esq, ice } = data.baseStats;
 
   return {
     id: idSuffix ? `${data.id}#${idSuffix}` : data.id,
@@ -75,7 +75,7 @@ function buildCombatant(
     isAlly,
     stars: data.stars ?? 0,
     level,
-    base: { hp, atk, def, ini, esq },
+    base: { hp, atk, def, ini, esq, ice },
     maxHp: hp,
     hp,
     shield: 0,
