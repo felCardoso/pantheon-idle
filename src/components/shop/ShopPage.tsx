@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Icon } from '../common/Icon';
 import { CharacterPortrait } from '../roster/CharacterPortrait';
 import { RosterChips } from '../roster/RosterChips';
-import { buildCompendium, currentShowcaseWeek, diagramName, pickWeeklyShowcase } from '../../data/roster';
+import { buildCompendium, currentShowcaseWeek, pickWeeklyShowcase } from '../../data/roster';
 import { FALLBACK_RARITY } from '../../data/engineDisplay';
 import {
   CLUSTER_CREDIT_XP_BONUS_PERCENT,
@@ -13,7 +13,6 @@ import {
 } from '../../hooks/usePlayerProgress';
 
 // First-pass numbers, easy to retune later.
-const FRAGMENT_SELL_PRICE = 500;
 const STARTER_BOOST_CREDITS = 1000;
 const SHOWCASE_CHARACTER_PRICE_CREDITS = 2000;
 /** Slot 0 is open to everyone; slots 1-2 require an active Root Access subscription. */
@@ -23,10 +22,8 @@ interface ShopPageProps {
   credits: number;
   tokens: number;
   starterBoostClaimed: boolean;
-  fragments: Record<string, number>;
   onClaimStarterBoost: () => void;
   onAcquireCharacter: (characterId: string) => Promise<'new' | 'duplicate'>;
-  onSellFragment: (characterId: string) => void;
   onAdjustCredits: (delta: number) => void;
   onToast: (message: string) => void;
   vipActive: boolean;
@@ -40,10 +37,8 @@ export function ShopPage({
   credits,
   tokens,
   starterBoostClaimed,
-  fragments,
   onClaimStarterBoost,
   onAcquireCharacter,
-  onSellFragment,
   onAdjustCredits,
   onToast,
   vipActive,
@@ -69,7 +64,6 @@ export function ShopPage({
 
   const compendium = buildCompendium();
   const byId = new Map(compendium.map((c) => [c.templateId, c]));
-  const fragmentEntries = Object.entries(fragments).filter(([, count]) => count > 0);
   const showcaseIds = useMemo(() => pickWeeklyShowcase(currentShowcaseWeek()), []);
   const [buyingShowcaseId, setBuyingShowcaseId] = useState<string | null>(null);
 
@@ -91,17 +85,11 @@ export function ShopPage({
     onToast(outcome === 'new' ? 'Novo personagem desbloqueado!' : 'Já possuído — convertido em +1 diagrama.');
   }
 
-  function handleSellFragment(characterId: string) {
-    onSellFragment(characterId);
-    onAdjustCredits(FRAGMENT_SELL_PRICE);
-    onToast(`+${FRAGMENT_SELL_PRICE} créditos pela venda do diagrama.`);
-  }
-
   return (
     <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5">
       <div className="mb-4">
         <h1 className="font-display text-sm font-bold uppercase tracking-wide text-white text-glow-code sm:text-base">Loja</h1>
-        <p className="text-xs text-white/50">Vitrine semanal, bônus e diagramas</p>
+        <p className="text-xs text-white/50">Vitrine semanal e bônus</p>
       </div>
 
       <div className="flex flex-col gap-6">
@@ -233,53 +221,6 @@ export function ShopPage({
               );
             })}
           </div>
-        </section>
-
-        {/* Fragments / diagramas */}
-        <section>
-          <h2 className="mb-2 font-display text-xs font-bold uppercase tracking-widest text-white/50">Diagramas (.dat)</h2>
-          {fragmentEntries.length === 0 ? (
-            <p className="rounded-xl border border-void-600 bg-void-800/30 p-4 text-xs text-white/40">
-              Nenhum diagrama ainda — personagens repetidos de pacotes de invocação aparecem aqui.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {fragmentEntries.map(([characterId, count]) => {
-                const info = byId.get(characterId);
-                return (
-                  <div
-                    key={characterId}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-void-600 bg-void-800/50 p-3"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <CharacterPortrait
-                        name={info?.name ?? characterId}
-                        element={info?.element ?? 'Encryption'}
-                        rarity={info?.rarity ?? FALLBACK_RARITY}
-                        portraitUrl={info?.portraitUrl}
-                        size={40}
-                      />
-                      <div className="min-w-0">
-                        <p className="truncate text-sm text-white">{diagramName(info?.name ?? characterId)}</p>
-                        <p className="text-xs text-white/50">{count}x diagrama</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleSellFragment(characterId)}
-                      className="flex shrink-0 items-center gap-1.5 rounded-lg border border-void-600 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-white/70 transition hover:border-signal-amber/50 hover:text-signal-amber"
-                    >
-                      <Icon name="coins" size={12} />
-                      Vender +{FRAGMENT_SELL_PRICE}
-                    </button>
-                  </div>
-                );
-              })}
-              <p className="text-[11px] text-white/30">
-                Prefere negociar com outros jogadores por um preço melhor? Assinantes de Root Access podem publicar e comprar `.dat` no
-                Mercado.
-              </p>
-            </div>
-          )}
         </section>
       </div>
     </div>

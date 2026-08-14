@@ -54,6 +54,7 @@ import {
   Skull,
   Pencil,
   Plus,
+  Binary,
   type LucideProps,
 } from 'lucide-react';
 import type { FC } from 'react';
@@ -114,6 +115,7 @@ const REGISTRY: Record<string, FC<LucideProps>> = {
   skull: Skull,
   pencil: Pencil,
   plus: Plus,
+  binary: Binary,
 };
 
 interface IconProps extends LucideProps {

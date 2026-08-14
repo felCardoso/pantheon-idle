@@ -27,7 +27,7 @@ Não são papéis rígidos de combate, mas arquétipos que orientam design de ha
 
 ## 3. Personagens
 
-- Raridades: **Alpha → Beta → Stable → LTS**
+- Raridades: **Alpha → Beta → Stable → LTS → Zero-Day**
 - Cada personagem pertence a uma mitologia (define sinergia) e a uma facção (define arquétipo)
 - Personagens de raridade **Stable ou acima têm 1 habilidade passiva**; os demais têm **habilidade ativa** disparada por gatilho
 - Personagens excepcionalmente fortes e raros (ex: Chronos) só podem existir nas raridades **Stable ou LTS** — nunca em Alpha/Beta
@@ -75,7 +75,7 @@ Detalhamento completo (atributos, elementos, efeitos de status, gatilhos de habi
 - **Nível** do personagem (stats brutos)
 - **Estrelas de carta**: melhoradas com Créditos; cada estrela dá bônus de HP/ATK; ao atingir a 5ª estrela, permite subir a raridade da carta, zerando as estrelas de novo
 - **Fragmentos (`.dat`)**: ao obter um personagem duplicado cujo `.exe` já existe no inventário, a duplicata é convertida automaticamente em `.dat` (fragmentos daquele personagem) — funciona como um "diagrama" usado para evoluir a versão do personagem, e pode ser vendido
-- **Módulos (`.dll`)**: buffs universais equipáveis (ex: +0,5% ESQ / +0,5% Crítico por unidade), com raridade em camadas Alpha > Beta > Stable > LTS
+- **Módulos (`.dll`)**: buffs universais equipáveis (ex: +0,5% ESQ / +0,5% Crítico por unidade), com raridade em camadas Alpha > Beta > Stable > LTS > Zero-Day
 
 ## 8. Sistema de Itens (extensões de arquivo)
 
@@ -95,7 +95,7 @@ Detalhamento completo (atributos, elementos, efeitos de status, gatilhos de habi
 
 ### Valores de `.sh` (boosts e pacotes)
 
-Progressão geométrica entre Alpha (base) e LTS (topo):
+Progressão geométrica entre Alpha (base) e Zero-Day (topo):
 
 | Raridade | Boost de Créditos/XP | Pacote de Créditos (× recompensa média de 1 estágio completo) |
 |---|---|---|
@@ -103,6 +103,7 @@ Progressão geométrica entre Alpha (base) e LTS (topo):
 | Beta | 1,5x | 8x |
 | Stable | 3x | 20x |
 | LTS | 4x | 32x |
+| Zero-Day | 5x | 50x |
 
 ## 9. Economia
 
@@ -128,9 +129,10 @@ Odds calibradas com base em referências de mercado (Genshin Impact: ~0,6% base 
 | Alpha | 50% |
 | Beta | 43% |
 | Stable | 5% |
-| LTS | 2% |
+| LTS | 1,5% |
+| Zero-Day | 0,5% |
 
-Pity suave a partir do pull 55 (taxa de LTS sobe progressivamente); garantia total de LTS no pull 90.
+Pity suave a partir do pull 55 (taxa de Zero-Day sobe progressivamente); garantia total de Zero-Day no pull 90.
 
 ### Gacha Hard (caro)
 
@@ -139,15 +141,16 @@ Pity suave a partir do pull 55 (taxa de LTS sobe progressivamente); garantia tot
 | Alpha | 40% |
 | Beta | 48% |
 | Stable | 8% |
-| LTS | 4% |
+| LTS | 3% |
+| Zero-Day | 1% |
 
-Pity suave a partir do pull 45; garantia total de LTS no pull 75.
+Pity suave a partir do pull 45; garantia total de Zero-Day no pull 75.
 
 ### Banner semanal — Personagem Especial
 
 - Mesmas taxas do Gacha Hard, custando 25% a mais
-- Sistema "50/50": ao puxar um LTS, 50% de chance de ser o Personagem Especial em destaque, 50% de ser um LTS aleatório do pool geral; se perder, o próximo LTS puxado é garantidamente o Especial
-- Garantia absoluta do Especial a cada **150 invocações**, mesmo sem LTS (hard pity do banner)
+- Sistema "50/50": ao puxar um Zero-Day, 50% de chance de ser o Personagem Especial em destaque, 50% de ser um Zero-Day aleatório do pool geral; se perder, o próximo Zero-Day puxado é garantidamente o Especial
+- Garantia absoluta do Especial a cada **150 invocações**, mesmo sem Zero-Day (hard pity do banner)
 
 ### Regras gerais
 

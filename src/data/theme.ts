@@ -1,12 +1,13 @@
 import type { Element, Faction, Rarity } from '../types';
 import type { StatusType } from '../engine/schema';
 
-/** Ascending tier: Alpha < Beta < Stable < LTS (docs/personagens.md). */
+/** Ascending tier: Alpha < Beta < Stable < LTS < Zero-Day (docs/personagens.md). */
 export const RARITY_COLOR: Record<Rarity, string> = {
   Alpha: '#8a93a6',
   Beta: '#39ff9c',
   Stable: '#5a8bff',
   LTS: '#c34aff',
+  'Zero-Day': '#ffd700',
 };
 
 export const FACTION_COLOR: Record<Faction, string> = {

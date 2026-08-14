@@ -4,7 +4,7 @@ Complementa o Documento de Game Design principal. Roster inicial: 4 personagens 
 
 **Convenções:**
 - Nome segue o padrão `Nome.exe`
-- Raridade: `Alpha < Beta < Stable < LTS`
+- Raridade: `Alpha < Beta < Stable < LTS < Zero-Day`
 - **Alpha, Beta** têm habilidade **ativa** — o jogador escolhe 1 das 3 opções listadas
 - **Stable, LTS** têm habilidade **passiva** única (sem escolha — já curada pelo design)
 - Elementos usados: Vírus, Brute Force, Nanites, Encryption, Backdoor — ver definições completas no documento de Combate Detalhado
