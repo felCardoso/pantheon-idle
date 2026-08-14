@@ -2,34 +2,41 @@ import { useMemo, useState } from 'react';
 import { CharacterDetailModal } from './CharacterDetailModal';
 import { PixelFigure } from '../battle/PixelFigure';
 import { Icon } from '../common/Icon';
-import { buildCompendium, type RosterCharacter } from '../../data/roster';
-import { ELEMENT_COLOR, FACTION_COLOR, RARITY_COLOR } from '../../data/theme';
+import { buildFullRosterView, type RosterCharacter } from '../../data/roster';
+import { ELEMENT_COLOR, RARITY_COLOR } from '../../data/theme';
+import type { OwnedCharacter } from '../../hooks/useOwnedCharacters';
 import type { Rarity } from '../../types';
 
 interface CharactersPageProps {
-  ownedIds: string[];
+  ownedCharacters: OwnedCharacter[];
 }
 
-const RARITY_ORDER: Record<Rarity, number> = { Quantum: 0, LTS: 1, Stable: 2, RC: 3, Beta: 4, Alpha: 5 };
-const RARITIES: Rarity[] = ['Alpha', 'Beta', 'RC', 'Stable', 'LTS', 'Quantum'];
+const RARITY_ORDER: Record<Rarity, number> = { 'Zero-Day': 0, LTS: 1, Stable: 2, Beta: 3, Alpha: 4 };
+const RARITIES: Rarity[] = ['Alpha', 'Beta', 'Stable', 'LTS', 'Zero-Day'];
 type SortKey = 'rarity' | 'level' | 'name';
 
-export function CharactersPage({ ownedIds }: CharactersPageProps) {
+export function CharactersPage({ ownedCharacters }: CharactersPageProps) {
   const [search, setSearch] = useState('');
   const [rarityFilter, setRarityFilter] = useState<Rarity | 'all'>('all');
   const [mythologyFilter, setMythologyFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<SortKey>('rarity');
+  const [onlyOwned, setOnlyOwned] = useState(false);
   const [selected, setSelected] = useState<RosterCharacter | null>(null);
 
-  const compendium = buildCompendium();
-  const ownedSet = new Set(ownedIds);
-  const mythologies = useMemo(() => Array.from(new Set(compendium.map((c) => c.mythology))), [compendium]);
+  const ownedSet = useMemo(() => new Set(ownedCharacters.map((o) => o.characterId)), [ownedCharacters]);
+  const fullRoster = useMemo(() => buildFullRosterView(ownedCharacters), [ownedCharacters]);
+  const mythologies = useMemo(() => Array.from(new Set(fullRoster.map((c) => c.mythology))), [fullRoster]);
 
-  const filtered = compendium
+  const filtered = fullRoster
     .filter((c) => c.name.toLowerCase().includes(search.trim().toLowerCase()))
     .filter((c) => rarityFilter === 'all' || c.rarity === rarityFilter)
     .filter((c) => mythologyFilter === 'all' || c.mythology === mythologyFilter)
+    .filter((c) => !onlyOwned || ownedSet.has(c.templateId))
     .sort((a, b) => {
+      // Owned characters always come first, regardless of the chosen sort — the secondary sort
+      // only breaks ties within each group.
+      const ownedDiff = Number(ownedSet.has(b.templateId)) - Number(ownedSet.has(a.templateId));
+      if (ownedDiff !== 0) return ownedDiff;
       if (sortBy === 'rarity') return RARITY_ORDER[a.rarity] - RARITY_ORDER[b.rarity];
       if (sortBy === 'level') return b.level - a.level;
       return a.name.localeCompare(b.name);
@@ -91,6 +98,17 @@ export function CharactersPage({ ownedIds }: CharactersPageProps) {
           <option value="level">Ordenar: Nível</option>
           <option value="name">Ordenar: Nome</option>
         </select>
+
+        <button
+          onClick={() => setOnlyOwned((v) => !v)}
+          aria-pressed={onlyOwned}
+          className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-bold uppercase tracking-wide transition ${
+            onlyOwned ? 'border-code-400/60 bg-code-500/10 text-code-300' : 'border-void-600 bg-void-800/60 text-white/60 hover:text-white/80'
+          }`}
+        >
+          <Icon name="check-circle" size={13} />
+          Somente Adquiridos
+        </button>
       </div>
 
       {filtered.length === 0 ? (
@@ -103,7 +121,6 @@ export function CharactersPage({ ownedIds }: CharactersPageProps) {
             const owned = ownedSet.has(c.templateId);
             const rarityColor = RARITY_COLOR[c.rarity];
             const elementColor = ELEMENT_COLOR[c.element];
-            const factionColor = FACTION_COLOR[c.faction];
             return (
               <button
                 key={c.templateId}
@@ -112,16 +129,16 @@ export function CharactersPage({ ownedIds }: CharactersPageProps) {
                 style={{ borderColor: rarityColor, boxShadow: `0 0 10px -4px ${rarityColor}99` }}
               >
                 {/* portrait fills the card */}
-                <div className="absolute inset-0" style={{ background: `linear-gradient(150deg, ${factionColor}33, #0a0a12)` }}>
+                <div className="absolute inset-0" style={{ background: `linear-gradient(150deg, ${rarityColor}33, #0a0a12)` }}>
                   {c.portraitUrl ? (
                     <img
                       src={c.portraitUrl}
                       alt={c.name}
-                      className={`h-full w-full object-cover ${owned ? '' : 'opacity-40 grayscale'}`}
+                      className={`h-full w-full object-cover ${owned ? '' : 'opacity-25 grayscale brightness-75'}`}
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center">
-                      <PixelFigure className={`h-[70%] w-[70%] ${owned ? '' : 'opacity-40'}`} style={{ color: elementColor }} />
+                      <PixelFigure className={`h-[70%] w-[70%] ${owned ? '' : 'opacity-25 brightness-75'}`} style={{ color: elementColor }} />
                     </div>
                   )}
                 </div>
@@ -130,7 +147,7 @@ export function CharactersPage({ ownedIds }: CharactersPageProps) {
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-void-950 via-void-950/75 to-transparent" />
 
                 {/* level badge, top-left */}
-                <span className="absolute left-1.5 top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full border border-white/25 bg-void-950/80 px-1 font-mono text-[10px] font-bold text-white">
+                <span className="absolute left-1.5 top-1.5 z-10 flex h-6 min-w-6 items-center justify-center rounded-full border border-white/40 bg-void-950 px-1 font-mono text-[11px] font-bold text-white">
                   {c.level}
                 </span>
 

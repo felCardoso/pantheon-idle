@@ -1,4 +1,4 @@
-/** Hand-written to match supabase/migrations/00{01..11}_*.sql — no Supabase CLI access to codegen this. */
+/** Hand-written to match supabase/migrations/00{01..14}_*.sql — no Supabase CLI access to codegen this. */
 export interface Database {
   public: {
     Tables: {
@@ -18,6 +18,10 @@ export interface Database {
           pvp_rating: number;
           pvp_wins: number;
           pvp_losses: number;
+          unlocked_team_slots: number;
+          pve_team_slot: number;
+          pvp_team_slot: number;
+          bytes: number;
           updated_at: string;
         };
         Insert: {
@@ -35,6 +39,10 @@ export interface Database {
           pvp_rating?: number;
           pvp_wins?: number;
           pvp_losses?: number;
+          unlocked_team_slots?: number;
+          pve_team_slot?: number;
+          pvp_team_slot?: number;
+          bytes?: number;
           updated_at?: string;
         };
         Update: {
@@ -52,6 +60,10 @@ export interface Database {
           pvp_rating?: number;
           pvp_wins?: number;
           pvp_losses?: number;
+          unlocked_team_slots?: number;
+          pve_team_slot?: number;
+          pvp_team_slot?: number;
+          bytes?: number;
           updated_at?: string;
         };
         Relationships: [];
@@ -230,6 +242,57 @@ export interface Database {
         };
         Relationships: [];
       };
+      player_teams: {
+        Row: {
+          user_id: string;
+          slot: number;
+          name: string;
+          characters: unknown;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          slot: number;
+          name: string;
+          characters?: unknown;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          slot?: number;
+          name?: string;
+          characters?: unknown;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      diagram_listings: {
+        Row: {
+          id: string;
+          seller_id: string;
+          character_id: string;
+          quantity: number;
+          price_credits: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          seller_id: string;
+          character_id: string;
+          quantity: number;
+          price_credits: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          seller_id?: string;
+          character_id?: string;
+          quantity?: number;
+          price_credits?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -240,6 +303,27 @@ export interface Database {
           p_log: unknown;
           p_attacker_rating_delta: number;
           p_defender_rating_delta: number;
+        };
+        Returns: void;
+      };
+      publish_diagram_listing: {
+        Args: {
+          p_character_id: string;
+          p_quantity: number;
+          p_price_credits: number;
+        };
+        Returns: string;
+      };
+      cancel_diagram_listing: {
+        Args: {
+          p_listing_id: string;
+        };
+        Returns: void;
+      };
+      purchase_diagram_listing: {
+        Args: {
+          p_listing_id: string;
+          p_quantity: number;
         };
         Returns: void;
       };

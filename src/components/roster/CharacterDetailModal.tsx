@@ -20,7 +20,7 @@ export function CharacterDetailModal({ character, owned, onClose }: CharacterDet
           <CharacterPortrait
             name={character.name}
             element={character.element}
-            faction={character.faction}
+            rarity={character.rarity}
             portraitUrl={character.portraitUrl}
             size={88}
           />
@@ -52,6 +52,28 @@ export function CharacterDetailModal({ character, owned, onClose }: CharacterDet
                 />
               ))}
             </div>
+          </div>
+        </div>
+
+        <div>
+          <h4 className="mb-2 font-display text-[10px] font-bold uppercase tracking-widest text-white/40">Estatísticas</h4>
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+            {(
+              [
+                { icon: 'heart', label: 'HP', value: Math.round(character.stats.hp) },
+                { icon: 'swords', label: 'ATK', value: Math.round(character.stats.atk) },
+                { icon: 'shield', label: 'DEF', value: `${Math.round(character.stats.def * 100)}%` },
+                { icon: 'zap', label: 'INI', value: `${Math.round(character.stats.ini * 100)}%` },
+                { icon: 'wind', label: 'ESQ', value: `${Math.round(character.stats.esq * 100)}%` },
+                { icon: 'shield-off', label: 'ICE', value: `${Math.round(character.stats.ice * 100)}%` },
+              ] as const
+            ).map((stat) => (
+              <div key={stat.label} className="flex flex-col items-center gap-1 rounded-lg border border-void-600 bg-void-900/60 py-2">
+                <Icon name={stat.icon} size={13} className="text-white/50" />
+                <span className="font-mono text-xs font-bold text-white">{stat.value}</span>
+                <span className="text-[9px] uppercase tracking-wide text-white/40">{stat.label}</span>
+              </div>
+            ))}
           </div>
         </div>
 

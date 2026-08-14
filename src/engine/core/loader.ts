@@ -96,9 +96,15 @@ function buildCombatant(
   const scale = (1 + synergyBonus) * statMultiplier;
   const hp = Math.round(data.baseStats.hp * scale);
   const atk = Math.round(data.baseStats.atk * scale);
-  const def = Math.round(data.baseStats.def * statMultiplier);
-  const ini = Math.round(data.baseStats.ini * statMultiplier);
-  const esq = data.baseStats.esq * statMultiplier;
+  // Allies: DEF/INI/ESQ/ICE are ability-granted build choices, not generic growing stats
+  // (schema.ts) — never scaled by level/synergy, always exactly whatever the character's kit
+  // grants (today always 0, until kits that grant them exist). Enemies are untouched by that
+  // rule — their DEF/INI/ESQ scaling by statMultiplier is world/estágio difficulty tuning, a
+  // separate, pre-existing mechanic (progression.ts's difficultyMultiplier).
+  const def = isAlly ? data.baseStats.def : Math.round(data.baseStats.def * statMultiplier);
+  const ini = isAlly ? data.baseStats.ini : Math.round(data.baseStats.ini * statMultiplier);
+  const esq = isAlly ? data.baseStats.esq : data.baseStats.esq * statMultiplier;
+  const ice = isAlly ? data.baseStats.ice : (data.baseStats.ice ?? 0) * statMultiplier;
 
   return {
     id: idSuffix ? `${data.id}#${idSuffix}` : data.id,
@@ -109,7 +115,7 @@ function buildCombatant(
     isAlly,
     stars: data.stars ?? 0,
     level,
-    base: { hp, atk, def, ini, esq },
+    base: { hp, atk, def, ini, esq, ice },
     maxHp: hp,
     hp,
     shield: 0,

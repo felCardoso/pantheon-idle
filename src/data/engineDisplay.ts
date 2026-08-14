@@ -50,7 +50,7 @@ export const ENEMY_LEVEL_BY_TEMPLATE_ID: Record<string, number> = {
  *
  * Rarity is not a fixed trait per character — every character can be found
  * at the lowest tier (Alpha) and, once an upgrade system exists, raised up
- * through Beta/RC/Stable/LTS/Quantum while keeping everything it had at the
+ * through Beta/Stable/LTS while keeping everything it had at the
  * lower tier. Since no such system is built yet, every ally is Alpha here —
  * this map is what a future upgrade feature would update per-owned-instance
  * rather than per-templateId.
@@ -80,7 +80,7 @@ export const DISPLAY_RARITY_BY_TEMPLATE_ID: Record<string, Rarity> = {
   "script-kiddie": "Alpha",
   "firewall-turret": "Alpha",
   "corrupted-daemon": "Alpha",
-  anhanga: "Quantum",
+  anhanga: "LTS",
 };
 
 /**

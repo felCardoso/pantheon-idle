@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
 export interface OwnedCharacter {
@@ -22,6 +22,8 @@ export interface UseOwnedCharactersResult {
   acquireCharacter: (characterId: string) => Promise<'new' | 'duplicate'>;
   /** Consumes 1 fragment of characterId — the caller is responsible for granting the credit refund (see useBattleSimulation's adjustCredits). */
   sellFragment: (characterId: string) => Promise<void>;
+  /** Re-queries character_fragments — call after a Mercado de Diagramas publish/cancel/purchase, since those mutate this row server-side via RPC. */
+  refreshFragments: () => Promise<void>;
 }
 
 /** Loads and persists which characters a player owns (and their XP/fragments) in `player_characters`/`character_fragments`. */
@@ -31,8 +33,20 @@ export function useOwnedCharacters(userId: string | undefined): UseOwnedCharacte
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Mirrors of the state above, written synchronously wherever the state is written. React
+  // state updates aren't visible to the very next synchronous-ish call in the same tick (no
+  // render has happened yet), which matters here because acquireCharacter can be called
+  // back-to-back for a batch of gacha pulls (see GachaPage's 10x option) — two pulls landing on
+  // the same already-owned character in one batch would both read the same stale fragment count
+  // from state and silently drop an increment. Reading/writing through these refs instead keeps
+  // every call correct regardless of render timing.
+  const ownedRef = useRef<OwnedCharacter[]>([]);
+  const fragmentsRef = useRef<Record<string, number>>({});
+
   useEffect(() => {
     if (!userId) {
+      ownedRef.current = [];
+      fragmentsRef.current = {};
       setOwnedCharacters(null);
       setFragments({});
       setLoading(false);
@@ -53,15 +67,20 @@ export function useOwnedCharacters(userId: string | undefined): UseOwnedCharacte
 
       if (charResult.error) {
         setError(charResult.error.message);
+        ownedRef.current = [];
         setOwnedCharacters([]);
       } else {
-        setOwnedCharacters(charResult.data.map((row) => ({ characterId: row.character_id, xp: row.xp })));
+        const owned = charResult.data.map((row) => ({ characterId: row.character_id, xp: row.xp }));
+        ownedRef.current = owned;
+        setOwnedCharacters(owned);
       }
 
       if (fragResult.error) {
         setError((prev) => prev ?? fragResult.error!.message);
       } else {
-        setFragments(Object.fromEntries(fragResult.data.filter((row) => row.count > 0).map((row) => [row.character_id, row.count])));
+        const frags = Object.fromEntries(fragResult.data.filter((row) => row.count > 0).map((row) => [row.character_id, row.count]));
+        fragmentsRef.current = frags;
+        setFragments(frags);
       }
 
       setLoading(false);
@@ -75,7 +94,9 @@ export function useOwnedCharacters(userId: string | undefined): UseOwnedCharacte
   const claimStarter = useCallback(
     async (characterId: string) => {
       if (!userId) return;
-      setOwnedCharacters([{ characterId, xp: 0 }]);
+      const owned = [{ characterId, xp: 0 }];
+      ownedRef.current = owned;
+      setOwnedCharacters(owned);
       const { error: insertError } = await supabase.from('player_characters').insert({ user_id: userId, character_id: characterId });
       setError(insertError ? insertError.message : null);
     },
@@ -84,8 +105,9 @@ export function useOwnedCharacters(userId: string | undefined): UseOwnedCharacte
 
   const addXp = useCallback(
     (amount: number) => {
-      if (!userId || amount <= 0 || !ownedCharacters || ownedCharacters.length === 0) return;
-      const next = ownedCharacters.map((c) => ({ ...c, xp: c.xp + amount }));
+      if (!userId || amount <= 0 || ownedRef.current.length === 0) return;
+      const next = ownedRef.current.map((c) => ({ ...c, xp: c.xp + amount }));
+      ownedRef.current = next;
       setOwnedCharacters(next);
       supabase
         .from('player_characters')
@@ -95,51 +117,66 @@ export function useOwnedCharacters(userId: string | undefined): UseOwnedCharacte
         )
         .then(({ error: upsertError }) => setError(upsertError ? upsertError.message : null));
     },
-    [userId, ownedCharacters],
+    [userId],
   );
 
   const acquireCharacter = useCallback(
     async (characterId: string): Promise<'new' | 'duplicate'> => {
       if (!userId) return 'duplicate';
 
-      const alreadyOwned = (ownedCharacters ?? []).some((c) => c.characterId === characterId);
+      const alreadyOwned = ownedRef.current.some((c) => c.characterId === characterId);
       if (!alreadyOwned) {
-        setOwnedCharacters((prev) => [...(prev ?? []), { characterId, xp: 0 }]);
+        const next = [...ownedRef.current, { characterId, xp: 0 }];
+        ownedRef.current = next;
+        setOwnedCharacters(next);
         const { error: insertError } = await supabase.from('player_characters').insert({ user_id: userId, character_id: characterId });
         setError(insertError ? insertError.message : null);
         return 'new';
       }
 
-      const nextCount = (fragments[characterId] ?? 0) + 1;
-      setFragments((prev) => ({ ...prev, [characterId]: nextCount }));
+      const nextCount = (fragmentsRef.current[characterId] ?? 0) + 1;
+      const nextFragments = { ...fragmentsRef.current, [characterId]: nextCount };
+      fragmentsRef.current = nextFragments;
+      setFragments(nextFragments);
       const { error: upsertError } = await supabase
         .from('character_fragments')
         .upsert({ user_id: userId, character_id: characterId, count: nextCount }, { onConflict: 'user_id,character_id' });
       setError(upsertError ? upsertError.message : null);
       return 'duplicate';
     },
-    [userId, ownedCharacters, fragments],
+    [userId],
   );
 
   const sellFragment = useCallback(
     async (characterId: string) => {
       if (!userId) return;
-      const current = fragments[characterId] ?? 0;
+      const current = fragmentsRef.current[characterId] ?? 0;
       if (current <= 0) return;
 
       const nextCount = current - 1;
-      setFragments((prev) => {
-        const next = { ...prev, [characterId]: nextCount };
-        if (nextCount <= 0) delete next[characterId];
-        return next;
-      });
+      const next = { ...fragmentsRef.current, [characterId]: nextCount };
+      if (nextCount <= 0) delete next[characterId];
+      fragmentsRef.current = next;
+      setFragments(next);
       const { error: upsertError } = await supabase
         .from('character_fragments')
         .upsert({ user_id: userId, character_id: characterId, count: nextCount }, { onConflict: 'user_id,character_id' });
       setError(upsertError ? upsertError.message : null);
     },
-    [userId, fragments],
+    [userId],
   );
 
-  return { ownedCharacters, fragments, loading, error, claimStarter, addXp, acquireCharacter, sellFragment };
+  const refreshFragments = useCallback(async () => {
+    if (!userId) return;
+    const { data, error: fragError } = await supabase.from('character_fragments').select('character_id, count').eq('user_id', userId);
+    if (fragError) {
+      setError(fragError.message);
+      return;
+    }
+    const frags = Object.fromEntries(data.filter((row) => row.count > 0).map((row) => [row.character_id, row.count]));
+    fragmentsRef.current = frags;
+    setFragments(frags);
+  }, [userId]);
+
+  return { ownedCharacters, fragments, loading, error, claimStarter, addXp, acquireCharacter, sellFragment, refreshFragments };
 }

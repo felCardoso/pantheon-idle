@@ -31,6 +31,11 @@ export function effectiveEsq(c: Combatant): number {
   return c.base.esq;
 }
 
+export function effectiveIce(c: Combatant): number {
+  // No status in the current roster modifies ICE; kept for API symmetry / future statuses.
+  return c.base.ice;
+}
+
 export function isStunned(c: Combatant): boolean {
   return c.statuses.some((s) => s.status === 'atordoamento');
 }

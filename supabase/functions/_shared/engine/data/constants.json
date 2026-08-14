@@ -1,0 +1,30 @@
+{
+  "critChanceBase": 0.05,
+  "critMultiplier": 1.5,
+  "elementalAdvantageMultiplier": 1.25,
+  "elementalCounters": {
+    "Encryption": ["Backdoor", "Brute Force"]
+  },
+  "statusDefaultDurations": {
+    "virus": 3,
+    "sangramento": 3,
+    "veneno": 3,
+    "enfraquecimento": 2,
+    "corrosao": 2,
+    "lentidao": 2,
+    "atordoamento": 1,
+    "regeneracao": 3,
+    "marcado": null
+  },
+  "synergyByCount": {
+    "2": 0.05,
+    "3": 0.12,
+    "4": 0.21,
+    "5": 0.32
+  },
+  "antiInfiniteRound": {
+    "roundLimit": 45,
+    "enrageStartRound": 30,
+    "enrageBasePercent": 0.02
+  }
+}
