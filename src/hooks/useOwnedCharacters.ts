@@ -22,6 +22,8 @@ export interface UseOwnedCharactersResult {
   acquireCharacter: (characterId: string) => Promise<'new' | 'duplicate'>;
   /** Consumes 1 fragment of characterId — the caller is responsible for granting the credit refund (see useBattleSimulation's adjustCredits). */
   sellFragment: (characterId: string) => Promise<void>;
+  /** Re-queries character_fragments — call after a Mercado de Diagramas publish/cancel/purchase, since those mutate this row server-side via RPC. */
+  refreshFragments: () => Promise<void>;
 }
 
 /** Loads and persists which characters a player owns (and their XP/fragments) in `player_characters`/`character_fragments`. */
@@ -141,5 +143,15 @@ export function useOwnedCharacters(userId: string | undefined): UseOwnedCharacte
     [userId, fragments],
   );
 
-  return { ownedCharacters, fragments, loading, error, claimStarter, addXp, acquireCharacter, sellFragment };
+  const refreshFragments = useCallback(async () => {
+    if (!userId) return;
+    const { data, error: fragError } = await supabase.from('character_fragments').select('character_id, count').eq('user_id', userId);
+    if (fragError) {
+      setError(fragError.message);
+      return;
+    }
+    setFragments(Object.fromEntries(data.filter((row) => row.count > 0).map((row) => [row.character_id, row.count])));
+  }, [userId]);
+
+  return { ownedCharacters, fragments, loading, error, claimStarter, addXp, acquireCharacter, sellFragment, refreshFragments };
 }

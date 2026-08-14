@@ -1,13 +1,18 @@
 import { ALL_CHARACTER_IDS, characterIdsByMythology, loadCharactersByIds } from '../engine/core/loader';
 import { xpProgress } from '../engine/core/leveling';
 import type { RngLike } from '../engine/core/rng';
-import { CHARACTER_INFO, type CharacterInfo } from './characterInfo';
+import { CHARACTER_INFO, type AbilityInfo, type CharacterInfo } from './characterInfo';
 import { DISPLAY_PORTRAIT_BY_TEMPLATE_ID, DISPLAY_RARITY_BY_TEMPLATE_ID, FALLBACK_ELEMENT, FALLBACK_FACTION, FALLBACK_RARITY } from './engineDisplay';
 import type { OwnedCharacter } from '../hooks/useOwnedCharacters';
-import type { BaseStats } from '../engine/schema';
+import type { AbilityTrigger, BaseStats } from '../engine/schema';
 import type { Element, Faction, Rarity } from '../types';
 
-export interface RosterCharacter extends CharacterInfo {
+/** An ability entry with its real engine trigger resolved in — see toRosterCharacter's zip below. */
+export interface ResolvedAbilityInfo extends AbilityInfo {
+  trigger: AbilityTrigger;
+}
+
+export interface RosterCharacter extends Omit<CharacterInfo, 'abilities'> {
   templateId: string;
   name: string;
   faction: Faction;
@@ -22,6 +27,7 @@ export interface RosterCharacter extends CharacterInfo {
   portraitUrl?: string;
   /** Real combat stats: same-mythology synergy bonus (by team size) and level scaling already folded in. */
   stats: BaseStats;
+  abilities: ResolvedAbilityInfo[];
   alwaysActsFirst: boolean;
   statusDurationBonus: number;
   /** Star-up progress — always 0 until a star/rarity-upgrade system exists (docs/gdd.md section 7). */
@@ -33,8 +39,26 @@ const UNKNOWN_INFO: CharacterInfo = {
   abilities: [{ name: null, kind: 'Passiva', description: 'Sem habilidade registrada.' }],
 };
 
+/**
+ * First-pass, easy-to-retune team-power figure — no existing "poder" stat in
+ * the docs to match, so this weights each combat stat to land in a similar
+ * order of magnitude across the roster and grows with the same investment
+ * (level, mythology synergy) that already matters in battle. DEF is 0 for
+ * every character today, but stays in the formula so a future non-zero DEF
+ * contributes automatically.
+ */
+export function characterPower(stats: BaseStats): number {
+  return Math.round(stats.hp * 0.1 + stats.atk * 2 + stats.def * 2 + stats.ini * 1 + stats.esq * 1000);
+}
+
 function toRosterCharacter(c: ReturnType<typeof loadCharactersByIds>[number], mythology: string, xp: number): RosterCharacter {
   const progress = xpProgress(xp);
+  const info = CHARACTER_INFO[c.templateId] ?? UNKNOWN_INFO;
+  // CHARACTER_INFO's hand-authored abilities are always written in the same
+  // order/length as the character's real engine abilities (c.abilities) —
+  // zip in each one's actual trigger so UI (Team page's "Order of Action")
+  // can show when it fires without duplicating trigger data by hand.
+  const abilities: ResolvedAbilityInfo[] = info.abilities.map((a, i) => ({ ...a, trigger: c.abilities[i]?.trigger ?? 'battleStart' }));
   return {
     templateId: c.templateId,
     name: c.name,
@@ -51,7 +75,8 @@ function toRosterCharacter(c: ReturnType<typeof loadCharactersByIds>[number], my
     alwaysActsFirst: c.alwaysActsFirst,
     statusDurationBonus: c.statusDurationBonus,
     stars: c.stars,
-    ...(CHARACTER_INFO[c.templateId] ?? UNKNOWN_INFO),
+    lore: info.lore,
+    abilities,
   };
 }
 
@@ -84,6 +109,11 @@ export function pickStarterOptions(rng: RngLike): RosterCharacter[] {
 
 /** All character ids, for anything that needs to enumerate the full pool without hardcoding it. */
 export { ALL_CHARACTER_IDS };
+
+/** A duplicate character's tradeable item is a `.dat` (docs/monetizacao-guilda.md), not the owned character's `.exe` — use only for fragment/diagram display, never for the owned character itself. */
+export function diagramName(name: string): string {
+  return name.replace(/\.exe$/, '.dat');
+}
 
 /**
  * Rolls one random character id for a gacha pull — uniform across the full

@@ -52,6 +52,8 @@ import {
   Package,
   ShoppingBag,
   Skull,
+  Pencil,
+  Plus,
   type LucideProps,
 } from 'lucide-react';
 import type { FC } from 'react';
@@ -110,6 +112,8 @@ const REGISTRY: Record<string, FC<LucideProps>> = {
   package: Package,
   'shopping-bag': ShoppingBag,
   skull: Skull,
+  pencil: Pencil,
+  plus: Plus,
 };
 
 interface IconProps extends LucideProps {

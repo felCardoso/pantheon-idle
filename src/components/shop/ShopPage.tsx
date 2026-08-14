@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Icon } from '../common/Icon';
 import { CharacterPortrait } from '../roster/CharacterPortrait';
 import { RosterChips } from '../roster/RosterChips';
-import { buildCompendium, pullGachaCharacter } from '../../data/roster';
+import { buildCompendium, diagramName, pullGachaCharacter } from '../../data/roster';
 import { Rng } from '../../engine/core/rng';
 import {
   CLUSTER_CREDIT_XP_BONUS_PERCENT,
@@ -262,7 +262,7 @@ export function ShopPage({
                         size={40}
                       />
                       <div className="min-w-0">
-                        <p className="truncate text-sm text-white">{info?.name ?? characterId}</p>
+                        <p className="truncate text-sm text-white">{diagramName(info?.name ?? characterId)}</p>
                         <p className="text-xs text-white/50">{count}x diagrama</p>
                       </div>
                     </div>
@@ -276,7 +276,10 @@ export function ShopPage({
                   </div>
                 );
               })}
-              <p className="text-[11px] text-white/30">Trocar diagramas com outros jogadores ainda não está disponível — em breve no Mercado.</p>
+              <p className="text-[11px] text-white/30">
+                Prefere negociar com outros jogadores por um preço melhor? Assinantes de Root Access podem publicar e comprar `.dat` no
+                Mercado.
+              </p>
             </div>
           )}
         </section>
