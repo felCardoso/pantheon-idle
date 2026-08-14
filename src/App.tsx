@@ -9,5 +9,5 @@ export default function App() {
   if (auth.loading) return <Splash />;
   if (!auth.user) return <AuthScreen auth={auth} />;
 
-  return <GameShell userId={auth.user.id} userEmail={auth.user.email ?? ''} onSignOut={auth.signOut} />;
+  return <GameShell userId={auth.user.id} onSignOut={auth.signOut} />;
 }

@@ -4,7 +4,6 @@ import type { PlayerState } from '../../types';
 
 interface TopBarProps {
   player: PlayerState;
-  userEmail: string;
   onSignOut: () => void;
   onOpenWiki: () => void;
   onOpenNotifications: () => void;
@@ -16,7 +15,7 @@ function formatNumber(n: number): string {
   return `${n}`;
 }
 
-export function TopBar({ player, userEmail, onSignOut, onOpenWiki, onOpenNotifications, onOpenSettings }: TopBarProps) {
+export function TopBar({ player, onSignOut, onOpenWiki, onOpenNotifications, onOpenSettings }: TopBarProps) {
   const [profileOpen, setProfileOpen] = useState(false);
 
   return (
@@ -119,7 +118,7 @@ export function TopBar({ player, userEmail, onSignOut, onOpenWiki, onOpenNotific
             <>
               <div className="fixed inset-0 z-30" onClick={() => setProfileOpen(false)} aria-hidden />
               <div className="absolute right-0 top-full z-40 mt-2 w-56 rounded-lg border border-code-500/25 bg-void-900/95 p-3 shadow-lg backdrop-blur-md">
-                <p className="truncate font-mono text-xs text-white/60">{userEmail}</p>
+                <p className="truncate font-mono text-xs text-white/60">{player.name}</p>
                 <button
                   onClick={() => {
                     setProfileOpen(false);

@@ -13,7 +13,7 @@ export interface UseAuthResult {
   user: User | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<AuthResult>;
-  signUp: (email: string, password: string) => Promise<AuthResult>;
+  signUp: (email: string, password: string, username: string) => Promise<AuthResult>;
   signOut: () => Promise<void>;
 }
 
@@ -22,6 +22,11 @@ function translateAuthError(message: string): string {
   if (message.includes('User already registered')) return 'Já existe uma conta com esse e-mail.';
   if (message.includes('Password should be at least')) return 'A senha precisa ter pelo menos 6 caracteres.';
   if (message.includes('Unable to validate email address')) return 'E-mail inválido.';
+  // Surfaced when the profiles.username trigger fails (see migration 0004) — most
+  // likely a username collision, since that's the only constraint it can violate.
+  if (message.includes('Database error saving new user') || message.includes('duplicate key')) {
+    return 'Não foi possível criar a conta — esse nome de usuário já pode estar em uso. Tente outro.';
+  }
   if (message.includes('Failed to fetch') || message.includes('NetworkError')) {
     return 'Não foi possível conectar. Verifique sua internet e tente novamente.';
   }
@@ -53,13 +58,15 @@ export function useAuth(): UseAuthResult {
     return { error: error ? translateAuthError(error.message) : null };
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string): Promise<AuthResult> => {
-    // Without this, the confirmation email links back to whatever "Site URL" is set in the
-    // Supabase dashboard (defaults to localhost:3000) instead of wherever this is actually running.
+  const signUp = useCallback(async (email: string, password: string, username: string): Promise<AuthResult> => {
+    // Without emailRedirectTo, the confirmation email links back to whatever "Site URL" is set in
+    // the Supabase dashboard (defaults to localhost:3000) instead of wherever this is actually
+    // running. username travels in via options.data (user_metadata) so migration 0004's trigger
+    // can create the profiles row even before email confirmation grants a session.
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: window.location.origin },
+      options: { emailRedirectTo: window.location.origin, data: { username } },
     });
     if (error) return { error: translateAuthError(error.message) };
     return { error: null, needsEmailConfirmation: !data.session };

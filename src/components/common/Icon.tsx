@@ -48,6 +48,9 @@ import {
   Gauge,
   Wind,
   ScrollText,
+  Gift,
+  Package,
+  ShoppingBag,
   type LucideProps,
 } from 'lucide-react';
 import type { FC } from 'react';
@@ -102,6 +105,9 @@ const REGISTRY: Record<string, FC<LucideProps>> = {
   gauge: Gauge,
   wind: Wind,
   'scroll-text': ScrollText,
+  gift: Gift,
+  package: Package,
+  'shopping-bag': ShoppingBag,
 };
 
 interface IconProps extends LucideProps {

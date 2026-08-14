@@ -6,6 +6,7 @@ import { ChatPanel } from './layout/ChatPanel';
 import { BattleStage } from './battle/BattleStage';
 import { TeamPage } from './roster/TeamPage';
 import { CharactersPage } from './roster/CharactersPage';
+import { ShopPage } from './shop/ShopPage';
 import { OnboardingScreen } from './onboarding/OnboardingScreen';
 import { WikiModal } from './wiki/WikiModal';
 import { Toast } from './common/Toast';
@@ -17,17 +18,19 @@ import { CHAT_MESSAGES } from '../data/mock/chat';
 import { useBattleSimulation } from '../hooks/useBattleSimulation';
 import { usePlayerProgress } from '../hooks/usePlayerProgress';
 import { useOwnedCharacters, type OwnedCharacter } from '../hooks/useOwnedCharacters';
+import { useProfile } from '../hooks/useProfile';
 import type { MenuItem } from '../types';
 
 interface GameShellProps {
   userId: string;
-  userEmail: string;
   onSignOut: () => void;
 }
 
-export function GameShell({ userId, userEmail, onSignOut }: GameShellProps) {
-  const { progress, loading: progressLoading, saveProgress } = usePlayerProgress(userId);
-  const { ownedCharacters, loading: ownedLoading, claimStarter, addXp } = useOwnedCharacters(userId);
+export function GameShell({ userId, onSignOut }: GameShellProps) {
+  const { progress, starterBoostClaimed, loading: progressLoading, saveProgress, claimStarterBoost } = usePlayerProgress(userId);
+  const { ownedCharacters, fragments, loading: ownedLoading, claimStarter, addXp, acquireCharacter, sellFragment } =
+    useOwnedCharacters(userId);
+  const { username } = useProfile(userId);
 
   if (progressLoading || !progress || ownedLoading || !ownedCharacters) return <Splash />;
 
@@ -37,29 +40,39 @@ export function GameShell({ userId, userEmail, onSignOut }: GameShellProps) {
 
   return (
     <GameShellReady
-      userEmail={userEmail}
+      username={username}
       onSignOut={onSignOut}
       initialFase={progress.fase}
       initialEstagio={progress.estagio}
       initialCredits={progress.credits}
       initialXp={progress.xp}
       ownedCharacters={ownedCharacters}
+      fragments={fragments}
       addXp={addXp}
+      acquireCharacter={acquireCharacter}
+      sellFragment={sellFragment}
       saveProgress={saveProgress}
+      starterBoostClaimed={starterBoostClaimed}
+      claimStarterBoost={claimStarterBoost}
     />
   );
 }
 
 interface GameShellReadyProps {
-  userEmail: string;
+  username: string | null;
   onSignOut: () => void;
   initialFase: number;
   initialEstagio: number;
   initialCredits: number;
   initialXp: number;
   ownedCharacters: OwnedCharacter[];
+  fragments: Record<string, number>;
   addXp: (amount: number) => void;
+  acquireCharacter: (characterId: string) => Promise<'new' | 'duplicate'>;
+  sellFragment: (characterId: string) => void;
   saveProgress: (next: { fase: number; estagio: number; credits: number; xp: number }) => void;
+  starterBoostClaimed: boolean;
+  claimStarterBoost: () => void;
 }
 
 /**
@@ -67,15 +80,20 @@ interface GameShellReadyProps {
  * lazy reducer init reads the real starting point instead of always 1-1/0/0.
  */
 function GameShellReady({
-  userEmail,
+  username,
   onSignOut,
   initialFase,
   initialEstagio,
   initialCredits,
   initialXp,
   ownedCharacters,
+  fragments,
   addXp,
+  acquireCharacter,
+  sellFragment,
   saveProgress,
+  starterBoostClaimed,
+  claimStarterBoost,
 }: GameShellReadyProps) {
   const [activeMenuId, setActiveMenuId] = useState('battle');
   const [wikiOpen, setWikiOpen] = useState(false);
@@ -90,8 +108,11 @@ function GameShellReady({
     initialXp,
   });
   const chatMessages = useMemo(() => [...CHAT_MESSAGES, ...battle.logFeed], [battle.logFeed]);
-  // Credits/XP are now real (persisted in Supabase) — no more mock baseline stacked on top.
-  const player = useMemo(() => ({ ...PLAYER_STATE, credits: battle.credits, xp: battle.xp }), [battle.credits, battle.xp]);
+  // Credits/XP are real (persisted in Supabase); name is the real username once loaded, falling back to the mock placeholder otherwise.
+  const player = useMemo(
+    () => ({ ...PLAYER_STATE, name: username ?? PLAYER_STATE.name, credits: battle.credits, xp: battle.xp }),
+    [username, battle.credits, battle.xp],
+  );
 
   const hasMounted = useRef(false);
   const prevBattleXpRef = useRef(initialXp);
@@ -126,7 +147,6 @@ function GameShellReady({
     <div className="flex h-dvh flex-col overflow-hidden font-body">
       <TopBar
         player={player}
-        userEmail={userEmail}
         onSignOut={onSignOut}
         onOpenWiki={() => setWikiOpen(true)}
         onOpenNotifications={() => setToast('Notificações — em breve')}
@@ -141,6 +161,17 @@ function GameShellReady({
             <TeamPage ownedCharacters={ownedCharacters} />
           ) : activeMenuId === 'characters' ? (
             <CharactersPage ownedIds={ownedCharacters.map((c) => c.characterId)} />
+          ) : activeMenuId === 'shop' ? (
+            <ShopPage
+              credits={battle.credits}
+              starterBoostClaimed={starterBoostClaimed}
+              fragments={fragments}
+              onClaimStarterBoost={claimStarterBoost}
+              onAcquireCharacter={acquireCharacter}
+              onSellFragment={sellFragment}
+              onAdjustCredits={battle.adjustCredits}
+              onToast={setToast}
+            />
           ) : (
             <BattleStage
               allies={battle.allies}
