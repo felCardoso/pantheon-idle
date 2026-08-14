@@ -85,10 +85,17 @@ interface PlaybackState {
   totalXp: number;
   /** Credits/XP earned from this specific battle — set once it ends, shown on the winner overlay. */
   lastReward: Reward | null;
+  /**
+   * The player's real saved progress. Distinct from `session.fase/estagio`
+   * (what's currently on screen) so that replaying an earlier estágio via
+   * playStage — a "detour" — never regresses saved progress: it only ever
+   * moves forward, via a normal win-advance from a non-detour session.
+   */
+  frontier: WorldPosition;
 }
 
 type Action =
-  | { type: 'reset'; session: BattleSession }
+  | { type: 'reset'; session: BattleSession; frontier: WorldPosition }
   | { type: 'tick' }
   | { type: 'pruneFloaters' }
   | { type: 'adjustCredits'; delta: number };
@@ -178,6 +185,7 @@ function buildInitialState(
     totalCredits: initialCredits,
     totalXp: initialXp,
     lastReward: null,
+    frontier: position,
   };
 }
 
@@ -195,6 +203,7 @@ function reducer(state: PlaybackState, action: Action): PlaybackState {
       finished: action.session.log.length === 0,
       winner: null,
       lastReward: null,
+      frontier: action.frontier,
     };
   }
 
@@ -315,6 +324,11 @@ export interface BattleSimulation {
   repeatBattle: () => void;
   /** Spends (negative) or grants (positive) credits outside of battle rewards — the Loja's purchase/sale/claim primitive. Clamped at 0. */
   adjustCredits: (delta: number) => void;
+  /** The player's real saved position (mini-map dots before this are completed) — distinct from `stage` while detouring via playStage. */
+  frontierFase: number;
+  frontierEstagio: number;
+  /** Jumps to replay a previously-completed estágio within the current fase (the mini-map) without disturbing saved progress — the next Avançar/auto-advance returns to the frontier instead of continuing from here. */
+  playStage: (estagio: number) => void;
 }
 
 export function useBattleSimulation(options: UseBattleSimulationOptions): BattleSimulation {
@@ -351,27 +365,44 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
   useEffect(() => {
     if (!state.finished || !playing) return;
     const position: WorldPosition = { fase: state.session.fase, estagio: state.session.estagio };
-    const target = state.winner === 'allies' ? nextStage(position) : position;
+    const isDetour = position.fase !== state.frontier.fase || position.estagio !== state.frontier.estagio;
+    const target = isDetour ? state.frontier : state.winner === 'allies' ? nextStage(position) : position;
+    const nextFrontier = isDetour ? state.frontier : target;
     const timer = setTimeout(() => {
-      dispatch({ type: 'reset', session: createSession(Date.now() >>> 0, target, initialOwnedCharacters) });
+      dispatch({ type: 'reset', session: createSession(Date.now() >>> 0, target, initialOwnedCharacters), frontier: nextFrontier });
     }, autoAdvanceDelayMs);
     return () => clearTimeout(timer);
-  }, [state.finished, state.winner, state.session, playing, autoAdvanceDelayMs, initialOwnedCharacters]);
+  }, [state.finished, state.winner, state.session, state.frontier, playing, autoAdvanceDelayMs, initialOwnedCharacters]);
 
   const startNewBattle = useCallback(() => {
     const position: WorldPosition = { fase: state.session.fase, estagio: state.session.estagio };
-    const target = state.winner === 'allies' ? nextStage(position) : position;
-    dispatch({ type: 'reset', session: createSession(Date.now() >>> 0, target, initialOwnedCharacters) });
+    const isDetour = position.fase !== state.frontier.fase || position.estagio !== state.frontier.estagio;
+    const target = isDetour ? state.frontier : state.winner === 'allies' ? nextStage(position) : position;
+    const nextFrontier = isDetour ? state.frontier : target;
+    dispatch({ type: 'reset', session: createSession(Date.now() >>> 0, target, initialOwnedCharacters), frontier: nextFrontier });
     setPlaying(true);
-  }, [state.session.fase, state.session.estagio, state.winner, initialOwnedCharacters]);
+  }, [state.session.fase, state.session.estagio, state.frontier, state.winner, initialOwnedCharacters]);
 
   const repeatBattle = useCallback(() => {
     dispatch({
       type: 'reset',
       session: createSession(state.session.seed, { fase: state.session.fase, estagio: state.session.estagio }, initialOwnedCharacters),
+      frontier: state.frontier,
     });
     setPlaying(true);
-  }, [state.session.seed, state.session.fase, state.session.estagio, initialOwnedCharacters]);
+  }, [state.session.seed, state.session.fase, state.session.estagio, state.frontier, initialOwnedCharacters]);
+
+  const playStage = useCallback(
+    (estagio: number) => {
+      dispatch({
+        type: 'reset',
+        session: createSession(Date.now() >>> 0, { fase: state.frontier.fase, estagio }, initialOwnedCharacters),
+        frontier: state.frontier,
+      });
+      setPlaying(true);
+    },
+    [state.frontier, initialOwnedCharacters],
+  );
 
   const adjustCredits = useCallback((delta: number) => dispatch({ type: 'adjustCredits', delta }), []);
 
@@ -400,5 +431,8 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     startNewBattle,
     repeatBattle,
     adjustCredits,
+    frontierFase: state.frontier.fase,
+    frontierEstagio: state.frontier.estagio,
+    playStage,
   };
 }

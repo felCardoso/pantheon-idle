@@ -4,14 +4,30 @@ import type { StageInfo } from '../../types';
 
 interface StagePanelProps {
   stage: StageInfo;
+  /** The player's real saved progress within the current fase — distinct from `stage.stage` while detouring (playing an earlier estágio via the mini-map). Estágios before this are completed and selectable. */
+  frontierEstagio: number;
   open: boolean;
   onClose: () => void;
   onAdvance: () => void;
   onRepeat: () => void;
+  /** Jumps to replay a completed estágio (mini-map dot click). */
+  onSelectStage: (estagio: number) => void;
 }
 
-export function StagePanel({ stage, open, onClose, onAdvance, onRepeat }: StagePanelProps) {
+export function StagePanel({ stage, frontierEstagio, open, onClose, onAdvance, onRepeat, onSelectStage }: StagePanelProps) {
   const [retreatOnLoss, setRetreatOnLoss] = useState(true);
+  const [primaryAction, setPrimaryAction] = useState<'advance' | 'repeat'>('advance');
+  const isDetouring = stage.stage !== frontierEstagio;
+
+  function handleAdvance() {
+    setPrimaryAction('advance');
+    onAdvance();
+  }
+
+  function handleRepeat() {
+    setPrimaryAction('repeat');
+    onRepeat();
+  }
 
   return (
     <>
@@ -50,20 +66,34 @@ export function StagePanel({ stage, open, onClose, onAdvance, onRepeat }: StageP
               Round {stage.round} · T{stage.turn}
             </span>
           </div>
+          {isDetouring && (
+            <p className="mt-1 flex items-center gap-1 text-[10px] uppercase tracking-wide text-arcane-300">
+              <Icon name="rotate-ccw" size={10} />
+              Repetição — seu progresso real está no Estágio {frontierEstagio}
+            </p>
+          )}
           <div className="mt-2 flex items-center gap-1.5">
             {Array.from({ length: 5 }).map((_, i) => {
-              const nodeStage = stage.stage - ((stage.stage - 1) % 5) + i;
-              const isDone = nodeStage < stage.stage;
-              const isCurrent = nodeStage === stage.stage;
+              const nodeEstagio = i + 1;
+              const isDone = nodeEstagio < frontierEstagio;
+              const isViewing = nodeEstagio === stage.stage;
+              const isFrontierMarker = !isViewing && nodeEstagio === frontierEstagio;
+              const isSelectable = isDone && !isViewing;
               return (
                 <div key={i} className="flex flex-1 items-center gap-1.5">
-                  <div
-                    className={`h-2.5 w-2.5 shrink-0 rounded-full border ${
-                      isCurrent
+                  <button
+                    type="button"
+                    disabled={!isSelectable}
+                    onClick={() => isSelectable && onSelectStage(nodeEstagio)}
+                    title={isSelectable ? `Jogar Estágio ${nodeEstagio}` : `Estágio ${nodeEstagio}`}
+                    className={`h-2.5 w-2.5 shrink-0 rounded-full border transition ${
+                      isViewing
                         ? 'border-arcane-400 bg-arcane-400 shadow-[0_0_8px_var(--color-arcane-400)]'
-                        : isDone
-                          ? 'border-code-500 bg-code-500'
-                          : 'border-void-500 bg-void-700'
+                        : isSelectable
+                          ? 'cursor-pointer border-code-500 bg-code-500 hover:scale-125'
+                          : isFrontierMarker
+                            ? 'border-arcane-400/60 bg-void-700'
+                            : 'border-void-500 bg-void-700'
                     }`}
                   />
                   {i < 4 && <div className={`h-px flex-1 ${isDone ? 'bg-code-500/60' : 'bg-void-600'}`} />}
@@ -75,15 +105,23 @@ export function StagePanel({ stage, open, onClose, onAdvance, onRepeat }: StageP
 
         <div className="flex flex-col gap-2">
           <button
-            onClick={onAdvance}
-            className="flex items-center justify-center gap-2 rounded-lg bg-code-500 py-2.5 font-display text-xs font-bold uppercase tracking-wide text-void-950 transition hover:bg-code-400"
+            onClick={handleAdvance}
+            className={`flex items-center justify-center gap-2 rounded-lg py-2.5 font-display text-xs font-bold uppercase tracking-wide transition ${
+              primaryAction === 'advance'
+                ? 'bg-code-500 text-void-950 hover:bg-code-400'
+                : 'border border-void-500 text-white/80 hover:border-code-400 hover:text-code-300'
+            }`}
           >
             <Icon name="play" size={15} />
-            Avançar
+            {isDetouring ? 'Voltar ao progresso' : 'Avançar'}
           </button>
           <button
-            onClick={onRepeat}
-            className="flex items-center justify-center gap-2 rounded-lg border border-void-500 py-2.5 font-display text-xs font-bold uppercase tracking-wide text-white/80 transition hover:border-code-400 hover:text-code-300"
+            onClick={handleRepeat}
+            className={`flex items-center justify-center gap-2 rounded-lg py-2.5 font-display text-xs font-bold uppercase tracking-wide transition ${
+              primaryAction === 'repeat'
+                ? 'bg-code-500 text-void-950 hover:bg-code-400'
+                : 'border border-void-500 text-white/80 hover:border-code-400 hover:text-code-300'
+            }`}
           >
             <Icon name="rotate-ccw" size={15} />
             Repetir estágio
