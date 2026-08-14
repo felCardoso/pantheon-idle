@@ -1,12 +1,15 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Icon } from '../common/Icon';
 import { CharacterPortrait } from '../roster/CharacterPortrait';
 import { RosterChips } from '../roster/RosterChips';
-import { buildCompendium, pullGachaCharacter } from '../../data/roster';
+import { SummonReel } from './SummonReel';
+import { buildCompendium, pullGachaCharacter, type RosterCharacter } from '../../data/roster';
 import { Rng } from '../../engine/core/rng';
 
 // First-pass number, easy to retune later.
 const GACHA_PACK_PRICE = 1500;
+/** Decoy portraits scrolled through before landing on the real pull — purely visual. */
+const REEL_LENGTH = 24;
 
 interface GachaPageProps {
   credits: number;
@@ -21,7 +24,9 @@ interface PullReveal {
 
 export function GachaPage({ credits, onAcquireCharacter, onAdjustCredits }: GachaPageProps) {
   const [pulling, setPulling] = useState(false);
+  const [reelItems, setReelItems] = useState<RosterCharacter[] | null>(null);
   const [reveal, setReveal] = useState<PullReveal | null>(null);
+  const pendingRevealRef = useRef<PullReveal | null>(null);
 
   const compendium = buildCompendium();
   const byId = new Map(compendium.map((c) => [c.templateId, c]));
@@ -29,10 +34,26 @@ export function GachaPage({ credits, onAcquireCharacter, onAdjustCredits }: Gach
   async function handlePullGacha() {
     if (pulling || credits < GACHA_PACK_PRICE) return;
     setPulling(true);
+    setReveal(null);
     onAdjustCredits(-GACHA_PACK_PRICE);
     const characterId = pullGachaCharacter(new Rng(Date.now() >>> 0));
     const outcome = await onAcquireCharacter(characterId);
-    setReveal({ characterId, outcome });
+    const winner = byId.get(characterId);
+    if (!winner) {
+      // Shouldn't happen — pullGachaCharacter only ever returns ids the compendium knows about.
+      setReveal({ characterId, outcome });
+      setPulling(false);
+      return;
+    }
+    const decoys = Array.from({ length: REEL_LENGTH - 1 }, () => compendium[Math.floor(Math.random() * compendium.length)]);
+    pendingRevealRef.current = { characterId, outcome };
+    setReelItems([...decoys, winner]);
+  }
+
+  function handleReelComplete() {
+    setReelItems(null);
+    setReveal(pendingRevealRef.current);
+    pendingRevealRef.current = null;
     setPulling(false);
   }
 
@@ -62,11 +83,13 @@ export function GachaPage({ credits, onAcquireCharacter, onAdjustCredits }: Gach
             disabled={pulling || credits < GACHA_PACK_PRICE}
             className="flex shrink-0 items-center gap-2 rounded-lg bg-code-500 px-4 py-2 font-display text-xs font-bold uppercase tracking-wide text-void-950 transition hover:bg-code-400 disabled:opacity-50"
           >
-            {pulling && <Icon name="loader" size={13} className="animate-spin" />}
+            {pulling && !reelItems && <Icon name="loader" size={13} className="animate-spin" />}
             <Icon name="coins" size={13} />
             {GACHA_PACK_PRICE}
           </button>
         </div>
+
+        {reelItems && <SummonReel items={reelItems} onComplete={handleReelComplete} />}
 
         {revealInfo && (
           <div className="mt-3 flex items-center gap-3 rounded-xl border border-code-500/30 bg-code-900/20 p-4">
