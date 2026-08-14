@@ -3,6 +3,7 @@ import { Icon } from '../common/Icon';
 import { CharacterPortrait } from '../roster/CharacterPortrait';
 import { RosterChips } from '../roster/RosterChips';
 import { buildCompendium, diagramName, pullGachaCharacter } from '../../data/roster';
+import { FALLBACK_RARITY } from '../../data/engineDisplay';
 import { Rng } from '../../engine/core/rng';
 import {
   CLUSTER_CREDIT_XP_BONUS_PERCENT,
@@ -216,7 +217,7 @@ export function ShopPage({
               <CharacterPortrait
                 name={revealInfo.name}
                 element={revealInfo.element}
-                faction={revealInfo.faction}
+                rarity={revealInfo.rarity}
                 portraitUrl={revealInfo.portraitUrl}
                 size={56}
               />
@@ -257,7 +258,7 @@ export function ShopPage({
                       <CharacterPortrait
                         name={info?.name ?? characterId}
                         element={info?.element ?? 'Encryption'}
-                        faction={info?.faction ?? 'Firewall'}
+                        rarity={info?.rarity ?? FALLBACK_RARITY}
                         portraitUrl={info?.portraitUrl}
                         size={40}
                       />

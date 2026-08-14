@@ -5,7 +5,7 @@ import { Icon } from '../common/Icon';
 import { PvpAttackModal } from '../team/PvpAttackModal';
 import { buildOwnedRoster, characterPower, type RosterCharacter } from '../../data/roster';
 import { CONSTANTS } from '../../engine/core/loader';
-import { FACTION_COLOR, RARITY_COLOR } from '../../data/theme';
+import { RARITY_COLOR } from '../../data/theme';
 import type { OwnedCharacter } from '../../hooks/useOwnedCharacters';
 import type { TeamSlot, UsePlayerTeamsResult } from '../../hooks/usePlayerTeams';
 import { MAX_TEAM_MEMBERS } from '../../hooks/usePlayerTeams';
@@ -274,7 +274,7 @@ export function TeamPage({
                   onDrop={(e) => handleDropOnSlot(i, e)}
                 >
                   <button onClick={() => setDetailCharacter(c)} className="relative">
-                    <CharacterPortrait name={c.name} element={c.element} faction={c.faction} portraitUrl={c.portraitUrl} size={64} />
+                    <CharacterPortrait name={c.name} element={c.element} rarity={c.rarity} portraitUrl={c.portraitUrl} size={64} />
                   </button>
                   <button
                     onClick={(e) => {
@@ -478,7 +478,6 @@ export function TeamPage({
               {filteredSelector.map((c: RosterCharacter) => {
                 const inTeam = activeTeam.characterIds.includes(c.templateId);
                 const rarityColor = RARITY_COLOR[c.rarity];
-                const factionColor = FACTION_COLOR[c.faction];
                 const picking = pickingSlotIndex !== null;
                 return (
                   <button
@@ -491,7 +490,7 @@ export function TeamPage({
                     }`}
                     style={{ borderColor: rarityColor, boxShadow: `0 0 8px -4px ${rarityColor}99` }}
                   >
-                    <div className="absolute inset-0" style={{ background: `linear-gradient(150deg, ${factionColor}33, #0a0a12)` }}>
+                    <div className="absolute inset-0" style={{ background: `linear-gradient(150deg, ${rarityColor}33, #0a0a12)` }}>
                       {c.portraitUrl && <img src={c.portraitUrl} alt={c.name} className="h-full w-full object-cover" />}
                     </div>
                     <div className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-void-950 via-void-950/75 to-transparent" />

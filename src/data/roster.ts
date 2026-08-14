@@ -92,6 +92,23 @@ export function buildOwnedRoster(owned: OwnedCharacter[]): RosterCharacter[] {
 }
 
 /**
+ * The full compendium, but owned characters show their real accumulated-XP
+ * level instead of always 0 — unlike buildOwnedRoster, each character is
+ * still loaded alone (no synergy folded in), matching buildCompendium's
+ * "raw browsing stats" so Personagens isn't showing a hypothetical
+ * all-owned-characters-as-one-team number.
+ */
+export function buildFullRosterView(owned: OwnedCharacter[]): RosterCharacter[] {
+  const xpByCharacterId = new Map(owned.map((o) => [o.characterId, o.xp]));
+  return characterIdsByMythology().flatMap(({ mythology, ids }) =>
+    ids.map((id) => {
+      const xp = xpByCharacterId.get(id) ?? 0;
+      return toRosterCharacter(loadCharactersByIds([{ id, xp }])[0], mythology, xp);
+    }),
+  );
+}
+
+/**
  * 3 onboarding starter options — one random character from each mythology,
  * independent of rarity (a new player might land a Quantum flagship or an
  * Alpha just as easily; not gated to any particular tier). Always level 0.

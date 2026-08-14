@@ -331,7 +331,7 @@ function GameShellReady({
               onToast={setToast}
             />
           ) : activeMenuId === 'characters' ? (
-            <CharactersPage ownedIds={ownedCharacters.map((c) => c.characterId)} />
+            <CharactersPage ownedCharacters={ownedCharacters} />
           ) : activeMenuId === 'shop' ? (
             <ShopPage
               credits={battle.credits}

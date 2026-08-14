@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Icon } from '../common/Icon';
 import { CharacterPortrait } from '../roster/CharacterPortrait';
 import { buildCompendium, diagramName } from '../../data/roster';
+import { FALLBACK_RARITY } from '../../data/engineDisplay';
 import type { UseMarketResult } from '../../hooks/useMarket';
 
 interface MarketPageProps {
@@ -159,7 +160,7 @@ export function MarketPage({ market, fragments, vipActive, credits, onAdjustCred
                     <CharacterPortrait
                       name={byId.get(l.characterId)?.name ?? l.characterId}
                       element={byId.get(l.characterId)?.element ?? 'Encryption'}
-                      faction={byId.get(l.characterId)?.faction ?? 'Firewall'}
+                      rarity={byId.get(l.characterId)?.rarity ?? FALLBACK_RARITY}
                       portraitUrl={byId.get(l.characterId)?.portraitUrl}
                       size={40}
                     />
@@ -203,7 +204,7 @@ export function MarketPage({ market, fragments, vipActive, credits, onAdjustCred
                       <CharacterPortrait
                         name={info?.name ?? l.characterId}
                         element={info?.element ?? 'Encryption'}
-                        faction={info?.faction ?? 'Firewall'}
+                        rarity={info?.rarity ?? FALLBACK_RARITY}
                         portraitUrl={info?.portraitUrl}
                         size={40}
                       />
