@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import { CharacterPortrait } from './CharacterPortrait';
 import { CharacterDetailModal } from './CharacterDetailModal';
+import { PixelFigure } from '../battle/PixelFigure';
 import { Icon } from '../common/Icon';
 import { buildCompendium, type RosterCharacter } from '../../data/roster';
-import { RARITY_COLOR } from '../../data/theme';
+import { ELEMENT_COLOR, FACTION_COLOR, RARITY_COLOR } from '../../data/theme';
 import type { Rarity } from '../../types';
 
 interface CharactersPageProps {
@@ -98,38 +98,60 @@ export function CharactersPage({ ownedIds }: CharactersPageProps) {
           Nenhum personagem encontrado.
         </p>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
+        <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7">
           {filtered.map((c) => {
             const owned = ownedSet.has(c.templateId);
-            const color = RARITY_COLOR[c.rarity];
+            const rarityColor = RARITY_COLOR[c.rarity];
+            const elementColor = ELEMENT_COLOR[c.element];
+            const factionColor = FACTION_COLOR[c.faction];
             return (
               <button
                 key={c.templateId}
                 onClick={() => setSelected(c)}
-                className="relative flex flex-col items-center gap-2 rounded-xl border bg-void-800/50 p-3 text-left transition hover:bg-void-800/80"
-                style={{ borderColor: `${color}66` }}
+                className="group relative aspect-[3/4] overflow-hidden rounded-lg border text-left transition hover:brightness-110"
+                style={{ borderColor: rarityColor, boxShadow: `0 0 10px -4px ${rarityColor}99` }}
               >
+                {/* portrait fills the card */}
+                <div className="absolute inset-0" style={{ background: `linear-gradient(150deg, ${factionColor}33, #0a0a12)` }}>
+                  {c.portraitUrl ? (
+                    <img
+                      src={c.portraitUrl}
+                      alt={c.name}
+                      className={`h-full w-full object-cover ${owned ? '' : 'opacity-40 grayscale'}`}
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <PixelFigure className={`h-[70%] w-[70%] ${owned ? '' : 'opacity-40'}`} style={{ color: elementColor }} />
+                    </div>
+                  )}
+                </div>
+
+                {/* bottom scrim so name/stat badges stay legible over the art */}
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-void-950 via-void-950/75 to-transparent" />
+
+                {/* level badge, top-left */}
+                <span className="absolute left-1.5 top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full border border-white/25 bg-void-950/80 px-1 font-mono text-[10px] font-bold text-white">
+                  {c.level}
+                </span>
+
                 {owned && (
-                  <span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-code-500/90 text-void-950">
-                    <Icon name="check-circle" size={11} />
+                  <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-code-500/90 text-void-950">
+                    <Icon name="check-circle" size={12} />
                   </span>
                 )}
-                <div className={owned ? '' : 'opacity-50'}>
-                  <CharacterPortrait name={c.name} element={c.element} faction={c.faction} portraitUrl={c.portraitUrl} size={64} />
+
+                <div className="absolute inset-x-1.5 bottom-8">
+                  <p className="truncate text-[11px] font-bold text-white">{c.name}</p>
+                  <p className="truncate text-[9px] text-white/50">{c.mythology}</p>
                 </div>
-                <div className="flex w-full flex-col items-center gap-0.5 text-center">
-                  <span className="truncate text-xs font-bold text-white">{c.name}</span>
-                  <span className="text-[10px] text-white/40">
-                    Nv.{c.level} · {c.mythology}
-                  </span>
-                </div>
-                <div className="flex w-full items-center justify-between text-[10px]">
-                  <span className="flex items-center gap-1 text-signal-red/80">
-                    <Icon name="swords" size={10} />
+
+                <div className="absolute inset-x-1.5 bottom-1.5 flex items-center justify-between gap-1">
+                  <span className="flex items-center gap-0.5 rounded-full border border-signal-red/30 bg-signal-red/20 px-1.5 py-0.5 text-[9px] font-bold text-signal-red">
+                    <Icon name="swords" size={9} />
                     {Math.round(c.stats.atk)}
                   </span>
-                  <span className="flex items-center gap-1 text-code-400/90">
-                    <Icon name="heart" size={10} />
+                  <span className="flex items-center gap-0.5 rounded-full border border-code-500/30 bg-code-500/20 px-1.5 py-0.5 text-[9px] font-bold text-code-300">
+                    <Icon name="heart" size={9} />
                     {Math.round(c.stats.hp)}
                   </span>
                 </div>
