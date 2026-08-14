@@ -7,6 +7,8 @@ import { BattleStage } from './battle/BattleStage';
 import { TeamPage } from './roster/TeamPage';
 import { CharactersPage } from './roster/CharactersPage';
 import { ShopPage } from './shop/ShopPage';
+import { ClusterPage } from './cluster/ClusterPage';
+import { ArenaPage } from './arena/ArenaPage';
 import { ProfileModal } from './profile/ProfileModal';
 import { OnboardingScreen } from './onboarding/OnboardingScreen';
 import { WikiModal } from './wiki/WikiModal';
@@ -17,10 +19,17 @@ import { PLAYER_STATE } from '../data/mock/player';
 import { MENU_ITEMS } from '../data/mock/menu';
 import { CHAT_MESSAGES } from '../data/mock/chat';
 import { useBattleSimulation } from '../hooks/useBattleSimulation';
-import { usePlayerProgress, type TeamVisibility } from '../hooks/usePlayerProgress';
+import {
+  CLUSTER_CREDIT_XP_BONUS_PERCENT,
+  usePlayerProgress,
+  VIP_CREDIT_XP_BONUS_PERCENT,
+  type TeamVisibility,
+} from '../hooks/usePlayerProgress';
 import { useOwnedCharacters, type OwnedCharacter } from '../hooks/useOwnedCharacters';
 import { useProfile, type UpdateUsernameResult } from '../hooks/useProfile';
-import type { MenuItem } from '../types';
+import { useCluster } from '../hooks/useCluster';
+import { usePvp } from '../hooks/usePvp';
+import type { ChatMessage, MenuItem } from '../types';
 
 interface GameShellProps {
   userId: string;
@@ -33,15 +42,21 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
     starterBoostClaimed,
     tokens,
     teamVisibility,
+    vipActive,
+    vipExpiresAt,
     loading: progressLoading,
     saveProgress,
     claimStarterBoost,
     spendTokens,
     setTeamVisibility,
+    purchaseVip,
+    claimDailyVipBonus,
   } = usePlayerProgress(userId);
   const { ownedCharacters, fragments, loading: ownedLoading, claimStarter, addXp, acquireCharacter, sellFragment } =
     useOwnedCharacters(userId);
   const { username, avatarCharacterId, loading: profileLoading, updateUsername, updateAvatar } = useProfile(userId);
+  const cluster = useCluster(userId);
+  const pvp = usePvp(userId);
 
   if (progressLoading || !progress || ownedLoading || !ownedCharacters) return <Splash />;
 
@@ -49,8 +64,11 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
     return <OnboardingScreen onSelect={claimStarter} />;
   }
 
+  const bonusMultiplier = 1 + (vipActive ? VIP_CREDIT_XP_BONUS_PERCENT : 0) + (cluster.cluster ? CLUSTER_CREDIT_XP_BONUS_PERCENT : 0);
+
   return (
     <GameShellReady
+      userId={userId}
       username={username}
       avatarCharacterId={profileLoading ? null : avatarCharacterId}
       updateUsername={updateUsername}
@@ -72,11 +90,19 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
       spendTokens={spendTokens}
       teamVisibility={teamVisibility}
       setTeamVisibility={setTeamVisibility}
+      vipActive={vipActive}
+      vipExpiresAt={vipExpiresAt}
+      purchaseVip={purchaseVip}
+      claimDailyVipBonus={claimDailyVipBonus}
+      bonusMultiplier={bonusMultiplier}
+      cluster={cluster}
+      pvp={pvp}
     />
   );
 }
 
 interface GameShellReadyProps {
+  userId: string;
   username: string | null;
   avatarCharacterId: string | null;
   updateUsername: (name: string) => Promise<UpdateUsernameResult>;
@@ -98,6 +124,13 @@ interface GameShellReadyProps {
   spendTokens: (amount: number) => Promise<boolean>;
   teamVisibility: TeamVisibility;
   setTeamVisibility: (value: TeamVisibility) => void;
+  vipActive: boolean;
+  vipExpiresAt: string | null;
+  purchaseVip: () => Promise<boolean>;
+  claimDailyVipBonus: () => Promise<boolean>;
+  bonusMultiplier: number;
+  cluster: ReturnType<typeof useCluster>;
+  pvp: ReturnType<typeof usePvp>;
 }
 
 /**
@@ -105,6 +138,7 @@ interface GameShellReadyProps {
  * lazy reducer init reads the real starting point instead of always 1-1/0/0.
  */
 function GameShellReady({
+  userId,
   username,
   avatarCharacterId,
   updateUsername,
@@ -126,6 +160,13 @@ function GameShellReady({
   spendTokens,
   teamVisibility,
   setTeamVisibility,
+  vipActive,
+  vipExpiresAt,
+  purchaseVip,
+  claimDailyVipBonus,
+  bonusMultiplier,
+  cluster,
+  pvp,
 }: GameShellReadyProps) {
   const [activeMenuId, setActiveMenuId] = useState('battle');
   const [wikiOpen, setWikiOpen] = useState(false);
@@ -139,7 +180,19 @@ function GameShellReady({
     initialPosition: { fase: initialFase, estagio: initialEstagio },
     initialCredits,
     initialXp,
+    bonusMultiplier,
   });
+  const clusterChatMessages = useMemo<ChatMessage[]>(
+    () =>
+      cluster.messages.map((m) => ({
+        id: m.id,
+        tab: 'guild' as const,
+        author: m.username,
+        text: m.text,
+        time: new Date(m.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      })),
+    [cluster.messages],
+  );
   const chatMessages = useMemo(() => [...CHAT_MESSAGES, ...battle.logFeed], [battle.logFeed]);
   // Credits/XP/tokens are real (persisted in Supabase); name is the real username once loaded, falling back to the mock placeholder otherwise.
   const player = useMemo(
@@ -189,6 +242,8 @@ function GameShellReady({
         onOpenNotifications={() => setToast('Notificações — em breve')}
         onOpenSettings={() => setToast('Configurações — em breve')}
         onOpenShop={() => setActiveMenuId('shop')}
+        clusterName={cluster.cluster?.name ?? null}
+        onOpenCluster={() => setActiveMenuId('guild')}
       />
 
       <div className="relative flex min-h-0 flex-1">
@@ -202,6 +257,7 @@ function GameShellReady({
           ) : activeMenuId === 'shop' ? (
             <ShopPage
               credits={battle.credits}
+              tokens={tokens}
               starterBoostClaimed={starterBoostClaimed}
               fragments={fragments}
               onClaimStarterBoost={claimStarterBoost}
@@ -209,7 +265,16 @@ function GameShellReady({
               onSellFragment={sellFragment}
               onAdjustCredits={battle.adjustCredits}
               onToast={setToast}
+              vipActive={vipActive}
+              vipExpiresAt={vipExpiresAt}
+              onPurchaseVip={purchaseVip}
+              onClaimDailyVipBonus={claimDailyVipBonus}
+              inCluster={!!cluster.cluster}
             />
+          ) : activeMenuId === 'guild' ? (
+            <ClusterPage userId={userId} cluster={cluster} bandwidth={0} onToast={setToast} />
+          ) : activeMenuId === 'arena' ? (
+            <ArenaPage ownedCharacters={ownedCharacters} pvp={pvp} onRewardCredits={battle.adjustCredits} onToast={setToast} />
           ) : (
             <BattleStage
               allies={battle.allies}
@@ -241,7 +306,14 @@ function GameShellReady({
             onRepeat={battle.repeatBattle}
             onSelectStage={battle.playStage}
           />
-          <ChatPanel messages={chatMessages} open={chatOpen} onClose={() => setChatOpen(false)} />
+          <ChatPanel
+            messages={chatMessages}
+            open={chatOpen}
+            onClose={() => setChatOpen(false)}
+            clusterMessages={clusterChatMessages}
+            inCluster={!!cluster.cluster}
+            onSendClusterMessage={cluster.sendMessage}
+          />
         </div>
 
         {/* floating handles (mobile + collapsed-desktop convenience) */}
@@ -280,7 +352,11 @@ function GameShellReady({
           onChangeTeamVisibility={setTeamVisibility}
           rankTier={player.rankTier}
           rankValue={player.rankValue}
-          guildName={player.guildName}
+          clusterName={cluster.cluster?.name ?? null}
+          pvpRating={pvp.rating}
+          pvpWins={pvp.wins}
+          pvpLosses={pvp.losses}
+          pvpDefenseTeam={pvp.defenseTeam}
         />
       )}
       <Toast message={toast} />

@@ -8,8 +8,8 @@ export const MENU_ITEMS: MenuItem[] = [
   { id: 'market', label: 'Mercado', icon: 'repeat', status: 'soon' },
   { id: 'forge', label: 'Módulos', icon: 'hammer', status: 'soon' },
   { id: 'summon', label: 'Invocação', icon: 'sparkles', status: 'soon' },
-  { id: 'guild', label: 'Cluster', icon: 'shield', status: 'soon' },
-  { id: 'arena', label: 'Arena', icon: 'crosshair', status: 'soon' },
+  { id: 'guild', label: 'Cluster', icon: 'shield', status: 'active' },
+  { id: 'arena', label: 'Arena', icon: 'crosshair', status: 'active' },
   { id: 'social', label: 'Social', icon: 'message-circle', status: 'soon' },
   { id: 'pantheons', label: 'Panteões', icon: 'orbit', status: 'soon' },
 ];

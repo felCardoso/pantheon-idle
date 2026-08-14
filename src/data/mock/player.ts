@@ -4,7 +4,6 @@ export const PLAYER_STATE: PlayerState = {
   name: 'Root@Felipe',
   rankTier: 'Diamante',
   rankValue: '11.7k',
-  guildName: 'Cluster: Ordem.dll',
   credits: 13200,
   xp: 0,
   tokens: 674,

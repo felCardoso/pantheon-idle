@@ -1,4 +1,4 @@
-/** Hand-written to match supabase/migrations/000{1..8}_*.sql — no Supabase CLI access to codegen this. */
+/** Hand-written to match supabase/migrations/00{01..11}_*.sql — no Supabase CLI access to codegen this. */
 export interface Database {
   public: {
     Tables: {
@@ -12,6 +12,12 @@ export interface Database {
           starter_boost_claimed: boolean;
           tokens: number;
           team_visibility: string;
+          vip_expires_at: string | null;
+          vip_daily_bonus_claimed_at: string | null;
+          bandwidth: number;
+          pvp_rating: number;
+          pvp_wins: number;
+          pvp_losses: number;
           updated_at: string;
         };
         Insert: {
@@ -23,6 +29,12 @@ export interface Database {
           starter_boost_claimed?: boolean;
           tokens?: number;
           team_visibility?: string;
+          vip_expires_at?: string | null;
+          vip_daily_bonus_claimed_at?: string | null;
+          bandwidth?: number;
+          pvp_rating?: number;
+          pvp_wins?: number;
+          pvp_losses?: number;
           updated_at?: string;
         };
         Update: {
@@ -34,6 +46,12 @@ export interface Database {
           starter_boost_claimed?: boolean;
           tokens?: number;
           team_visibility?: string;
+          vip_expires_at?: string | null;
+          vip_daily_bonus_claimed_at?: string | null;
+          bandwidth?: number;
+          pvp_rating?: number;
+          pvp_wins?: number;
+          pvp_losses?: number;
           updated_at?: string;
         };
         Relationships: [];
@@ -98,8 +116,133 @@ export interface Database {
         };
         Relationships: [];
       };
+      clusters: {
+        Row: {
+          id: string;
+          name: string;
+          tag: string | null;
+          created_by: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          tag?: string | null;
+          created_by: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          tag?: string | null;
+          created_by?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      cluster_members: {
+        Row: {
+          cluster_id: string;
+          user_id: string;
+          role: string;
+          joined_at: string;
+        };
+        Insert: {
+          cluster_id: string;
+          user_id: string;
+          role?: string;
+          joined_at?: string;
+        };
+        Update: {
+          cluster_id?: string;
+          user_id?: string;
+          role?: string;
+          joined_at?: string;
+        };
+        Relationships: [];
+      };
+      cluster_messages: {
+        Row: {
+          id: string;
+          cluster_id: string;
+          user_id: string;
+          text: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          cluster_id: string;
+          user_id: string;
+          text: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          cluster_id?: string;
+          user_id?: string;
+          text?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      pvp_defense_teams: {
+        Row: {
+          user_id: string;
+          characters: unknown;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          characters?: unknown;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          characters?: unknown;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      pvp_battles: {
+        Row: {
+          id: string;
+          attacker_id: string;
+          defender_id: string;
+          winner: string;
+          log: unknown;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          attacker_id: string;
+          defender_id: string;
+          winner: string;
+          log?: unknown;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          attacker_id?: string;
+          defender_id?: string;
+          winner?: string;
+          log?: unknown;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      resolve_pvp_attack: {
+        Args: {
+          p_defender_id: string;
+          p_winner: string;
+          p_log: unknown;
+          p_attacker_rating_delta: number;
+          p_defender_rating_delta: number;
+        };
+        Returns: void;
+      };
+    };
   };
 }

@@ -37,6 +37,8 @@ interface BattleSession extends WorldPosition {
   enemies: Combatant[];
   log: BattleLogEntry[];
   nameToId: Record<string, string>;
+  /** Combined Root Access (+15%) / Cluster (+25%) reward multiplier in effect when this battle started — see usePlayerProgress.ts's VIP_CREDIT_XP_BONUS_PERCENT/CLUSTER_CREDIT_XP_BONUS_PERCENT. */
+  bonusMultiplier: number;
 }
 
 /**
@@ -48,7 +50,12 @@ interface BattleSession extends WorldPosition {
  * battle's own seed so the roll is deterministic (repeatBattle reproduces
  * it) without perturbing the battle simulation's own Rng sequence.
  */
-function createSession(seed: number, position: WorldPosition, ownedCharacters: OwnedCharacter[]): BattleSession {
+function createSession(
+  seed: number,
+  position: WorldPosition,
+  ownedCharacters: OwnedCharacter[],
+  bonusMultiplier: number,
+): BattleSession {
   const boss = isBossStage(position);
   const worldId = worldIdForFase(position.fase);
   const allies = loadCharactersByIds(ownedCharacters.map((o) => ({ id: o.characterId, xp: o.xp })));
@@ -66,7 +73,7 @@ function createSession(seed: number, position: WorldPosition, ownedCharacters: O
     enemies = loadWorldComuns(worldId, count, difficultyMultiplier(position) * sizeFactor);
   }
   const result = runBattle(allies, enemies, { seed });
-  return { seed, ...position, isBoss: boss, ownedCharacters, allies, enemies, log: result.log, nameToId: buildNameToId(allies, enemies) };
+  return { seed, ...position, isBoss: boss, ownedCharacters, allies, enemies, log: result.log, nameToId: buildNameToId(allies, enemies), bonusMultiplier };
 }
 
 export type FloatingTextKind = 'damage' | 'crit' | 'heal' | 'shield';
@@ -128,10 +135,11 @@ export interface Reward {
   xp: number;
 }
 
-/** Credits/XP earned for a battle's outcome — the single source both the log line and the running totals read from. */
+/** Credits/XP earned for a battle's outcome — the single source both the log line and the running totals read from. Root Access/Cluster bonuses apply to both win and loss/draw payouts. */
 function rewardFor(winner: 'allies' | 'enemies' | 'draw', session: BattleSession): Reward {
   const rewards = REWARDS[session.isBoss ? 'boss' : 'comuns'];
-  return winner === 'allies' ? rewards.win : { credits: rewards.lossOrDraw.credits, xp: 0 };
+  const base = winner === 'allies' ? rewards.win : { credits: rewards.lossOrDraw.credits, xp: 0 };
+  return { credits: Math.round(base.credits * session.bonusMultiplier), xp: Math.round(base.xp * session.bonusMultiplier) };
 }
 
 /** "[1] Jurupari 1-6 / Venceu [+20 C / +15 XP]" — the only line the Log tab shows, once per finished battle. */
@@ -184,8 +192,9 @@ function buildInitialState(
   ownedCharacters: OwnedCharacter[],
   initialCredits: number,
   initialXp: number,
+  bonusMultiplier: number,
 ): PlaybackState {
-  const session = createSession(seed, position, ownedCharacters);
+  const session = createSession(seed, position, ownedCharacters, bonusMultiplier);
   return {
     session,
     replay: createInitialReplayState(session.allies, session.enemies),
@@ -315,6 +324,8 @@ export interface UseBattleSimulationOptions {
   /** Resume from a saved wallet instead of starting at 0. */
   initialCredits?: number;
   initialXp?: number;
+  /** Combined Root Access/Cluster reward multiplier (1 = no bonus) — read fresh on every new battle, not just at mount. */
+  bonusMultiplier?: number;
 }
 
 export interface BattleSimulation {
@@ -360,6 +371,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     initialPosition = { fase: 1, estagio: 1 },
     initialCredits = 0,
     initialXp = 0,
+    bonusMultiplier = 1,
   } = options;
   const [playing, setPlaying] = useState(true);
   // 'advance' (Avançar) or 'repeat' (Repetir estágio) — which resolveProgression rules apply on
@@ -367,7 +379,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
   const [mode, setMode] = useState<'advance' | 'repeat'>('advance');
   const [retreatOnLoss, setRetreatOnLoss] = useState(true);
   const [state, dispatch] = useReducer(reducer, undefined, () =>
-    buildInitialState(Date.now() >>> 0, initialPosition, initialOwnedCharacters, initialCredits, initialXp),
+    buildInitialState(Date.now() >>> 0, initialPosition, initialOwnedCharacters, initialCredits, initialXp, bonusMultiplier),
   );
 
   useEffect(() => {
@@ -398,7 +410,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     const timer = setTimeout(() => {
       dispatch({
         type: 'reset',
-        session: createSession(Date.now() >>> 0, result.position, initialOwnedCharacters),
+        session: createSession(Date.now() >>> 0, result.position, initialOwnedCharacters, bonusMultiplier),
         frontier: result.frontier,
         recoveryWinsRemaining: result.recoveryWinsRemaining,
       });
@@ -415,6 +427,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     retreatOnLoss,
     autoAdvanceDelayMs,
     initialOwnedCharacters,
+    bonusMultiplier,
   ]);
 
   const startNewBattle = useCallback(() => {
@@ -431,12 +444,12 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     );
     dispatch({
       type: 'reset',
-      session: createSession(Date.now() >>> 0, result.position, initialOwnedCharacters),
+      session: createSession(Date.now() >>> 0, result.position, initialOwnedCharacters, bonusMultiplier),
       frontier: result.frontier,
       recoveryWinsRemaining: result.recoveryWinsRemaining,
     });
     setPlaying(true);
-  }, [mode, state.session.fase, state.session.estagio, state.winner, state.frontier, state.recoveryWinsRemaining, retreatOnLoss, initialOwnedCharacters]);
+  }, [mode, state.session.fase, state.session.estagio, state.winner, state.frontier, state.recoveryWinsRemaining, retreatOnLoss, initialOwnedCharacters, bonusMultiplier]);
 
   const repeatBattle = useCallback(() => {
     // Already repeating — nothing to change; avoids restarting the current battle mid-fight.
@@ -453,24 +466,35 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     const seed = result.position.fase === position.fase && result.position.estagio === position.estagio ? state.session.seed : Date.now() >>> 0;
     dispatch({
       type: 'reset',
-      session: createSession(seed, result.position, initialOwnedCharacters),
+      session: createSession(seed, result.position, initialOwnedCharacters, bonusMultiplier),
       frontier: result.frontier,
       recoveryWinsRemaining: result.recoveryWinsRemaining,
     });
     setPlaying(true);
-  }, [mode, state.session.fase, state.session.estagio, state.session.seed, state.winner, state.frontier, state.recoveryWinsRemaining, retreatOnLoss, initialOwnedCharacters]);
+  }, [
+    mode,
+    state.session.fase,
+    state.session.estagio,
+    state.session.seed,
+    state.winner,
+    state.frontier,
+    state.recoveryWinsRemaining,
+    retreatOnLoss,
+    initialOwnedCharacters,
+    bonusMultiplier,
+  ]);
 
   const playStage = useCallback(
     (estagio: number) => {
       dispatch({
         type: 'reset',
-        session: createSession(Date.now() >>> 0, { fase: state.session.fase, estagio }, initialOwnedCharacters),
+        session: createSession(Date.now() >>> 0, { fase: state.session.fase, estagio }, initialOwnedCharacters, bonusMultiplier),
         frontier: state.frontier,
         recoveryWinsRemaining: null,
       });
       setPlaying(true);
     },
-    [state.session.fase, state.frontier, initialOwnedCharacters],
+    [state.session.fase, state.frontier, initialOwnedCharacters, bonusMultiplier],
   );
 
   const adjustCredits = useCallback((delta: number) => dispatch({ type: 'adjustCredits', delta }), []);
