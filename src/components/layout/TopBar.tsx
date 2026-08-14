@@ -10,6 +10,8 @@ interface TopBarProps {
   onOpenWiki: () => void;
   onOpenNotifications: () => void;
   onOpenSettings: () => void;
+  /** Credits/tokens badges are shortcuts into the Loja — where both currencies actually get spent. */
+  onOpenShop: () => void;
 }
 
 function formatNumber(n: number): string {
@@ -17,7 +19,7 @@ function formatNumber(n: number): string {
   return `${n}`;
 }
 
-export function TopBar({ player, avatarCharacterId, onOpenProfile, onOpenWiki, onOpenNotifications, onOpenSettings }: TopBarProps) {
+export function TopBar({ player, avatarCharacterId, onOpenProfile, onOpenWiki, onOpenNotifications, onOpenSettings, onOpenShop }: TopBarProps) {
   const avatarPortraitUrl = avatarCharacterId ? DISPLAY_PORTRAIT_BY_TEMPLATE_ID[avatarCharacterId] : undefined;
 
   return (
@@ -57,13 +59,15 @@ export function TopBar({ player, avatarCharacterId, onOpenProfile, onOpenWiki, o
 
       {/* Currencies */}
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-        <div
+        <button
           key={player.credits}
-          className="flex items-center gap-1.5 rounded-lg border border-signal-amber/25 bg-void-800/60 px-2 py-1.5 sm:px-3 animate-pulse-once"
+          onClick={onOpenShop}
+          title="Ir para a Loja"
+          className="flex items-center gap-1.5 rounded-lg border border-signal-amber/25 bg-void-800/60 px-2 py-1.5 transition hover:border-signal-amber/60 hover:bg-void-700 sm:px-3 animate-pulse-once"
         >
           <Icon name="coins" size={15} className="text-signal-amber" />
           <span className="font-mono text-xs text-white/85 sm:text-sm">{formatNumber(player.credits)}</span>
-        </div>
+        </button>
         <div
           key={player.xp}
           className="hidden items-center gap-1.5 rounded-lg border border-arcane-400/25 bg-void-800/60 px-2 py-1.5 sm:flex sm:px-3 animate-pulse-once"
@@ -71,10 +75,14 @@ export function TopBar({ player, avatarCharacterId, onOpenProfile, onOpenWiki, o
           <Icon name="star" size={15} className="text-arcane-300" />
           <span className="font-mono text-xs text-white/85 sm:text-sm">{formatNumber(player.xp)}</span>
         </div>
-        <div className="hidden items-center gap-1.5 rounded-lg border border-signal-cyan/25 bg-void-800/60 px-2 py-1.5 sm:flex sm:px-3">
+        <button
+          onClick={onOpenShop}
+          title="Ir para a Loja"
+          className="hidden items-center gap-1.5 rounded-lg border border-signal-cyan/25 bg-void-800/60 px-2 py-1.5 transition hover:border-signal-cyan/60 hover:bg-void-700 sm:flex sm:px-3"
+        >
           <Icon name="gem" size={15} className="text-signal-cyan" />
           <span className="font-mono text-xs text-white/85 sm:text-sm">{formatNumber(player.tokens)}</span>
-        </div>
+        </button>
       </div>
 
       <div className="hidden h-6 w-px bg-void-600 sm:block" />

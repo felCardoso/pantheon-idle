@@ -188,6 +188,7 @@ function GameShellReady({
         onOpenWiki={() => setWikiOpen(true)}
         onOpenNotifications={() => setToast('Notificações — em breve')}
         onOpenSettings={() => setToast('Configurações — em breve')}
+        onOpenShop={() => setActiveMenuId('shop')}
       />
 
       <div className="relative flex min-h-0 flex-1">

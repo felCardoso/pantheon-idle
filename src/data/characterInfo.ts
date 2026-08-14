@@ -227,4 +227,27 @@ export const CHARACTER_INFO: Record<string, CharacterInfo> = {
       },
     ],
   },
+
+  // Mitologia Japonesa
+  amaterasu: {
+    lore: 'Um patch de segurança tão antigo quanto o próprio sistema; onde ela roda, a rede nunca fica completamente às escuras.',
+    abilities: [
+      {
+        name: 'Luz Perpétua',
+        kind: 'Passiva',
+        description:
+          'Início de batalha: aplica Regeneração em todo o time (adaptado — o motor não tem um gatilho "por rodada enquanto viva", então virou uma Regeneração aplicada na abertura).',
+      },
+      {
+        name: 'Alvorada Radiante',
+        kind: 'Ativa',
+        description: 'Início de batalha: concede escudo a todo o time.',
+      },
+      {
+        name: 'Reflexo Solar',
+        kind: 'Ativa',
+        description: 'Ao sofrer dano, 30% de chance de recuperar HP.',
+      },
+    ],
+  },
 };

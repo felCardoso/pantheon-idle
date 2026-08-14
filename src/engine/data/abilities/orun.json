@@ -1,0 +1,79 @@
+[
+  {
+    "id": "espirito-ancestral-lentidao",
+    "name": "Chamado Ancestral",
+    "trigger": "onAttack",
+    "chance": 0.1,
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "lentidao",
+        "duration": 2,
+        "magnitude": { "kind": "percent", "value": 0.2 }
+      }
+    ]
+  },
+  {
+    "id": "guardiao-mata-shield",
+    "name": "Raiz Protetora",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "grantShield",
+        "target": "self",
+        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.2 }
+      }
+    ]
+  },
+  {
+    "id": "tambor-guerra-sangramento",
+    "name": "Ritmo de Guerra",
+    "trigger": "onAttack",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "sangramento",
+        "duration": 3,
+        "magnitude": { "kind": "flat", "value": 15 },
+        "ignoresDef": true,
+        "stacks": true
+      }
+    ]
+  },
+  {
+    "id": "ogum-enfraquecimento",
+    "name": "Lâmina de Ferro",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "allEnemies",
+        "status": "enfraquecimento",
+        "duration": 2,
+        "magnitude": { "kind": "percent", "value": 0.15 }
+      }
+    ]
+  },
+  {
+    "id": "ogum-cura-sangramento",
+    "name": "Forja de Guerra",
+    "trigger": "onCriticalHit",
+    "effects": [
+      {
+        "type": "heal",
+        "target": "self",
+        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.1 }
+      },
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "sangramento",
+        "duration": 3,
+        "magnitude": { "kind": "flat", "value": 15 },
+        "ignoresDef": true
+      }
+    ]
+  }
+]

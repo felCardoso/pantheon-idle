@@ -66,6 +66,11 @@ export const DISPLAY_RARITY_BY_TEMPLATE_ID: Record<string, Rarity> = {
   hades: "Alpha",
   atena: "Alpha",
   satiro: "Alpha",
+  medusa: "Alpha",
+  hercules: "Alpha",
+  minotauro: "Alpha",
+  // Mitologia Japonesa
+  amaterasu: "Alpha",
   // Jurupari.iso enemies
   "script-kiddie": "Alpha",
   "firewall-turret": "Alpha",
@@ -123,11 +128,22 @@ export const DISPLAY_AVATAR_FOCUS_BY_TEMPLATE_ID: Record<
 export const DISPLAY_AVATAR_FOCUS_FALLBACK = { x: 50, y: 25 };
 
 /**
- * Battle background art per world, keyed by StageInfo.worldId. Only Jurupari
- * is actually reachable in-game so far (see useBattleSimulation.ts's
- * WORLD_ID), but Yggdrasil/Olympus already have real allies and the rest are
- * staged art for worlds that don't exist yet — kept here so BattleStage never
- * needs to know which worlds are real.
+ * Display name + mythology subtitle per world, keyed by the same worldId as
+ * WORLD_BACKGROUND_BY_ID below — see progression.ts's WORLD_IDS for the
+ * canonical id list/order (docs/mundos.md's proposed launch order).
+ */
+export const WORLD_DISPLAY_BY_ID: Record<string, { name: string; subtitle: string }> = {
+  jurupari: { name: 'Jurupari.iso', subtitle: 'Folclore Brasileiro' },
+  duat: { name: 'Duat.iso', subtitle: 'Egípcia' },
+  orun: { name: 'Orun.iso', subtitle: 'Iorubá' },
+  takamagahara: { name: 'Takamagahara.iso', subtitle: 'Japonesa' },
+  olympus: { name: 'Olympus.iso', subtitle: 'Grega' },
+  yggdrasil: { name: 'Yggdrasil.iso', subtitle: 'Nórdica' },
+};
+
+/**
+ * Battle background art per world, keyed by StageInfo.worldId — see
+ * WORLD_DISPLAY_BY_ID above for the same id set's display name/subtitle.
  */
 export const WORLD_BACKGROUND_BY_ID: Record<string, string> = {
   jurupari: jurupariBg,

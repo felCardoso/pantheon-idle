@@ -1,0 +1,117 @@
+[
+  {
+    "id": "amaterasu-regen-team",
+    "name": "Luz Perpétua",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "allAllies",
+        "status": "regeneracao",
+        "duration": "default",
+        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.04 }
+      }
+    ]
+  },
+  {
+    "id": "amaterasu-shield-team",
+    "name": "Alvorada Radiante",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "grantShield",
+        "target": "allAllies",
+        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.1 }
+      }
+    ]
+  },
+  {
+    "id": "amaterasu-reflexo-solar",
+    "name": "Reflexo Solar",
+    "trigger": "onDamaged",
+    "chance": 0.3,
+    "effects": [
+      {
+        "type": "heal",
+        "target": "self",
+        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.08 }
+      }
+    ]
+  },
+  {
+    "id": "yokai-menor-lentidao",
+    "name": "Sussurro Yokai",
+    "trigger": "onAttack",
+    "chance": 0.1,
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "lentidao",
+        "duration": 2,
+        "magnitude": { "kind": "percent", "value": 0.2 }
+      }
+    ]
+  },
+  {
+    "id": "samurai-corrompido-shield",
+    "name": "Guarda de Bushido",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "grantShield",
+        "target": "self",
+        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.2 }
+      }
+    ]
+  },
+  {
+    "id": "kappa-veneno",
+    "name": "Água Amaldiçoada",
+    "trigger": "onAttack",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "veneno",
+        "duration": 3,
+        "magnitude": { "kind": "flat", "value": 15 },
+        "ignoresDef": true,
+        "stacks": true
+      }
+    ]
+  },
+  {
+    "id": "orochi-veneno-aoe",
+    "name": "Hálito das Oito Cabeças",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "allEnemies",
+        "status": "veneno",
+        "duration": 3,
+        "magnitude": { "kind": "flat", "value": 15 }
+      }
+    ]
+  },
+  {
+    "id": "orochi-cura-enfraquecimento",
+    "name": "Regeneração Serpentina",
+    "trigger": "onCriticalHit",
+    "effects": [
+      {
+        "type": "heal",
+        "target": "self",
+        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.1 }
+      },
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "enfraquecimento",
+        "duration": 2,
+        "magnitude": { "kind": "percent", "value": 0.15 }
+      }
+    ]
+  }
+]

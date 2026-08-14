@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useReducer, useState } from 'react';
-import { loadCharactersByIds, loadJurupariBoss, loadJurupariComuns } from '../engine/core/loader';
+import { loadCharactersByIds, loadWorldBoss, loadWorldComuns } from '../engine/core/loader';
 import { runBattle } from '../engine/core/battle';
 import { Rng } from '../engine/core/rng';
 import { applyReplayEntry, buildNameToId, createInitialReplayState, type ReplayState } from '../engine/core/replay';
@@ -7,10 +7,13 @@ import {
   difficultyMultiplier,
   enemyCountRange,
   ESTAGIOS_PER_FASE,
+  FASES_PER_WORLD,
   isBossStage,
+  localFaseNumber,
   resolveProgression,
   teamSizeMultiplier,
-  TOTAL_FASES,
+  worldIdForFase,
+  worldIndexForFase,
   type WorldPosition,
 } from '../engine/core/progression';
 import type { BattleLogEntry, Combatant } from '../engine/core/types';
@@ -21,6 +24,7 @@ import {
   FALLBACK_ELEMENT,
   FALLBACK_FACTION,
   FALLBACK_RARITY,
+  WORLD_DISPLAY_BY_ID,
 } from '../data/engineDisplay';
 import type { OwnedCharacter } from './useOwnedCharacters';
 import type { ActiveStatus, BattleUnit, ChatMessage, StageInfo } from '../types';
@@ -38,24 +42,28 @@ interface BattleSession extends WorldPosition {
 /**
  * Enemies are calibrated against the original 4-character team; a player's
  * owned roster can now be smaller (a solo starter, until Invocação ships), so
- * scale enemy stats down proportionally on top of the per-estágio difficulty.
- * Non-boss waves also roll a random enemy count within that estágio's
- * enemyCountRange, using a separate Rng seeded off the battle's own seed so
- * the roll is deterministic (repeatBattle reproduces it) without perturbing
- * the battle simulation's own Rng sequence.
+ * scale enemy stats down proportionally on top of the per-estágio and
+ * per-world difficulty. Non-boss waves also roll a random enemy count within
+ * that estágio's enemyCountRange, using a separate Rng seeded off the
+ * battle's own seed so the roll is deterministic (repeatBattle reproduces
+ * it) without perturbing the battle simulation's own Rng sequence.
  */
 function createSession(seed: number, position: WorldPosition, ownedCharacters: OwnedCharacter[]): BattleSession {
   const boss = isBossStage(position);
+  const worldId = worldIdForFase(position.fase);
   const allies = loadCharactersByIds(ownedCharacters.map((o) => ({ id: o.characterId, xp: o.xp })));
   const sizeFactor = teamSizeMultiplier(ownedCharacters.length);
   let enemies: Combatant[];
   if (boss) {
-    enemies = loadJurupariBoss(sizeFactor);
+    // The boss only ever appears once per world (no intra-estágio scaling), but should still be
+    // that world's base multiplier harder than the previous world's boss — difficultyMultiplier at
+    // estágio 1 is exactly that base (no +5%-per-estágio component applied).
+    enemies = loadWorldBoss(worldId, sizeFactor * difficultyMultiplier({ fase: position.fase, estagio: 1 }));
   } else {
     const [min, max] = enemyCountRange(position.estagio);
     const compositionRng = new Rng(seed);
     const count = min + Math.floor(compositionRng.next() * (max - min + 1));
-    enemies = loadJurupariComuns(count, difficultyMultiplier(position) * sizeFactor);
+    enemies = loadWorldComuns(worldId, count, difficultyMultiplier(position) * sizeFactor);
   }
   const result = runBattle(allies, enemies, { seed });
   return { seed, ...position, isBoss: boss, ownedCharacters, allies, enemies, log: result.log, nameToId: buildNameToId(allies, enemies) };
@@ -107,12 +115,9 @@ type Action =
 let chatIdCounter = 0;
 let floaterIdCounter = 0;
 
-// Only Jurupari.iso exists so far; both the world number and the (unimplemented)
-// reward numbers below are placeholders until the real economy lands.
-const WORLD_NUMBER = 1;
-const WORLD_NAME = 'Jurupari';
-const WORLD_ID = 'jurupari';
-
+// The reward numbers below are the same across every world — a placeholder
+// until the real per-world economy (docs/mundos.md's "recompensas
+// específicas" per world) lands.
 const REWARDS: Record<'comuns' | 'boss', { win: { credits: number; xp: number }; lossOrDraw: { credits: number } }> = {
   comuns: { win: { credits: 20, xp: 15 }, lossOrDraw: { credits: 5 } },
   boss: { win: { credits: 80, xp: 40 }, lossOrDraw: { credits: 10 } },
@@ -134,7 +139,9 @@ function buildBattleSummary(winner: 'allies' | 'enemies' | 'draw', session: Batt
   const won = winner === 'allies';
   const resultLabel = won ? 'Venceu' : winner === 'draw' ? 'Empate' : 'Perdeu';
   const rewardText = won ? `+${reward.credits} C / +${reward.xp} XP` : `+${reward.credits} C`;
-  const text = `[${WORLD_NUMBER}] ${WORLD_NAME} ${session.fase}-${session.estagio} / ${resultLabel} [${rewardText}]`;
+  const worldDisplay = WORLD_DISPLAY_BY_ID[worldIdForFase(session.fase)];
+  const worldNumber = worldIndexForFase(session.fase) + 1;
+  const text = `[${worldNumber}] ${worldDisplay.name.replace(/\.iso$/, '')} ${localFaseNumber(session.fase)}-${session.estagio} / ${resultLabel} [${rewardText}]`;
 
   chatIdCounter += 1;
   return {
@@ -468,17 +475,20 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
 
   const adjustCredits = useCallback((delta: number) => dispatch({ type: 'adjustCredits', delta }), []);
 
+  const stageWorldId = worldIdForFase(state.session.fase);
+  const stageWorldDisplay = WORLD_DISPLAY_BY_ID[stageWorldId];
+
   return {
     allies: toBattleUnits(state.session.allies, state.replay, state.replay.allyOrder),
     enemies: toBattleUnits(state.session.enemies, state.replay, state.replay.enemyOrder),
     stage: {
-      worldId: WORLD_ID,
-      worldName: 'Jurupari.iso',
-      worldSubtitle: 'Folclore Brasileiro',
+      worldId: stageWorldId,
+      worldName: stageWorldDisplay.name,
+      worldSubtitle: stageWorldDisplay.subtitle,
       phase: state.session.fase,
       stage: state.session.estagio,
-      // The final fase has a 6th slot for the boss, one past its 5 regular estágios.
-      totalStages: state.session.fase === TOTAL_FASES ? ESTAGIOS_PER_FASE + 1 : ESTAGIOS_PER_FASE,
+      // Each world's own last fase has a 6th slot for its boss, one past its 5 regular estágios.
+      totalStages: localFaseNumber(state.session.fase) === FASES_PER_WORLD ? ESTAGIOS_PER_FASE + 1 : ESTAGIOS_PER_FASE,
       isBoss: state.session.isBoss,
       round: state.replay.round,
       turn: state.replay.turnInRound,

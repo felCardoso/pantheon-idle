@@ -1,6 +1,7 @@
 import { UnitCard } from './UnitCard';
 import { Icon } from '../common/Icon';
 import { WORLD_BACKGROUND_BY_ID } from '../../data/engineDisplay';
+import { localFaseNumber } from '../../engine/core/progression';
 import type { BattleUnit, StageInfo } from '../../types';
 import type { FloatingText, Reward } from '../../hooks/useBattleSimulation';
 
@@ -77,7 +78,7 @@ export function BattleStage({
           <p
             className={`font-display text-[10px] font-bold uppercase tracking-wider sm:text-xs ${stage.isBoss ? 'text-signal-red' : 'text-code-300'}`}
           >
-            {stage.worldName} · Fase {stage.phase} · {stage.isBoss ? 'Chefe de Mundo' : `Onda ${stage.stage}/${stage.totalStages}`}
+            {stage.worldName} · Fase {localFaseNumber(stage.phase)} · {stage.isBoss ? 'Chefe de Mundo' : `Onda ${stage.stage}/${stage.totalStages}`}
           </p>
           <p className="text-[10px] text-white/40">{stage.worldSubtitle}</p>
         </div>

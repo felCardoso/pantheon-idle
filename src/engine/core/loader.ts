@@ -1,6 +1,7 @@
 import type { AbilityDefinition, CombatantData, CombatConstants } from '../schema';
 import type { Combatant } from './types';
 import { levelForXp, levelMultiplier } from './leveling';
+import type { WorldId } from './progression';
 
 import constantsJson from '../data/constants.json';
 import jurupariAbilities from '../data/abilities/jurupari.json';
@@ -8,22 +9,35 @@ import jurupariCharacters from '../data/characters/jurupari.json';
 import jurupariEnemies from '../data/enemies/jurupari.json';
 import yggdrasilAbilities from '../data/abilities/yggdrasil.json';
 import yggdrasilCharacters from '../data/characters/yggdrasil.json';
+import yggdrasilEnemyAbilities from '../data/abilities/yggdrasil-enemies.json';
+import yggdrasilEnemies from '../data/enemies/yggdrasil.json';
 import olympusAbilities from '../data/abilities/olympus.json';
 import olympusCharacters from '../data/characters/olympus.json';
+import olympusEnemyAbilities from '../data/abilities/olympus-enemies.json';
+import olympusEnemies from '../data/enemies/olympus.json';
+import takamagaharaAbilities from '../data/abilities/takamagahara.json';
+import takamagaharaCharacters from '../data/characters/takamagahara.json';
+import takamagaharaEnemies from '../data/enemies/takamagahara.json';
+import duatAbilities from '../data/abilities/duat.json';
+import duatEnemies from '../data/enemies/duat.json';
+import orunAbilities from '../data/abilities/orun.json';
+import orunEnemies from '../data/enemies/orun.json';
 
 export const CONSTANTS = constantsJson as CombatConstants;
 
 /**
  * Every playable ally character across all implemented mythologies, keyed by
- * id. Only Jurupari.iso is an actual playable *world* (stages/enemies) — the
- * other mythologies are ally character pools only, all fighting in that same
- * world (see docs/personagens.md; only a subset of its 24-character roster
- * has real stats/abilities behind it so far).
+ * id. Every world in WORLD_IDS (progression.ts) is now a real playable
+ * enemy campaign (see ENEMY_REGISTRY below), but the ally roster is still
+ * its own separate pool that fights across all of them — not every world's
+ * mythology has ally characters yet (Duat/Orun have none so far; see
+ * docs/personagens.md for the planned full 24-character roster).
  */
 const ALL_CHARACTERS = [
   ...(jurupariCharacters as CombatantData[]),
   ...(yggdrasilCharacters as CombatantData[]),
   ...(olympusCharacters as CombatantData[]),
+  ...(takamagaharaCharacters as CombatantData[]),
 ];
 
 const CHARACTER_REGISTRY: Record<string, CombatantData> = Object.fromEntries(ALL_CHARACTERS.map((c) => [c.id, c]));
@@ -46,9 +60,16 @@ export function characterIdsByMythology(): { mythology: string; ids: string[] }[
 }
 
 const ABILITY_REGISTRY: Record<string, AbilityDefinition> = Object.fromEntries(
-  [...(jurupariAbilities as AbilityDefinition[]), ...(yggdrasilAbilities as AbilityDefinition[]), ...(olympusAbilities as AbilityDefinition[])].map(
-    (a) => [a.id, a],
-  ),
+  [
+    ...(jurupariAbilities as AbilityDefinition[]),
+    ...(yggdrasilAbilities as AbilityDefinition[]),
+    ...(yggdrasilEnemyAbilities as AbilityDefinition[]),
+    ...(olympusAbilities as AbilityDefinition[]),
+    ...(olympusEnemyAbilities as AbilityDefinition[]),
+    ...(takamagaharaAbilities as AbilityDefinition[]),
+    ...(duatAbilities as AbilityDefinition[]),
+    ...(orunAbilities as AbilityDefinition[]),
+  ].map((a) => [a.id, a]),
 );
 
 function resolveAbilities(ids: string[]): AbilityDefinition[] {
@@ -128,24 +149,45 @@ export function loadJurupariAllies(): Combatant[] {
   return loadCharactersByIds((jurupariCharacters as CombatantData[]).map((c) => ({ id: c.id, xp: 0 })));
 }
 
-interface JurupariEnemyData {
+interface WorldEnemyData {
   comuns: CombatantData[];
   boss: CombatantData;
 }
 
-const enemyData = jurupariEnemies as JurupariEnemyData;
+/**
+ * Enemy data for every world in progression.ts's WORLD_IDS. All 6 are
+ * calibrated at the exact same baseline numbers (reskinned per world's
+ * lore) — the actual difficulty ramp between worlds comes entirely from
+ * progression.ts's difficultyMultiplier (+30% base per world) applied at
+ * load time via `statMultiplier` below, not from hand-tuned stats here.
+ *
+ * Note: docs/mundos.md names Olympus.iso's boss "Medusa.exe", but Medusa is
+ * already a playable ally character in this build (see olympus.json under
+ * characters/) — renamed to Typhon.exe here to avoid a same-name ally/enemy
+ * collision in one battle, the same reasoning that renamed Jurupari.iso's
+ * "Caipora.sh"/"Curupira.sh" trash mobs once those became real allies.
+ */
+const ENEMY_REGISTRY: Record<WorldId, WorldEnemyData> = {
+  jurupari: jurupariEnemies as WorldEnemyData,
+  duat: duatEnemies as WorldEnemyData,
+  orun: orunEnemies as WorldEnemyData,
+  takamagahara: takamagaharaEnemies as WorldEnemyData,
+  olympus: olympusEnemies as WorldEnemyData,
+  yggdrasil: yggdrasilEnemies as WorldEnemyData,
+};
 
 /**
- * Builds a wave of `count` comuns enemies, cycling through the 3 archetypes
- * and repeating (with unique ids, e.g. `script-kiddie#2`) once `count`
- * exceeds 3 — see progression.ts's enemyCountRange for how many a given
- * estágio should roll. `statMultiplier` applies the per-estágio scaling
- * (progression.ts's difficultyMultiplier) and — since a player's owned team
- * can be smaller than the original 4-character baseline these were
- * calibrated against — teamSizeMultiplier.
+ * Builds a wave of `count` comuns enemies for the given world, cycling
+ * through its 3 archetypes and repeating (with unique ids, e.g.
+ * `script-kiddie#2`) once `count` exceeds 3 — see progression.ts's
+ * enemyCountRange for how many a given estágio should roll. `statMultiplier`
+ * applies the per-estágio + per-world scaling (progression.ts's
+ * difficultyMultiplier) and — since a player's owned team can be smaller
+ * than the original 4-character baseline these were calibrated against —
+ * teamSizeMultiplier.
  */
-export function loadJurupariComuns(count: number, statMultiplier: number = 1): Combatant[] {
-  const archetypes = enemyData.comuns;
+export function loadWorldComuns(worldId: WorldId, count: number, statMultiplier: number = 1): Combatant[] {
+  const archetypes = ENEMY_REGISTRY[worldId].comuns;
   const seenCount = new Array<number>(archetypes.length).fill(0);
   const wave: Combatant[] = [];
   for (let i = 0; i < count; i++) {
@@ -157,7 +199,17 @@ export function loadJurupariComuns(count: number, statMultiplier: number = 1): C
   return wave;
 }
 
-/** Anhangá.exe, the world boss. `statMultiplier` — see loadJurupariComuns. */
+/** The given world's boss. `statMultiplier` — see loadWorldComuns. */
+export function loadWorldBoss(worldId: WorldId, statMultiplier: number = 1): Combatant[] {
+  return [buildCombatant(ENEMY_REGISTRY[worldId].boss, false, 0, statMultiplier)];
+}
+
+/** The original Jurupari.iso comuns loader, still used by the CLI demo and existing tests. */
+export function loadJurupariComuns(count: number, statMultiplier: number = 1): Combatant[] {
+  return loadWorldComuns('jurupari', count, statMultiplier);
+}
+
+/** Anhangá.exe, Jurupari.iso's boss — still used by the CLI demo and existing tests. */
 export function loadJurupariBoss(statMultiplier: number = 1): Combatant[] {
-  return [buildCombatant(enemyData.boss, false, 0, statMultiplier)];
+  return loadWorldBoss('jurupari', statMultiplier);
 }
