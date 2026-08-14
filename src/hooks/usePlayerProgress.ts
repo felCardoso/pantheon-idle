@@ -29,6 +29,9 @@ export const VIP_DAILY_BONUS_TOKENS = 50;
 /** The Cluster's own passive bonus (docs section 2) — separate constant since it stacks with, not replaces, Root Access's. */
 export const CLUSTER_CREDIT_XP_BONUS_PERCENT = 0.25;
 
+/** Banner Semanal hard pity (docs/gdd.md section 10) — guaranteed claim of the spotlighted character every this-many banner pulls. */
+export const BANNER_PITY_MAX = 150;
+
 /**
  * Team-slot loadouts ("`.cfg`", docs/gdd.md line 92): 2 slots free, +3
  * purchasable for TEAM_SLOT_COST_TOKENS each, or all 5 while Root Access is
@@ -70,6 +73,12 @@ export interface UsePlayerProgressResult {
   spendTokens: (amount: number) => Promise<boolean>;
   /** Adjusts the Bytes balance by delta (positive or negative), persists, and returns whether it succeeded (fails only if a negative delta would go below 0). */
   adjustBytes: (delta: number) => Promise<boolean>;
+  /** Banner Semanal hard pity counter — 1 per banner pull, see BANNER_PITY_MAX. */
+  bannerPity: number;
+  /** Adds `count` to the pity counter (one per banner pull resolved). */
+  incrementBannerPity: (count: number) => void;
+  /** Resets the pity counter to 0 — call after claiming the guaranteed character. */
+  claimBannerPity: () => void;
   setTeamVisibility: (value: TeamVisibility) => Promise<void>;
   /** Spends VIP_COST_TOKENS for VIP_DURATION_DAYS of Root Access, stacking onto any remaining time if already active. Returns whether it succeeded (fails if tokens are short). */
   purchaseVip: () => Promise<boolean>;
@@ -100,6 +109,7 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
   const [vipDailyBonusClaimedAt, setVipDailyBonusClaimedAt] = useState<string | null>(null);
   const [bandwidth, setBandwidth] = useState(0);
   const [bytes, setBytes] = useState(0);
+  const [bannerPity, setBannerPity] = useState(0);
   const [unlockedTeamSlots, setUnlockedTeamSlots] = useState(MIN_TEAM_SLOTS);
   const [pveTeamSlot, setPveTeamSlotState] = useState(1);
   const [pvpTeamSlot, setPvpTeamSlotState] = useState(1);
@@ -116,6 +126,7 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
       setVipDailyBonusClaimedAt(null);
       setBandwidth(0);
       setBytes(0);
+      setBannerPity(0);
       setUnlockedTeamSlots(MIN_TEAM_SLOTS);
       setPveTeamSlotState(1);
       setPvpTeamSlotState(1);
@@ -131,7 +142,7 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
       const { data, error: selectError } = await supabase
         .from('player_progress')
         .select(
-          'fase, estagio, credits, xp, starter_boost_claimed, tokens, team_visibility, vip_expires_at, vip_daily_bonus_claimed_at, bandwidth, unlocked_team_slots, pve_team_slot, pvp_team_slot, bytes',
+          'fase, estagio, credits, xp, starter_boost_claimed, tokens, team_visibility, vip_expires_at, vip_daily_bonus_claimed_at, bandwidth, unlocked_team_slots, pve_team_slot, pvp_team_slot, bytes, banner_pity',
         )
         .eq('user_id', userId)
         .maybeSingle();
@@ -148,6 +159,7 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
         setVipDailyBonusClaimedAt(null);
         setBandwidth(0);
         setBytes(0);
+        setBannerPity(0);
         setUnlockedTeamSlots(MIN_TEAM_SLOTS);
         setPveTeamSlotState(1);
         setPvpTeamSlotState(1);
@@ -164,6 +176,7 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
         setVipDailyBonusClaimedAt(data.vip_daily_bonus_claimed_at);
         setBandwidth(data.bandwidth);
         setBytes(data.bytes);
+        setBannerPity(data.banner_pity);
         setUnlockedTeamSlots(data.unlocked_team_slots);
         setPveTeamSlotState(data.pve_team_slot);
         setPvpTeamSlotState(data.pvp_team_slot);
@@ -181,6 +194,7 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
           setVipDailyBonusClaimedAt(null);
           setBandwidth(0);
           setBytes(0);
+          setBannerPity(0);
           setUnlockedTeamSlots(MIN_TEAM_SLOTS);
           setPveTeamSlotState(1);
           setPvpTeamSlotState(1);
@@ -234,6 +248,32 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
     },
     [userId, bytes],
   );
+
+  const incrementBannerPity = useCallback(
+    (count: number) => {
+      if (!userId || count <= 0) return;
+      setBannerPity((prev) => {
+        const next = prev + count;
+        supabase
+          .from('player_progress')
+          .update({ banner_pity: next })
+          .eq('user_id', userId)
+          .then(({ error: updateError }) => setError(updateError ? updateError.message : null));
+        return next;
+      });
+    },
+    [userId],
+  );
+
+  const claimBannerPity = useCallback(() => {
+    if (!userId) return;
+    setBannerPity(0);
+    supabase
+      .from('player_progress')
+      .update({ banner_pity: 0 })
+      .eq('user_id', userId)
+      .then(({ error: updateError }) => setError(updateError ? updateError.message : null));
+  }, [userId]);
 
   const setTeamVisibility = useCallback(
     async (value: TeamVisibility) => {
@@ -320,6 +360,9 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
     vipExpiresAt,
     bandwidth,
     bytes,
+    bannerPity,
+    incrementBannerPity,
+    claimBannerPity,
     unlockedTeamSlots,
     pveTeamSlot,
     pvpTeamSlot,

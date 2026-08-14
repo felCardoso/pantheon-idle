@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import type { OwnedCharacter } from './useOwnedCharacters';
+import type { Rarity } from '../types';
 
 export interface PvpOpponent {
   userId: string;
@@ -39,7 +40,11 @@ export interface UsePvpResult {
 interface DefenseSnapshotCharacter {
   characterId: string;
   xp: number;
+  rarity?: Rarity;
 }
+
+/** Old defense snapshots (saved before rarity existed) fall back here — combat itself never reads rarity, only display does. */
+const SNAPSHOT_FALLBACK_RARITY: Rarity = 'Alpha';
 
 export function usePvp(userId: string | undefined): UsePvpResult {
   const [loading, setLoading] = useState(true);
@@ -75,7 +80,7 @@ export function usePvp(userId: string | undefined): UsePvpResult {
       }
       if (defense?.characters) {
         const snapshot = defense.characters as unknown as DefenseSnapshotCharacter[];
-        setDefenseTeamState(snapshot.map((c) => ({ characterId: c.characterId, xp: c.xp })));
+        setDefenseTeamState(snapshot.map((c) => ({ characterId: c.characterId, xp: c.xp, rarity: c.rarity ?? SNAPSHOT_FALLBACK_RARITY })));
       }
       setLoading(false);
     })();
@@ -88,7 +93,7 @@ export function usePvp(userId: string | undefined): UsePvpResult {
     async (characters: OwnedCharacter[]) => {
       if (!userId) return;
       setDefenseTeamState(characters);
-      const snapshot: DefenseSnapshotCharacter[] = characters.map((c) => ({ characterId: c.characterId, xp: c.xp }));
+      const snapshot: DefenseSnapshotCharacter[] = characters.map((c) => ({ characterId: c.characterId, xp: c.xp, rarity: c.rarity }));
       const { error: upsertError } = await supabase
         .from('pvp_defense_teams')
         .upsert({ user_id: userId, characters: snapshot, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });

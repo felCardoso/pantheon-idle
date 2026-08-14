@@ -11,6 +11,7 @@ import type { TeamSlot, UsePlayerTeamsResult } from '../../hooks/usePlayerTeams'
 import { MAX_TEAM_MEMBERS } from '../../hooks/usePlayerTeams';
 import { TEAM_SLOT_COST_TOKENS } from '../../hooks/usePlayerProgress';
 import type { UsePvpResult } from '../../hooks/usePvp';
+import type { CharacterAbilityProgress } from '../../hooks/useCharacterProgression';
 import type { AbilityTrigger } from '../../engine/schema';
 import type { Rarity } from '../../types';
 
@@ -28,6 +29,10 @@ interface TeamPageProps {
   pvp: UsePvpResult;
   onRewardCredits: (amount: number) => void;
   onToast: (message: string) => void;
+  progression: Record<string, CharacterAbilityProgress>;
+  credits: number;
+  onUpgradeAbility: (characterId: string) => void;
+  onUpgradePassive: (characterId: string) => void;
 }
 
 const RARITY_ORDER: Record<Rarity, number> = { 'Zero-Day': 0, LTS: 1, Stable: 2, Beta: 3, Alpha: 4 };
@@ -66,6 +71,10 @@ export function TeamPage({
   pvp,
   onRewardCredits,
   onToast,
+  progression,
+  credits,
+  onUpgradeAbility,
+  onUpgradePassive,
 }: TeamPageProps) {
   const [activeSlot, setActiveSlot] = useState(1);
   const [renamingSlot, setRenamingSlot] = useState<number | null>(null);
@@ -525,7 +534,19 @@ export function TeamPage({
       </div>
 
       {attackModalOpen && <PvpAttackModal pvp={pvp} onRewardCredits={onRewardCredits} onToast={onToast} onClose={() => setAttackModalOpen(false)} />}
-      {detailCharacter && <CharacterDetailModal character={detailCharacter} owned onClose={() => setDetailCharacter(null)} />}
+      {detailCharacter && (
+        <CharacterDetailModal
+          character={detailCharacter}
+          owned
+          ownedRarity={ownedById.get(detailCharacter.templateId)?.rarity ?? null}
+          abilityLevel={progression[detailCharacter.templateId]?.abilityLevel ?? 1}
+          passiveLevel={progression[detailCharacter.templateId]?.passiveLevel ?? 0}
+          credits={credits}
+          onUpgradeAbility={() => onUpgradeAbility(detailCharacter.templateId)}
+          onUpgradePassive={() => onUpgradePassive(detailCharacter.templateId)}
+          onClose={() => setDetailCharacter(null)}
+        />
+      )}
     </div>
   );
 }

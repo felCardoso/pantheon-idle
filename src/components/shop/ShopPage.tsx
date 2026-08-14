@@ -4,6 +4,8 @@ import { CharacterPortrait } from '../roster/CharacterPortrait';
 import { RosterChips } from '../roster/RosterChips';
 import { buildCompendium, currentShowcaseWeek, pickWeeklyShowcase } from '../../data/roster';
 import { FALLBACK_RARITY } from '../../data/engineDisplay';
+import type { AcquireOutcome } from '../../hooks/useOwnedCharacters';
+import type { Rarity } from '../../types';
 import {
   CLUSTER_CREDIT_XP_BONUS_PERCENT,
   VIP_COST_TOKENS,
@@ -23,7 +25,7 @@ interface ShopPageProps {
   tokens: number;
   starterBoostClaimed: boolean;
   onClaimStarterBoost: () => void;
-  onAcquireCharacter: (characterId: string) => Promise<'new' | 'duplicate'>;
+  onAcquireCharacter: (characterId: string, rarity: Rarity) => Promise<AcquireOutcome>;
   onAdjustCredits: (delta: number) => void;
   onToast: (message: string) => void;
   vipActive: boolean;
@@ -80,7 +82,7 @@ export function ShopPage({
     if (credits < SHOWCASE_CHARACTER_PRICE_CREDITS) return;
     setBuyingShowcaseId(characterId);
     onAdjustCredits(-SHOWCASE_CHARACTER_PRICE_CREDITS);
-    const outcome = await onAcquireCharacter(characterId);
+    const outcome = await onAcquireCharacter(characterId, FALLBACK_RARITY);
     setBuyingShowcaseId(null);
     onToast(outcome === 'new' ? 'Novo personagem desbloqueado!' : 'Já possuído — convertido em +1 diagrama.');
   }

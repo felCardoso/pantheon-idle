@@ -47,7 +47,12 @@ export function characterPower(stats: BaseStats): number {
   return Math.round(stats.hp * 0.1 + stats.atk * 2);
 }
 
-function toRosterCharacter(c: ReturnType<typeof loadCharactersByIds>[number], mythology: string, xp: number): RosterCharacter {
+function toRosterCharacter(
+  c: ReturnType<typeof loadCharactersByIds>[number],
+  mythology: string,
+  xp: number,
+  rarity?: Rarity,
+): RosterCharacter {
   const progress = xpProgress(xp);
   const info = CHARACTER_INFO[c.templateId] ?? UNKNOWN_INFO;
   // CHARACTER_INFO's hand-authored abilities are always written in the same
@@ -60,7 +65,10 @@ function toRosterCharacter(c: ReturnType<typeof loadCharactersByIds>[number], my
     name: c.name,
     faction: c.faction ?? FALLBACK_FACTION,
     element: c.element ?? FALLBACK_ELEMENT,
-    rarity: DISPLAY_RARITY_BY_TEMPLATE_ID[c.templateId] ?? FALLBACK_RARITY,
+    // Owned characters pass their real pulled rarity; unowned/browsing views
+    // fall back to the static per-template baseline (every character can be
+    // found at Alpha — see DISPLAY_RARITY_BY_TEMPLATE_ID's own comment).
+    rarity: rarity ?? DISPLAY_RARITY_BY_TEMPLATE_ID[c.templateId] ?? FALLBACK_RARITY,
     level: progress.level,
     xp,
     xpIntoLevel: progress.intoLevel,
@@ -88,7 +96,7 @@ export function buildOwnedRoster(owned: OwnedCharacter[]): RosterCharacter[] {
   if (owned.length === 0) return [];
   const idToMythology = new Map(characterIdsByMythology().flatMap(({ mythology, ids }) => ids.map((id) => [id, mythology])));
   const combatants = loadCharactersByIds(owned.map((o) => ({ id: o.characterId, xp: o.xp })));
-  return combatants.map((c, i) => toRosterCharacter(c, idToMythology.get(c.templateId) ?? '', owned[i].xp));
+  return combatants.map((c, i) => toRosterCharacter(c, idToMythology.get(c.templateId) ?? '', owned[i].xp, owned[i].rarity));
 }
 
 /**
@@ -100,10 +108,11 @@ export function buildOwnedRoster(owned: OwnedCharacter[]): RosterCharacter[] {
  */
 export function buildFullRosterView(owned: OwnedCharacter[]): RosterCharacter[] {
   const xpByCharacterId = new Map(owned.map((o) => [o.characterId, o.xp]));
+  const rarityByCharacterId = new Map(owned.map((o) => [o.characterId, o.rarity]));
   return characterIdsByMythology().flatMap(({ mythology, ids }) =>
     ids.map((id) => {
       const xp = xpByCharacterId.get(id) ?? 0;
-      return toRosterCharacter(loadCharactersByIds([{ id, xp }])[0], mythology, xp);
+      return toRosterCharacter(loadCharactersByIds([{ id, xp }])[0], mythology, xp, rarityByCharacterId.get(id));
     }),
   );
 }
@@ -128,14 +137,44 @@ export function diagramName(name: string): string {
   return name.replace(/\.exe$/, '.dat');
 }
 
+/** Ascending rank — higher number is rarer. Shared by every rarity comparison (upgrades, pity, sort). */
+export const RARITY_RANK: Record<Rarity, number> = { Alpha: 0, Beta: 1, Stable: 2, LTS: 3, 'Zero-Day': 4 };
+
+export type GachaTier = 'normal' | 'hard' | 'banner';
+
 /**
- * Rolls one random character id for a gacha pull — uniform across the full
- * pool, independent of mythology or rarity (no pity/odds system yet, unlike
- * docs/gdd.md section 10's eventual design). The caller decides what a
- * duplicate becomes (see useOwnedCharacters.acquireCharacter).
+ * Base drop-rate tables from docs/gdd.md section 10. The banner shares the
+ * Gacha Hard table (same odds, "custando 25% a mais" per the doc — the price
+ * premium lives in GachaPage's constants, not here). No soft-pity ramp yet
+ * (the doc's pull-55/45 escalation) — only the banner's hard pity (X/150,
+ * see GachaPage) is implemented; a future pass can layer soft pity in.
  */
-export function pullGachaCharacter(rng: RngLike): string {
-  return rng.pick(ALL_CHARACTER_IDS);
+const GACHA_RARITY_ODDS: Record<GachaTier, Record<Rarity, number>> = {
+  normal: { Alpha: 0.5, Beta: 0.43, Stable: 0.05, LTS: 0.015, 'Zero-Day': 0.005 },
+  hard: { Alpha: 0.4, Beta: 0.48, Stable: 0.08, LTS: 0.03, 'Zero-Day': 0.01 },
+  banner: { Alpha: 0.4, Beta: 0.48, Stable: 0.08, LTS: 0.03, 'Zero-Day': 0.01 },
+};
+
+/** Rolls a rarity for one gacha pull, weighted by the given tier's odds table. */
+export function rollGachaRarity(rng: RngLike, tier: GachaTier): Rarity {
+  const odds = GACHA_RARITY_ODDS[tier];
+  const roll = rng.next();
+  let cumulative = 0;
+  for (const rarity of ['Alpha', 'Beta', 'Stable', 'LTS', 'Zero-Day'] as Rarity[]) {
+    cumulative += odds[rarity];
+    if (roll < cumulative) return rarity;
+  }
+  return 'Alpha';
+}
+
+/**
+ * Rolls one gacha pull: a uniformly-random character id (independent of
+ * rarity — no per-rarity pools) plus a separately-rolled rarity from the
+ * tier's odds table. The caller decides what happens with the result (see
+ * useOwnedCharacters.acquireCharacter's new/upgraded/duplicate outcomes).
+ */
+export function pullGachaCharacterWithRarity(rng: RngLike, tier: GachaTier): { characterId: string; rarity: Rarity } {
+  return { characterId: rng.pick(ALL_CHARACTER_IDS), rarity: rollGachaRarity(rng, tier) };
 }
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -172,9 +211,11 @@ export function pickWeeklyShowcase(weekSeed: number): string[] {
  * Picks the single character spotlighted on the Invocações banner, seeded by
  * currentShowcaseWeek() but offset from pickWeeklyShowcase's own seed so the
  * two rotations don't draw from the same first RNG value. Purely a spotlight
- * — banner pulls still draw uniformly from the full pool (pullGachaCharacter),
- * same as every other summon tier, since there's no rarity-weighted odds
- * system yet (see pullGachaCharacter's own comment).
+ * — which character id a banner pull actually lands on is still uniform
+ * across the full pool (pullGachaCharacterWithRarity), same as every other
+ * summon tier; only the rolled rarity uses the banner's odds table. The
+ * banner's own display always shows this spotlighted character at a forced
+ * "Zero-Day" badge (see GachaPage), independent of what a pull rolls.
  */
 export function pickWeeklyBannerCharacter(weekSeed: number): string {
   const rng = new Rng((weekSeed * 2654435761 + 1) >>> 0);

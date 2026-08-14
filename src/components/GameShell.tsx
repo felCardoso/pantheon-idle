@@ -26,13 +26,22 @@ import {
   VIP_CREDIT_XP_BONUS_PERCENT,
   type TeamVisibility,
 } from '../hooks/usePlayerProgress';
-import { useOwnedCharacters, type OwnedCharacter } from '../hooks/useOwnedCharacters';
+import { useOwnedCharacters, type AcquireOutcome, type FragmentStack, type OwnedCharacter } from '../hooks/useOwnedCharacters';
 import { usePlayerTeams } from '../hooks/usePlayerTeams';
 import { useProfile, type UpdateUsernameResult } from '../hooks/useProfile';
 import { useCluster } from '../hooks/useCluster';
 import { usePvp } from '../hooks/usePvp';
 import { useMarket } from '../hooks/useMarket';
-import type { ChatMessage, MenuItem } from '../types';
+import { useCharacterProgression } from '../hooks/useCharacterProgression';
+import {
+  ABILITY_MAX_LEVEL_BY_RARITY,
+  ABILITY_UPGRADE_COST_CREDITS,
+  PASSIVE_MAX_LEVEL_BY_RARITY,
+  PASSIVE_UNLOCK_RARITY,
+  PASSIVE_UPGRADE_COST_CREDITS,
+} from '../data/abilityProgression';
+import { RARITY_RANK } from '../data/roster';
+import type { ChatMessage, MenuItem, Rarity } from '../types';
 
 interface GameShellProps {
   userId: string;
@@ -51,6 +60,9 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
     unlockedTeamSlots,
     pveTeamSlot,
     pvpTeamSlot,
+    bannerPity,
+    incrementBannerPity,
+    claimBannerPity,
     loading: progressLoading,
     saveProgress,
     claimStarterBoost,
@@ -70,6 +82,7 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
   const pvp = usePvp(userId);
   const teams = usePlayerTeams(userId);
   const market = useMarket(userId);
+  const characterProgression = useCharacterProgression(userId);
 
   if (progressLoading || !progress || ownedLoading || !ownedCharacters) return <Splash />;
 
@@ -88,8 +101,8 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
 
   const bonusMultiplier = 1 + (vipActive ? VIP_CREDIT_XP_BONUS_PERCENT : 0) + (cluster.cluster ? CLUSTER_CREDIT_XP_BONUS_PERCENT : 0);
 
-  async function handleAcquireCharacter(characterId: string): Promise<'new' | 'duplicate'> {
-    const outcome = await acquireCharacter(characterId);
+  async function handleAcquireCharacter(characterId: string, rarity: Rarity): Promise<AcquireOutcome> {
+    const outcome = await acquireCharacter(characterId, rarity);
     if (outcome === 'new') await teams.autoAddToTeam1(characterId);
     return outcome;
   }
@@ -128,6 +141,10 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
       spendTokens={spendTokens}
       bytes={bytes}
       adjustBytes={adjustBytes}
+      bannerPity={bannerPity}
+      incrementBannerPity={incrementBannerPity}
+      claimBannerPity={claimBannerPity}
+      characterProgression={characterProgression}
       teamVisibility={teamVisibility}
       setTeamVisibility={setTeamVisibility}
       vipActive={vipActive}
@@ -163,10 +180,10 @@ interface GameShellReadyProps {
   ownedCharacters: OwnedCharacter[];
   /** Just the currently-selected PvE team's members (see GameShell's pveCharacters), what actually fights. */
   pveCharacters: OwnedCharacter[];
-  fragments: Record<string, number>;
+  fragments: FragmentStack[];
   addXp: (amount: number) => void;
-  acquireCharacter: (characterId: string) => Promise<'new' | 'duplicate'>;
-  sellFragment: (characterId: string) => void;
+  acquireCharacter: (characterId: string, rarity: Rarity) => Promise<AcquireOutcome>;
+  sellFragment: (characterId: string, rarity: Rarity) => void;
   refreshFragments: () => Promise<void>;
   saveProgress: (next: { fase: number; estagio: number; credits: number; xp: number }) => void;
   starterBoostClaimed: boolean;
@@ -175,6 +192,10 @@ interface GameShellReadyProps {
   spendTokens: (amount: number) => Promise<boolean>;
   bytes: number;
   adjustBytes: (delta: number) => Promise<boolean>;
+  bannerPity: number;
+  incrementBannerPity: (count: number) => void;
+  claimBannerPity: () => void;
+  characterProgression: ReturnType<typeof useCharacterProgression>;
   teamVisibility: TeamVisibility;
   setTeamVisibility: (value: TeamVisibility) => void;
   vipActive: boolean;
@@ -223,6 +244,10 @@ function GameShellReady({
   spendTokens,
   bytes,
   adjustBytes,
+  bannerPity,
+  incrementBannerPity,
+  claimBannerPity,
+  characterProgression,
   teamVisibility,
   setTeamVisibility,
   vipActive,
@@ -267,6 +292,40 @@ function GameShellReady({
     [cluster.messages],
   );
   const chatMessages = useMemo(() => [...CHAT_MESSAGES, ...battle.logFeed], [battle.logFeed]);
+
+  function handleUpgradeAbility(characterId: string) {
+    const rarity = ownedCharacters.find((c) => c.characterId === characterId)?.rarity;
+    if (!rarity) return;
+    const current = characterProgression.progression[characterId]?.abilityLevel ?? 1;
+    const max = ABILITY_MAX_LEVEL_BY_RARITY[rarity];
+    if (current >= max) return;
+    const next = current + 1;
+    const cost = ABILITY_UPGRADE_COST_CREDITS[next] ?? 0;
+    if (battle.credits < cost) {
+      setToast('Créditos insuficientes.');
+      return;
+    }
+    battle.adjustCredits(-cost);
+    characterProgression.setAbilityLevel(characterId, next);
+    setToast(`Habilidade melhorada para nível ${next}.`);
+  }
+
+  function handleUpgradePassive(characterId: string) {
+    const rarity = ownedCharacters.find((c) => c.characterId === characterId)?.rarity;
+    if (!rarity || RARITY_RANK[rarity] < RARITY_RANK[PASSIVE_UNLOCK_RARITY]) return;
+    const current = characterProgression.progression[characterId]?.passiveLevel ?? 0;
+    const max = PASSIVE_MAX_LEVEL_BY_RARITY[rarity];
+    if (current >= max) return;
+    const next = current + 1;
+    const cost = PASSIVE_UPGRADE_COST_CREDITS[next] ?? 0;
+    if (battle.credits < cost) {
+      setToast('Créditos insuficientes.');
+      return;
+    }
+    battle.adjustCredits(-cost);
+    characterProgression.setPassiveLevel(characterId, next);
+    setToast(`Passiva melhorada para nível ${next}.`);
+  }
   // Credits/XP/tokens are real (persisted in Supabase); name is the real username once loaded, falling back to the mock placeholder otherwise.
   const player = useMemo(
     () => ({ ...PLAYER_STATE, name: username ?? PLAYER_STATE.name, credits: battle.credits, xp: battle.xp, tokens, bytes }),
@@ -338,9 +397,19 @@ function GameShellReady({
               pvp={pvp}
               onRewardCredits={battle.adjustCredits}
               onToast={setToast}
+              progression={characterProgression.progression}
+              credits={battle.credits}
+              onUpgradeAbility={handleUpgradeAbility}
+              onUpgradePassive={handleUpgradePassive}
             />
           ) : activeMenuId === 'characters' ? (
-            <CharactersPage ownedCharacters={ownedCharacters} />
+            <CharactersPage
+              ownedCharacters={ownedCharacters}
+              progression={characterProgression.progression}
+              credits={battle.credits}
+              onUpgradeAbility={handleUpgradeAbility}
+              onUpgradePassive={handleUpgradePassive}
+            />
           ) : activeMenuId === 'shop' ? (
             <ShopPage
               credits={battle.credits}
@@ -365,6 +434,12 @@ function GameShellReady({
               onAdjustCredits={battle.adjustCredits}
               onSpendTokens={spendTokens}
               onToast={setToast}
+              bannerPity={bannerPity}
+              onIncrementBannerPity={incrementBannerPity}
+              onClaimBannerPity={claimBannerPity}
+              progression={characterProgression.progression}
+              onUpgradeAbility={handleUpgradeAbility}
+              onUpgradePassive={handleUpgradePassive}
             />
           ) : activeMenuId === 'guild' ? (
             <ClusterPage userId={userId} cluster={cluster} bandwidth={0} onToast={setToast} />
