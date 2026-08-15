@@ -41,39 +41,17 @@ describe('resolveAttack — docs/mvp.md section 2 resolution order', () => {
     expect(result.finalDamage).toBe(300);
   });
 
-  it('Marcado guarantees a crit and is consumed by the hit that uses it', () => {
+  it('Target guarantees a crit and is consumed by the hit that uses it', () => {
     const attacker = makeCombatant({ baseStats: { atk: 200, esq: 0 } });
     const defender = makeCombatant({ baseStats: { def: 0, esq: 0 } });
-    applyStatus(defender, attacker, 'marcado', null, 0);
-    // Only the dodge roll is consumed from RNG — crit is forced by Marcado, no crit roll happens.
+    applyStatus(defender, attacker, 'target', null, 0);
+    // Only the dodge roll is consumed from RNG — crit is forced by Target, no crit roll happens.
     const rng = new ScriptedRng([0.99]);
 
     const result = resolveAttack(attacker, defender, rng);
 
     expect(result.crit).toBe(true);
-    expect(defender.statuses.some((s) => s.status === 'marcado')).toBe(false);
-  });
-
-  it('applies the elemental advantage multiplier (1.25x) when the attacker counters the defender', () => {
-    const attacker = makeCombatant({ element: 'Encryption', baseStats: { atk: 200, esq: 0 } });
-    const defender = makeCombatant({ element: 'Backdoor', baseStats: { def: 0, esq: 0 } });
-    const rng = new ScriptedRng([0.99, 0.99]); // no dodge, no crit
-
-    const result = resolveAttack(attacker, defender, rng);
-
-    expect(result.elementalAdvantage).toBe(true);
-    expect(result.finalDamage).toBe(250);
-  });
-
-  it('does not grant elemental advantage for pairs with no defined counter', () => {
-    const attacker = makeCombatant({ element: 'Backdoor', baseStats: { atk: 200, esq: 0 } });
-    const defender = makeCombatant({ element: 'Encryption', baseStats: { def: 0, esq: 0 } });
-    const rng = new ScriptedRng([0.99, 0.99]);
-
-    const result = resolveAttack(attacker, defender, rng);
-
-    expect(result.elementalAdvantage).toBe(false);
-    expect(result.finalDamage).toBe(200);
+    expect(defender.statuses.some((s) => s.status === 'target')).toBe(false);
   });
 
   it('damage hits shield first, and only the excess spills into HP', () => {

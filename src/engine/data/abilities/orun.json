@@ -2,41 +2,53 @@
   {
     "id": "espirito-ancestral-lentidao",
     "name": "Chamado Ancestral",
+    "kind": "active",
     "trigger": "onAttack",
     "chance": 0.1,
     "effects": [
       {
         "type": "applyStatus",
         "target": "defender",
-        "status": "lentidao",
+        "status": "lag",
         "duration": 2,
-        "magnitude": { "kind": "percent", "value": 0.2 }
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.2
+        }
       }
     ]
   },
   {
     "id": "guardiao-mata-shield",
     "name": "Raiz Protetora",
+    "kind": "active",
     "trigger": "battleStart",
     "effects": [
       {
         "type": "grantShield",
         "target": "self",
-        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.2 }
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.2
+        }
       }
     ]
   },
   {
     "id": "tambor-guerra-sangramento",
     "name": "Ritmo de Guerra",
+    "kind": "active",
     "trigger": "onAttack",
     "effects": [
       {
         "type": "applyStatus",
         "target": "defender",
-        "status": "sangramento",
+        "status": "leak",
         "duration": 3,
-        "magnitude": { "kind": "flat", "value": 15 },
+        "magnitude": {
+          "kind": "flat",
+          "value": 15
+        },
         "ignoresDef": true,
         "stacks": true
       }
@@ -45,33 +57,44 @@
   {
     "id": "ogum-enfraquecimento",
     "name": "Lâmina de Ferro",
+    "kind": "active",
     "trigger": "battleStart",
     "effects": [
       {
         "type": "applyStatus",
         "target": "allEnemies",
-        "status": "enfraquecimento",
+        "status": "throttling",
         "duration": 2,
-        "magnitude": { "kind": "percent", "value": 0.15 }
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.15
+        }
       }
     ]
   },
   {
     "id": "ogum-cura-sangramento",
     "name": "Forja de Guerra",
+    "kind": "active",
     "trigger": "onCriticalHit",
     "effects": [
       {
         "type": "heal",
         "target": "self",
-        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.1 }
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.1
+        }
       },
       {
         "type": "applyStatus",
         "target": "defender",
-        "status": "sangramento",
+        "status": "leak",
         "duration": 3,
-        "magnitude": { "kind": "flat", "value": 15 },
+        "magnitude": {
+          "kind": "flat",
+          "value": 15
+        },
         "ignoresDef": true
       }
     ]

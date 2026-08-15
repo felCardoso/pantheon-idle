@@ -3,77 +3,133 @@
     "id": "zeus",
     "name": "Zeus.exe",
     "faction": "Malware",
-    "element": "Encryption",
     "rarity": "Alpha",
     "mythology": "Mitologia Grega",
     "stars": 0,
-    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 0, "esq": 0, "ice": 0 },
-    "abilities": ["zeus-atordoamento-team"]
+    "baseStats": {
+      "hp": 800,
+      "atk": 80,
+      "def": 0,
+      "ini": 0,
+      "esq": 0,
+      "ice": 0
+    },
+    "activeOptions": [
+      "zeus-atordoamento-team"
+    ]
   },
   {
     "id": "hades",
     "name": "Hades.exe",
     "faction": "Firewall",
-    "element": "Backdoor",
     "rarity": "Alpha",
     "mythology": "Mitologia Grega",
     "stars": 0,
-    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 0, "esq": 0, "ice": 0 },
-    "abilities": ["hades-self-shield"]
+    "baseStats": {
+      "hp": 800,
+      "atk": 80,
+      "def": 0,
+      "ini": 0,
+      "esq": 0,
+      "ice": 0
+    },
+    "activeOptions": [
+      "hades-self-shield"
+    ]
   },
   {
     "id": "atena",
     "name": "Atena.exe",
     "faction": "Crypto-Miner",
-    "element": "Encryption",
     "rarity": "Alpha",
     "mythology": "Mitologia Grega",
     "stars": 0,
-    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 0, "esq": 0, "ice": 0 },
-    "abilities": ["atena-corrosao"]
+    "baseStats": {
+      "hp": 800,
+      "atk": 80,
+      "def": 0,
+      "ini": 0,
+      "esq": 0,
+      "ice": 0
+    },
+    "activeOptions": [
+      "atena-corrosao"
+    ]
   },
   {
     "id": "satiro",
     "name": "Sátiro.exe",
     "faction": "Exploit",
-    "element": "Vírus",
     "rarity": "Alpha",
     "mythology": "Mitologia Grega",
     "stars": 0,
-    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 0, "esq": 0, "ice": 0 },
-    "abilities": ["satiro-veneno"]
+    "baseStats": {
+      "hp": 800,
+      "atk": 80,
+      "def": 0,
+      "ini": 0,
+      "esq": 0,
+      "ice": 0
+    },
+    "activeOptions": [
+      "satiro-veneno"
+    ]
   },
   {
     "id": "medusa",
     "name": "Medusa.exe",
     "faction": "Crypto-Miner",
-    "element": "Nanites",
     "rarity": "Alpha",
     "mythology": "Mitologia Grega",
     "stars": 0,
-    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 0, "esq": 0, "ice": 0 },
-    "abilities": ["medusa-petrificar", "medusa-veneno", "medusa-armadura-pedra", "medusa-espinhos-veneno"]
+    "baseStats": {
+      "hp": 800,
+      "atk": 80,
+      "def": 0,
+      "ini": 0,
+      "esq": 0,
+      "ice": 0
+    },
+    "activeOptions": [
+      "medusa-petrificar"
+    ]
   },
   {
     "id": "hercules",
     "name": "Hércules.exe",
     "faction": "Firewall",
-    "element": "Brute Force",
     "rarity": "Alpha",
     "mythology": "Mitologia Grega",
     "stars": 0,
-    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 0, "esq": 0, "ice": 0 },
-    "abilities": ["hercules-impacto", "hercules-furia", "hercules-clava-primordial", "hercules-pele-leao"]
+    "baseStats": {
+      "hp": 800,
+      "atk": 80,
+      "def": 0,
+      "ini": 0,
+      "esq": 0,
+      "ice": 0
+    },
+    "activeOptions": [
+      "hercules-impacto"
+    ]
   },
   {
     "id": "minotauro",
     "name": "Minotauro.exe",
     "faction": "Firewall",
-    "element": "Backdoor",
     "rarity": "Alpha",
     "mythology": "Mitologia Grega",
     "stars": 0,
-    "baseStats": { "hp": 800, "atk": 80, "def": 0, "ini": 0, "esq": 0, "ice": 0 },
-    "abilities": ["minotauro-provocar", "minotauro-labrys", "minotauro-fear", "minotauro-aterrorizar"]
+    "baseStats": {
+      "hp": 800,
+      "atk": 80,
+      "def": 0,
+      "ini": 0,
+      "esq": 0,
+      "ice": 0
+    },
+    "activeOptions": [
+      "minotauro-provocar"
+    ]
   }
 ]

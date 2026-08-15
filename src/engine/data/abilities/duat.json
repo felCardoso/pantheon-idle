@@ -2,41 +2,53 @@
   {
     "id": "mumia-veneno",
     "name": "Maldição da Múmia",
+    "kind": "active",
     "trigger": "onAttack",
     "chance": 0.1,
     "effects": [
       {
         "type": "applyStatus",
         "target": "defender",
-        "status": "veneno",
+        "status": "trojan",
         "duration": 3,
-        "magnitude": { "kind": "flat", "value": 15 }
+        "magnitude": {
+          "kind": "flat",
+          "value": 15
+        }
       }
     ]
   },
   {
     "id": "chacal-guardiao-shield",
     "name": "Guarda de Anúbis",
+    "kind": "active",
     "trigger": "battleStart",
     "effects": [
       {
         "type": "grantShield",
         "target": "self",
-        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.2 }
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.2
+        }
       }
     ]
   },
   {
     "id": "serpente-nilo-veneno",
     "name": "Mordida do Nilo",
+    "kind": "active",
     "trigger": "onAttack",
     "effects": [
       {
         "type": "applyStatus",
         "target": "defender",
-        "status": "veneno",
+        "status": "trojan",
         "duration": 3,
-        "magnitude": { "kind": "flat", "value": 15 },
+        "magnitude": {
+          "kind": "flat",
+          "value": 15
+        },
         "ignoresDef": true,
         "stacks": true
       }
@@ -45,33 +57,44 @@
   {
     "id": "set-enfraquecimento",
     "name": "Tempestade do Caos",
+    "kind": "active",
     "trigger": "battleStart",
     "effects": [
       {
         "type": "applyStatus",
         "target": "allEnemies",
-        "status": "enfraquecimento",
+        "status": "throttling",
         "duration": 2,
-        "magnitude": { "kind": "percent", "value": 0.15 }
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.15
+        }
       }
     ]
   },
   {
     "id": "set-cura-corrosao",
     "name": "Corrupção do Deserto",
+    "kind": "active",
     "trigger": "onCriticalHit",
     "effects": [
       {
         "type": "heal",
         "target": "self",
-        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.1 }
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.1
+        }
       },
       {
-        "type": "applyStatus",
+        "type": "buffAttribute",
         "target": "defender",
-        "status": "corrosao",
+        "attribute": "def",
         "duration": 2,
-        "magnitude": { "kind": "percent", "value": 0.15 }
+        "magnitude": {
+          "kind": "percent",
+          "value": -0.15
+        }
       }
     ]
   }

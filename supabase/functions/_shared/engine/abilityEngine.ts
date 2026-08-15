@@ -1,7 +1,7 @@
 import type { AbilityDefinition, AbilityEffect, AbilityTrigger, BuffableAttribute, Magnitude, StatusType, TargetSelector } from './schema.ts';
 import type { AttackResult, BattleLogEntry, Combatant } from './types.ts';
 import type { RngLike } from './rng.ts';
-import { applyStatus, effectiveAtk, effectiveDef, effectiveEsq, effectiveIni } from './statusEffects.ts';
+import { applyStatus, dispelStatuses, effectiveAtk, effectiveDef, effectiveEsq, effectiveIni } from './statusEffects.ts';
 import { CONSTANTS } from './loader.ts';
 
 export interface TriggerContext {
@@ -10,7 +10,7 @@ export interface TriggerContext {
   enemies: Combatant[];
   rng: RngLike;
   log: (entry: BattleLogEntry) => void;
-  /** onDamaged: who attacked self. */
+  /** onCounter: who attacked self. */
   attacker?: Combatant;
   /** onAttack / onCriticalHit: who self is attacking. */
   defender?: Combatant;
@@ -41,6 +41,12 @@ function resolveTargets(selector: TargetSelector, ctx: TriggerContext): Combatan
       return pickExtreme(ctx.allies, (c) => c.hp, false);
     case 'highestAtkAlly':
       return pickExtreme(ctx.allies, effectiveAtk, true);
+    case 'frontAlly': {
+      // Team-list order is the line-up/queue order (docs/combate.md §1) — the
+      // first living ally in that order is the front of the queue.
+      const front = ctx.allies.find((c) => c.hp > 0);
+      return front ? [front] : [];
+    }
     case 'randomAlly': {
       const living = ctx.allies.filter((c) => c.hp > 0);
       return living.length === 0 ? [] : [ctx.rng.pick(living)];
@@ -78,6 +84,7 @@ const BUFF_STATUS_BY_ATTRIBUTE: Record<BuffableAttribute, StatusType> = {
   def: 'buffDef',
   ini: 'buffIni',
   esq: 'buffEsq',
+  ice: 'buffIce',
 };
 
 /** Fires ctx-relative triggers for a target that just received shield/heal — reuses ctx's own team topology, which is correct whenever the target is on the same side as ctx.self (always true for grantShield/heal, the only effects that call this). */
@@ -133,7 +140,6 @@ function applyEffect(effect: AbilityEffect, ctx: TriggerContext): void {
         applyStatus(target, ctx.self, effect.status, duration, value, {
           stacks: effect.stacks,
           ignoresShield: effect.ignoresShield,
-          isFlat: effect.magnitude.kind === 'flat',
         });
         ctx.log({ kind: 'statusApplied', target: target.name, status: effect.status, source: ctx.self.name, rounds: duration });
         break;
@@ -185,6 +191,13 @@ function applyEffect(effect: AbilityEffect, ctx: TriggerContext): void {
         const value = resolveMagnitude(effect.magnitude, ctx, target);
         applyStatus(target, ctx.self, status, duration, value, { stacks: true });
         ctx.log({ kind: 'statusApplied', target: target.name, status, source: ctx.self.name, rounds: duration });
+        break;
+      }
+      case 'dispel': {
+        const removed = dispelStatuses(target, effect.statuses);
+        for (const status of removed) {
+          ctx.log({ kind: 'statusExpired', target: target.name, status });
+        }
         break;
       }
     }

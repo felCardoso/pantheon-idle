@@ -32,14 +32,14 @@ export interface ReplayState {
 }
 
 /**
- * Statuses that stack into independent instances (docs/combate.md: Sangramento
+ * Statuses that stack into independent instances (docs/combate.md: Leak
  * is explicitly stackable). Everything else replaces its existing instance in
  * place, so a re-application should reset the visible count to 1 rather than
- * accumulate — otherwise repeated non-stacking applies (e.g. Lentidão reapplied
+ * accumulate — otherwise repeated non-stacking applies (e.g. Lag reapplied
  * every round) would drift upward, since a replace never logs a matching expiry
  * for the instance it replaced.
  */
-const STACKABLE_STATUSES: ReadonlySet<StatusType> = new Set(['sangramento']);
+const STACKABLE_STATUSES: ReadonlySet<StatusType> = new Set(['leak']);
 
 export function createInitialReplayState(allies: Combatant[], enemies: Combatant[]): ReplayState {
   const units: Record<string, UnitSnapshot> = {};

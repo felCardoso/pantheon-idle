@@ -2,80 +2,104 @@
   {
     "id": "amaterasu-regen-team",
     "name": "Luz Perpétua",
+    "kind": "active",
     "trigger": "battleStart",
     "effects": [
       {
         "type": "applyStatus",
         "target": "allAllies",
-        "status": "regeneracao",
+        "status": "nanites",
         "duration": "default",
-        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.04 }
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.04
+        }
       }
     ]
   },
   {
     "id": "amaterasu-shield-team",
     "name": "Alvorada Radiante",
+    "kind": "active",
     "trigger": "battleStart",
     "effects": [
       {
         "type": "grantShield",
         "target": "allAllies",
-        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.1 }
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.1
+        }
       }
     ]
   },
   {
     "id": "amaterasu-reflexo-solar",
     "name": "Reflexo Solar",
-    "trigger": "onDamaged",
+    "kind": "active",
+    "trigger": "onCounter",
     "chance": 0.3,
     "effects": [
       {
         "type": "heal",
         "target": "self",
-        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.08 }
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.08
+        }
       }
     ]
   },
   {
     "id": "yokai-menor-lentidao",
     "name": "Sussurro Yokai",
+    "kind": "active",
     "trigger": "onAttack",
     "chance": 0.1,
     "effects": [
       {
         "type": "applyStatus",
         "target": "defender",
-        "status": "lentidao",
+        "status": "lag",
         "duration": 2,
-        "magnitude": { "kind": "percent", "value": 0.2 }
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.2
+        }
       }
     ]
   },
   {
     "id": "samurai-corrompido-shield",
     "name": "Guarda de Bushido",
+    "kind": "active",
     "trigger": "battleStart",
     "effects": [
       {
         "type": "grantShield",
         "target": "self",
-        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.2 }
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.2
+        }
       }
     ]
   },
   {
     "id": "kappa-veneno",
     "name": "Água Amaldiçoada",
+    "kind": "active",
     "trigger": "onAttack",
     "effects": [
       {
         "type": "applyStatus",
         "target": "defender",
-        "status": "veneno",
+        "status": "trojan",
         "duration": 3,
-        "magnitude": { "kind": "flat", "value": 15 },
+        "magnitude": {
+          "kind": "flat",
+          "value": 15
+        },
         "ignoresDef": true,
         "stacks": true
       }
@@ -84,33 +108,44 @@
   {
     "id": "orochi-veneno-aoe",
     "name": "Hálito das Oito Cabeças",
+    "kind": "active",
     "trigger": "battleStart",
     "effects": [
       {
         "type": "applyStatus",
         "target": "allEnemies",
-        "status": "veneno",
+        "status": "trojan",
         "duration": 3,
-        "magnitude": { "kind": "flat", "value": 15 }
+        "magnitude": {
+          "kind": "flat",
+          "value": 15
+        }
       }
     ]
   },
   {
     "id": "orochi-cura-enfraquecimento",
     "name": "Regeneração Serpentina",
+    "kind": "active",
     "trigger": "onCriticalHit",
     "effects": [
       {
         "type": "heal",
         "target": "self",
-        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.1 }
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.1
+        }
       },
       {
         "type": "applyStatus",
         "target": "defender",
-        "status": "enfraquecimento",
+        "status": "throttling",
         "duration": 2,
-        "magnitude": { "kind": "percent", "value": 0.15 }
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.15
+        }
       }
     ]
   }

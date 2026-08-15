@@ -128,7 +128,7 @@ export function runBattle(allies: Combatant[], enemies: Combatant[], options: Ba
             fireTrigger('onAllyAttack', { self: ally, allies: own, enemies: opposing, rng, log: pushLog, attacker: unit, defender, attackResult: result });
           }
 
-          fireTrigger('onDamaged', {
+          fireTrigger('onCounter', {
             self: defender,
             allies: opposing,
             enemies: own,

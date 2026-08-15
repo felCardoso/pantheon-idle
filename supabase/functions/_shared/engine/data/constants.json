@@ -1,24 +1,20 @@
 {
   "critChanceBase": 0.05,
   "critMultiplier": 1.5,
-  "elementalAdvantageMultiplier": 1.25,
-  "elementalCounters": {
-    "Encryption": ["Backdoor", "Brute Force"]
-  },
   "statusDefaultDurations": {
-    "virus": 3,
-    "sangramento": 3,
-    "veneno": 3,
-    "enfraquecimento": 2,
-    "corrosao": 2,
-    "lentidao": 2,
-    "atordoamento": 1,
-    "regeneracao": 3,
-    "marcado": null,
+    "leak": 3,
+    "trojan": 3,
+    "crash": 1,
+    "fragmentation": 2,
+    "nanites": 3,
+    "throttling": 2,
+    "lag": 2,
+    "target": null,
     "buffAtk": 2,
     "buffDef": 2,
     "buffIni": 2,
-    "buffEsq": 2
+    "buffEsq": 2,
+    "buffIce": 2
   },
   "synergyByCount": {
     "2": 0.05,

@@ -80,6 +80,19 @@ function resolveAbilities(ids: string[]): AbilityDefinition[] {
   });
 }
 
+/**
+ * Enemies never choose (docs/combate.md §8: "Ações Hardcoded" — a boss can
+ * run several abilities at once in fixed sequence) so every one of their
+ * activeOptions always fires. Players equip exactly one (docs/combate.md
+ * §5: "o jogador equipa uma por vez") — real player choice lands in a later
+ * phase; for now this always resolves to the character's first listed
+ * option, a placeholder that keeps every ally on a single active ability.
+ */
+function resolveCombatantAbilities(data: CombatantData, isAlly: boolean): AbilityDefinition[] {
+  const activeIds = isAlly ? data.activeOptions.slice(0, 1) : data.activeOptions;
+  return resolveAbilities(activeIds);
+}
+
 /** Mythological synergy bonus for a same-mythology team, per combate.md section 5. */
 function synergyBonusFor(teamSize: number): number {
   return CONSTANTS.synergyByCount[String(teamSize)] ?? 0;
@@ -111,7 +124,6 @@ function buildCombatant(
     templateId: data.id,
     name: data.name,
     faction: data.faction,
-    element: data.element,
     isAlly,
     stars: data.stars ?? 0,
     level,
@@ -120,7 +132,7 @@ function buildCombatant(
     hp,
     shield: 0,
     statuses: [],
-    abilities: resolveAbilities(data.abilities),
+    abilities: resolveCombatantAbilities(data, isAlly),
     statusDurationBonus: data.statusDurationBonus ?? 0,
     alwaysActsFirst: data.alwaysActsFirst ?? false,
     halfHpTriggered: false,

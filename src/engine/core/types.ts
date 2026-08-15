@@ -1,19 +1,18 @@
-import type { AbilityDefinition, BaseStats, Element, Faction, StatusType } from '../schema';
+import type { AbilityDefinition, BaseStats, Faction, StatusType } from '../schema';
 
 export interface StatusEffectInstance {
   status: StatusType;
-  /** Rounds left before this expires; null = consumed on next hit taken (Marcado) or lasts the rest of the battle (permanent buffs) — never ages down on its own either way. */
+  /** Rounds left before this expires; null = consumed on next hit taken (Target) or lasts the rest of the battle (permanent buffs) — never ages down on its own either way. */
   remainingRounds: number | null;
   /**
-   * Meaning depends on status: flat HP delta per round for DOT/regen statuses,
-   * percent reduction for attribute debuffs (enfraquecimento/lentidao/corrosao),
-   * percent bonus for attribute buffs (buffAtk/buffDef/buffIni/buffEsq).
-   * Unused for atordoamento/marcado (presence is all that matters).
+   * Meaning depends on status: flat HP delta per round for DOT/regen
+   * statuses, percent reduction for Throttling/Lag, percent bonus/malus for
+   * the generic buffAtk/buffDef/buffIni/buffEsq/buffIce statuses (negative
+   * value = a debuff, e.g. a Firewall-reduction effect). Unused for
+   * crash/target (presence is all that matters).
    */
   value: number;
   ignoresShield?: boolean;
-  /** Corrosão only: true = `value` is a flat DEF reduction rather than a percent (docs/combate.md: "reduz DEF em X% ou valor mínimo"). */
-  isFlat?: boolean;
 }
 
 export interface Combatant {
@@ -22,7 +21,6 @@ export interface Combatant {
   templateId: string;
   name: string;
   faction: Faction | null;
-  element: Element | null;
   isAlly: boolean;
   stars: number;
   /** Derived from accumulated XP (see engine/core/leveling.ts); 0 for enemies. */
@@ -49,7 +47,6 @@ export interface AttackResult {
   defender: Combatant;
   dodged: boolean;
   crit: boolean;
-  elementalAdvantage: boolean;
   rawDamage: number;
   finalDamage: number;
   shieldAbsorbed: number;

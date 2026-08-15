@@ -46,6 +46,16 @@ function resolveAbilities(ids: string[]): AbilityDefinition[] {
   });
 }
 
+/**
+ * This mirror only ever builds ally combatants (PvP is always ally-vs-ally),
+ * so it always resolves the "player equips exactly one" rule (docs/combate.md
+ * §5) — real player choice lands in a later phase; for now this always
+ * resolves to the character's first listed option.
+ */
+function resolveCombatantAbilities(data: CombatantData): AbilityDefinition[] {
+  return resolveAbilities(data.activeOptions.slice(0, 1));
+}
+
 /** Mythological synergy bonus for a same-mythology team, per combate.md section 5. */
 function synergyBonusFor(teamSize: number): number {
   return CONSTANTS.synergyByCount[String(teamSize)] ?? 0;
@@ -71,7 +81,6 @@ function buildCombatant(
     templateId: data.id,
     name: data.name,
     faction: data.faction,
-    element: data.element,
     isAlly,
     stars: data.stars ?? 0,
     level,
@@ -80,7 +89,7 @@ function buildCombatant(
     hp,
     shield: 0,
     statuses: [],
-    abilities: resolveAbilities(data.abilities),
+    abilities: resolveCombatantAbilities(data),
     statusDurationBonus: data.statusDurationBonus ?? 0,
     alwaysActsFirst: data.alwaysActsFirst ?? false,
     halfHpTriggered: false,

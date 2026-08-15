@@ -64,7 +64,10 @@ function toRosterCharacter(
     templateId: c.templateId,
     name: c.name,
     faction: c.faction ?? FALLBACK_FACTION,
-    element: c.element ?? FALLBACK_ELEMENT,
+    // v2 has no elemental-affinity system (Combatant no longer carries one) —
+    // this field is a placeholder pending the Phase C visual-identity rework
+    // that drops it from RosterCharacter/the UI entirely.
+    element: FALLBACK_ELEMENT,
     // Owned characters pass their real pulled rarity; unowned/browsing views
     // fall back to the static per-template baseline (every character can be
     // found at Alpha — see DISPLAY_RARITY_BY_TEMPLATE_ID's own comment).

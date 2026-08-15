@@ -2,19 +2,19 @@ import type { BattleLogEntry } from '../core/types';
 import type { StatusType } from '../schema';
 
 const STATUS_LABEL: Record<StatusType, string> = {
-  virus: 'Vírus',
-  sangramento: 'Sangramento',
-  veneno: 'Veneno',
-  atordoamento: 'Atordoamento',
-  enfraquecimento: 'Enfraquecimento',
-  corrosao: 'Corrosão',
-  lentidao: 'Lentidão',
-  regeneracao: 'Regeneração',
-  marcado: 'Marcado',
-  buffAtk: 'ATK aumentado',
-  buffDef: 'DEF aumentada',
-  buffIni: 'INI aumentada',
-  buffEsq: 'ESQ aumentada',
+  leak: 'Leak',
+  trojan: 'Trojan',
+  crash: 'Crash',
+  fragmentation: 'Fragmentação',
+  nanites: 'Nanites',
+  throttling: 'Throttling',
+  lag: 'Lag',
+  target: 'Target',
+  buffAtk: 'Processamento aumentado',
+  buffDef: 'Firewall aumentado',
+  buffIni: 'Ping aumentado',
+  buffEsq: 'Evasion aumentada',
+  buffIce: 'ESP aumentado',
 };
 
 const WINNER_LABEL: Record<'allies' | 'enemies' | 'draw', string> = {
@@ -34,8 +34,8 @@ export function formatLogEntry(entry: BattleLogEntry): string | null {
     case 'dodge':
       return `  ${entry.defender} esquiva do ataque de ${entry.attacker}.`;
     case 'attack': {
-      const { attacker, defender, finalDamage, crit, elementalAdvantage, shieldAbsorbed, hpDamage, defenderDied } = entry.result;
-      const tags = [crit && 'crítico', elementalAdvantage && 'vantagem elemental'].filter(Boolean).join(', ');
+      const { attacker, defender, finalDamage, crit, shieldAbsorbed, hpDamage, defenderDied } = entry.result;
+      const tags = [crit && 'crítico'].filter(Boolean).join(', ');
       const shieldNote = shieldAbsorbed > 0 ? ` (${Math.round(shieldAbsorbed)} absorvido pelo escudo, ${Math.round(hpDamage)} no HP)` : '';
       const suffix = tags ? ` [${tags}]` : '';
       const deathNote = defenderDied ? ' — derrotado!' : '';

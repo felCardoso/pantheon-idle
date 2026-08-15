@@ -81,29 +81,24 @@ describe('loadCharactersByIds', () => {
     expect(leveled.maxHp).toBe(Math.round(800 * 1.02));
   });
 
-  it('loads Medusa/Hércules/Minotauro, each carrying all 4 of their described abilities (the engine fires every ability a character owns independently)', () => {
+  it('resolves Medusa/Hércules/Minotauro to only their first candidate active ability (v2: one equipped active at a time; no player selection yet, so activeOptions[0] wins)', () => {
     const [medusa, hercules, minotauro] = loadCharactersByIds([
       { id: 'medusa', xp: 0 },
       { id: 'hercules', xp: 0 },
       { id: 'minotauro', xp: 0 },
     ]);
     expect(medusa.name).toBe('Medusa.exe');
-    expect(medusa.abilities.map((a) => a.id)).toEqual([
-      'medusa-petrificar',
-      'medusa-veneno',
-      'medusa-armadura-pedra',
-      'medusa-espinhos-veneno',
-    ]);
+    expect(medusa.abilities.map((a) => a.id)).toEqual(['medusa-petrificar']);
     expect(hercules.name).toBe('Hércules.exe');
-    expect(hercules.abilities).toHaveLength(4);
+    expect(hercules.abilities.map((a) => a.id)).toEqual(['hercules-impacto']);
     expect(minotauro.name).toBe('Minotauro.exe');
-    expect(minotauro.abilities).toHaveLength(4);
+    expect(minotauro.abilities.map((a) => a.id)).toEqual(['minotauro-provocar']);
   });
 
-  it('loads Amaterasu.exe (Mitologia Japonesa) with its 3 abilities', () => {
+  it('resolves Amaterasu.exe (Mitologia Japonesa) to only her first candidate active ability', () => {
     const [amaterasu] = loadCharactersByIds([{ id: 'amaterasu', xp: 0 }]);
     expect(amaterasu.name).toBe('Amaterasu.exe');
-    expect(amaterasu.abilities.map((a) => a.id)).toEqual(['amaterasu-regen-team', 'amaterasu-shield-team', 'amaterasu-reflexo-solar']);
+    expect(amaterasu.abilities.map((a) => a.id)).toEqual(['amaterasu-regen-team']);
   });
 });
 

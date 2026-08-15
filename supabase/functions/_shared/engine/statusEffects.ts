@@ -5,27 +5,20 @@ function sumActive(c: Combatant, status: StatusType): number {
   return c.statuses.filter((s) => s.status === status).reduce((sum, s) => sum + s.value, 0);
 }
 
-function sumActiveByKind(c: Combatant, status: StatusType, flat: boolean): number {
-  return c.statuses.filter((s) => s.status === status && !!s.isFlat === flat).reduce((sum, s) => sum + s.value, 0);
-}
-
 export function effectiveAtk(c: Combatant): number {
-  const reduction = sumActive(c, 'enfraquecimento');
+  const reduction = sumActive(c, 'throttling');
   const buff = sumActive(c, 'buffAtk');
   return Math.max(0, c.base.atk * (1 - reduction) * (1 + buff));
 }
 
-/** Corrosão (docs/combate.md: "reduz DEF em X% ou valor mínimo") supports both a flat point reduction and a percent reduction, applied together — flat first, then percent. */
+/** No dedicated Firewall-reduction status exists in v2 — debuffing DEF beyond Throttling/Lag is just a negative buffDef (see schema.ts's BuffAttributeEffect doc comment). */
 export function effectiveDef(c: Combatant): number {
-  const flatReduction = sumActiveByKind(c, 'corrosao', true);
-  const percentReduction = sumActiveByKind(c, 'corrosao', false);
   const buff = sumActive(c, 'buffDef');
-  const afterFlat = Math.max(0, c.base.def - flatReduction);
-  return Math.max(0, afterFlat * (1 - percentReduction) * (1 + buff));
+  return Math.max(0, c.base.def * (1 + buff));
 }
 
 export function effectiveIni(c: Combatant): number {
-  const reduction = sumActive(c, 'lentidao');
+  const reduction = sumActive(c, 'lag');
   const buff = sumActive(c, 'buffIni');
   return Math.max(0, c.base.ini * (1 - reduction) * (1 + buff));
 }
@@ -36,32 +29,31 @@ export function effectiveEsq(c: Combatant): number {
 }
 
 export function effectiveIce(c: Combatant): number {
-  // No status in the current roster modifies ICE; kept for API symmetry / future statuses.
-  return c.base.ice;
+  const buff = sumActive(c, 'buffIce');
+  return Math.max(0, c.base.ice * (1 + buff));
 }
 
 export function isStunned(c: Combatant): boolean {
-  return c.statuses.some((s) => s.status === 'atordoamento');
+  return c.statuses.some((s) => s.status === 'crash');
 }
 
 export function isMarked(c: Combatant): boolean {
-  return c.statuses.some((s) => s.status === 'marcado');
+  return c.statuses.some((s) => s.status === 'target');
 }
 
-/** Consumes (removes) a single Marcado instance, e.g. once its guaranteed crit has been used. */
+/** Consumes (removes) a single Target instance, e.g. once its guaranteed crit has been used. */
 export function consumeMark(c: Combatant): void {
-  const idx = c.statuses.findIndex((s) => s.status === 'marcado');
+  const idx = c.statuses.findIndex((s) => s.status === 'target');
   if (idx !== -1) c.statuses.splice(idx, 1);
 }
 
 function defaultIgnoresShield(status: StatusType): boolean {
-  return status === 'veneno';
+  return status === 'trojan';
 }
 
 export interface ApplyStatusOptions {
   stacks?: boolean;
   ignoresShield?: boolean;
-  isFlat?: boolean;
 }
 
 /**
@@ -83,7 +75,6 @@ export function applyStatus(
     remainingRounds,
     value,
     ignoresShield: options.ignoresShield ?? defaultIgnoresShield(status),
-    isFlat: options.isFlat,
   };
 
   if (!options.stacks) {
@@ -91,6 +82,21 @@ export function applyStatus(
   }
   target.statuses.push(instance);
   return instance;
+}
+
+/** The 6 malware/debuff statuses (Efeitos Disponíveis, docs/combate.md §3) — used to disambiguate an untargeted DispelEffect. */
+export const DEBUFF_STATUSES: ReadonlySet<StatusType> = new Set(['leak', 'trojan', 'crash', 'fragmentation', 'throttling', 'lag']);
+
+/** The 5 generic attribute-buff statuses — a negative value is a debuff (see effectiveDef), but the status *kind* itself is still "buff" for dispel-targeting purposes. */
+export const BUFF_STATUSES: ReadonlySet<StatusType> = new Set(['buffAtk', 'buffDef', 'buffIni', 'buffEsq', 'buffIce']);
+
+/** "Quebra direta de status inimigo" — strips the given statuses (or whichever bucket the target has active, if omitted) from `target`. Returns the removed status types. */
+export function dispelStatuses(target: Combatant, statuses?: StatusType[]): StatusType[] {
+  const toStrip =
+    statuses ?? (target.statuses.some((s) => DEBUFF_STATUSES.has(s.status)) ? [...DEBUFF_STATUSES] : [...BUFF_STATUSES]);
+  const removed = target.statuses.filter((s) => toStrip.includes(s.status)).map((s) => s.status);
+  target.statuses = target.statuses.filter((s) => !toStrip.includes(s.status));
+  return removed;
 }
 
 export interface StatusTick {
@@ -105,7 +111,7 @@ export interface EndOfRoundResult {
   expired: StatusType[];
 }
 
-const DAMAGE_OVER_TIME: ReadonlySet<StatusType> = new Set(['virus', 'sangramento', 'veneno']);
+const DAMAGE_OVER_TIME: ReadonlySet<StatusType> = new Set(['leak', 'trojan']);
 
 /** Applies DOT/regen ticks for one round and ages down every status's remaining duration. */
 export function endOfRoundTick(c: Combatant): EndOfRoundResult {
@@ -125,7 +131,7 @@ export function endOfRoundTick(c: Combatant): EndOfRoundResult {
         c.hp = Math.max(0, c.hp - (dmg - fromShield));
       }
       ticks.push({ status: s.status, amount: dmg, kind: 'damage', shieldAbsorbed: fromShield });
-    } else if (s.status === 'regeneracao') {
+    } else if (s.status === 'nanites') {
       const heal = Math.min(s.value, c.maxHp - c.hp);
       c.hp += heal;
       ticks.push({ status: s.status, amount: heal, kind: 'heal', shieldAbsorbed: 0 });

@@ -9,7 +9,6 @@ function fakeAttack(overrides: Partial<AttackResult> = {}): AttackResult {
     defender: makeCombatant({ name: 'Def' }),
     dodged: false,
     crit: false,
-    elementalAdvantage: false,
     rawDamage: 100,
     finalDamage: 100,
     shieldAbsorbed: 0,
@@ -69,23 +68,23 @@ describe('replay', () => {
     expect(state.units[defender.id].hp).toBe(defender.maxHp);
   });
 
-  it('a damage statusTick hits shield first, like the docs specify for Vírus', () => {
+  it('a damage statusTick hits shield first, like the docs specify for Leak', () => {
     const target = makeCombatant({ name: 'T', maxHp: 1000 });
     const nameToId = buildNameToId([target], []);
     let state = createInitialReplayState([target], []);
     state = withInitialShield(state, target.id, 10);
 
-    const entry: BattleLogEntry = { kind: 'statusTick', target: 'T', status: 'virus', amount: 30, tickKind: 'damage', shieldAbsorbed: 10 };
+    const entry: BattleLogEntry = { kind: 'statusTick', target: 'T', status: 'trojan', amount: 30, tickKind: 'damage', shieldAbsorbed: 10 };
     state = applyReplayEntry(state, entry, nameToId);
 
     expect(state.units[target.id]).toMatchObject({ shield: 0, hp: 980 });
   });
 
-  it('a heal statusTick (Regeneração) increases HP without exceeding max', () => {
+  it('a heal statusTick (Nanites) increases HP without exceeding max', () => {
     const target = makeCombatant({ name: 'T', maxHp: 1000 });
     const nameToId = buildNameToId([target], []);
     let state = createInitialReplayState([target], []);
-    state = applyReplayEntry(state, { kind: 'statusTick', target: 'T', status: 'regeneracao', amount: 9999, tickKind: 'heal', shieldAbsorbed: 0 }, nameToId);
+    state = applyReplayEntry(state, { kind: 'statusTick', target: 'T', status: 'nanites', amount: 9999, tickKind: 'heal', shieldAbsorbed: 0 }, nameToId);
     expect(state.units[target.id].hp).toBe(1000);
   });
 
@@ -141,25 +140,25 @@ describe('replay', () => {
     const nameToId = buildNameToId([target], []);
     let state = createInitialReplayState([target], []);
 
-    const entry: BattleLogEntry = { kind: 'statusApplied', target: 'T', status: 'lentidao', source: 'X', rounds: 2 };
+    const entry: BattleLogEntry = { kind: 'statusApplied', target: 'T', status: 'lag', source: 'X', rounds: 2 };
     state = applyReplayEntry(state, entry, nameToId);
-    expect(state.units[target.id].statuses.lentidao).toBe(1);
+    expect(state.units[target.id].statuses.lag).toBe(1);
 
     // Reapplying (e.g. every round) must not drift the count upward.
     state = applyReplayEntry(state, entry, nameToId);
-    expect(state.units[target.id].statuses.lentidao).toBe(1);
+    expect(state.units[target.id].statuses.lag).toBe(1);
   });
 
-  it('statusApplied accumulates a stackable status (Sangramento) across independent applications', () => {
+  it('statusApplied accumulates a stackable status (Leak) across independent applications', () => {
     const target = makeCombatant({ name: 'T' });
     const nameToId = buildNameToId([target], []);
     let state = createInitialReplayState([target], []);
-    const entry: BattleLogEntry = { kind: 'statusApplied', target: 'T', status: 'sangramento', source: 'X', rounds: 3 };
+    const entry: BattleLogEntry = { kind: 'statusApplied', target: 'T', status: 'leak', source: 'X', rounds: 3 };
 
     state = applyReplayEntry(state, entry, nameToId);
     state = applyReplayEntry(state, entry, nameToId);
 
-    expect(state.units[target.id].statuses.sangramento).toBe(2);
+    expect(state.units[target.id].statuses.leak).toBe(2);
   });
 
   it('starts each side in its natural array order', () => {
@@ -226,11 +225,11 @@ describe('replay', () => {
     const target = makeCombatant({ name: 'T' });
     const nameToId = buildNameToId([target], []);
     let state = createInitialReplayState([target], []);
-    state = applyReplayEntry(state, { kind: 'statusApplied', target: 'T', status: 'lentidao', source: 'X', rounds: 2 }, nameToId);
+    state = applyReplayEntry(state, { kind: 'statusApplied', target: 'T', status: 'lag', source: 'X', rounds: 2 }, nameToId);
 
-    state = applyReplayEntry(state, { kind: 'statusExpired', target: 'T', status: 'lentidao' }, nameToId);
+    state = applyReplayEntry(state, { kind: 'statusExpired', target: 'T', status: 'lag' }, nameToId);
 
-    expect(state.units[target.id].statuses.lentidao).toBeUndefined();
+    expect(state.units[target.id].statuses.lag).toBeUndefined();
   });
 });
 

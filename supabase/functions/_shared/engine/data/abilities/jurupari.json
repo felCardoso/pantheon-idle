@@ -2,70 +2,90 @@
   {
     "id": "curupira-lentidao-counter",
     "name": "Pé-pra-Trás",
-    "trigger": "onDamaged",
+    "kind": "active",
+    "trigger": "onCounter",
     "chance": 0.25,
     "effects": [
       {
         "type": "applyStatus",
         "target": "attacker",
-        "status": "lentidao",
+        "status": "lag",
         "duration": 2,
-        "magnitude": { "kind": "percent", "value": 0.2 }
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.2
+        }
       }
     ]
   },
   {
     "id": "caipora-enfraquecimento",
     "name": "Assobio da Mata",
+    "kind": "active",
     "trigger": "onAttack",
     "effects": [
       {
         "type": "applyStatus",
         "target": "defender",
-        "status": "enfraquecimento",
+        "status": "throttling",
         "duration": 2,
-        "magnitude": { "kind": "percent", "value": 0.15 }
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.15
+        }
       }
     ]
   },
   {
     "id": "script-kiddie-lentidao",
     "name": "Script Kiddie — Ataque Básico",
+    "kind": "active",
     "trigger": "onAttack",
     "chance": 0.1,
     "effects": [
       {
         "type": "applyStatus",
         "target": "defender",
-        "status": "lentidao",
+        "status": "lag",
         "duration": 2,
-        "magnitude": { "kind": "percent", "value": 0.2 }
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.2
+        }
       }
     ]
   },
   {
     "id": "firewall-turret-shield",
     "name": "Posto Blindado",
+    "kind": "active",
     "trigger": "battleStart",
     "effects": [
       {
         "type": "grantShield",
         "target": "self",
-        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.2 }
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.2
+        }
       }
     ]
   },
   {
     "id": "corrupted-daemon-sangramento",
     "name": "Corte Corrosivo",
+    "kind": "active",
     "trigger": "onAttack",
     "effects": [
       {
         "type": "applyStatus",
         "target": "defender",
-        "status": "sangramento",
+        "status": "leak",
         "duration": 3,
-        "magnitude": { "kind": "flat", "value": 15 },
+        "magnitude": {
+          "kind": "flat",
+          "value": 15
+        },
         "ignoresDef": true,
         "stacks": true
       }
@@ -74,33 +94,43 @@
   {
     "id": "anhanga-enfraquecimento",
     "name": "Sussurro da Mata",
+    "kind": "active",
     "trigger": "battleStart",
     "effects": [
       {
         "type": "applyStatus",
         "target": "allEnemies",
-        "status": "enfraquecimento",
+        "status": "throttling",
         "duration": 2,
-        "magnitude": { "kind": "percent", "value": 0.15 }
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.15
+        }
       }
     ]
   },
   {
     "id": "anhanga-cura-virus",
     "name": "Corrupção Restauradora",
+    "kind": "active",
     "trigger": "onCriticalHit",
     "effects": [
       {
         "type": "heal",
         "target": "self",
-        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.1 }
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.1
+        }
       },
       {
         "type": "applyStatus",
         "target": "defender",
-        "status": "virus",
+        "status": "trojan",
         "duration": "default",
-        "magnitude": { "kind": "triggeringDamage" }
+        "magnitude": {
+          "kind": "triggeringDamage"
+        }
       }
     ]
   }

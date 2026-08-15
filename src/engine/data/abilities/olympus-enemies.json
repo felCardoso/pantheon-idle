@@ -2,41 +2,53 @@
   {
     "id": "ciclope-atordoamento",
     "name": "Golpe do Ciclope",
+    "kind": "active",
     "trigger": "onAttack",
     "chance": 0.1,
     "effects": [
       {
         "type": "applyStatus",
         "target": "defender",
-        "status": "atordoamento",
+        "status": "crash",
         "duration": 1,
-        "magnitude": { "kind": "flat", "value": 0 }
+        "magnitude": {
+          "kind": "flat",
+          "value": 0
+        }
       }
     ]
   },
   {
     "id": "esqueleto-espartano-shield",
     "name": "Falange Espartana",
+    "kind": "active",
     "trigger": "battleStart",
     "effects": [
       {
         "type": "grantShield",
         "target": "self",
-        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.2 }
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.2
+        }
       }
     ]
   },
   {
     "id": "hidra-menor-sangramento",
     "name": "Mordida Regenerativa",
+    "kind": "active",
     "trigger": "onAttack",
     "effects": [
       {
         "type": "applyStatus",
         "target": "defender",
-        "status": "sangramento",
+        "status": "leak",
         "duration": 3,
-        "magnitude": { "kind": "flat", "value": 15 },
+        "magnitude": {
+          "kind": "flat",
+          "value": 15
+        },
         "ignoresDef": true,
         "stacks": true
       }
@@ -45,33 +57,44 @@
   {
     "id": "typhon-enfraquecimento",
     "name": "Rugido Primordial",
+    "kind": "active",
     "trigger": "battleStart",
     "effects": [
       {
         "type": "applyStatus",
         "target": "allEnemies",
-        "status": "enfraquecimento",
+        "status": "throttling",
         "duration": 2,
-        "magnitude": { "kind": "percent", "value": 0.15 }
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.15
+        }
       }
     ]
   },
   {
     "id": "typhon-cura-corrosao",
     "name": "Veneno dos Cem Dragões",
+    "kind": "active",
     "trigger": "onCriticalHit",
     "effects": [
       {
         "type": "heal",
         "target": "self",
-        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.1 }
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.1
+        }
       },
       {
-        "type": "applyStatus",
+        "type": "buffAttribute",
         "target": "defender",
-        "status": "corrosao",
+        "attribute": "def",
         "duration": 2,
-        "magnitude": { "kind": "percent", "value": 0.15 }
+        "magnitude": {
+          "kind": "percent",
+          "value": -0.15
+        }
       }
     ]
   }
