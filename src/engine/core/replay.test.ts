@@ -29,24 +29,22 @@ describe('replay', () => {
     expect(state.units[b.id]).toEqual({ id: b.id, hp: 500, maxHp: 500, shield: 0, statuses: {} });
   });
 
-  it('roundStart sets the round and resets the turn counter', () => {
+  it('clashStart sets the round', () => {
     const a = makeCombatant();
     let state = createInitialReplayState([a], []);
-    state = applyReplayEntry(state, { kind: 'roundStart', round: 3 }, {});
+    state = applyReplayEntry(state, { kind: 'clashStart', round: 3 }, {});
     expect(state.round).toBe(3);
-    expect(state.turnInRound).toBe(0);
   });
 
-  it('a dodge does not change HP but counts as a turn', () => {
+  it('a dodge does not change HP', () => {
     const a = makeCombatant();
     const b = makeCombatant();
     let state = createInitialReplayState([a], [b]);
     state = applyReplayEntry(state, { kind: 'dodge', attacker: a.name, defender: b.name }, {});
-    expect(state.turnInRound).toBe(1);
     expect(state.units[b.id].hp).toBe(b.maxHp);
   });
 
-  it('an attack applies shield-then-HP damage using the defender.id, and counts as a turn', () => {
+  it('an attack applies shield-then-HP damage using the defender.id', () => {
     const defender = makeCombatant({ name: 'Def', maxHp: 1000 });
     const nameToId = buildNameToId([], [defender]);
     let state = createInitialReplayState([], [defender]);
@@ -55,16 +53,14 @@ describe('replay', () => {
     const entry: BattleLogEntry = { kind: 'attack', result: fakeAttack({ defender, finalDamage: 50, hpDamage: 20, shieldAbsorbed: 30 }) };
     state = applyReplayEntry(state, entry, nameToId);
 
-    expect(state.turnInRound).toBe(1);
     expect(state.units[defender.id]).toMatchObject({ shield: 0, hp: 980 });
   });
 
-  it('a dodged attack still counts as a turn but changes nothing else', () => {
+  it('a dodged attack changes nothing', () => {
     const defender = makeCombatant({ name: 'Def' });
     let state = createInitialReplayState([], [defender]);
     const entry: BattleLogEntry = { kind: 'attack', result: fakeAttack({ defender, dodged: true, finalDamage: 0, hpDamage: 0 }) };
     state = applyReplayEntry(state, entry, {});
-    expect(state.turnInRound).toBe(1);
     expect(state.units[defender.id].hp).toBe(defender.maxHp);
   });
 
@@ -161,66 +157,6 @@ describe('replay', () => {
     expect(state.units[target.id].statuses.leak).toBe(2);
   });
 
-  it('starts each side in its natural array order', () => {
-    const a = makeCombatant({ name: 'A' });
-    const b = makeCombatant({ name: 'B' });
-    const c = makeCombatant({ name: 'C' });
-    const state = createInitialReplayState([a, b], [c]);
-    expect(state.allyOrder).toEqual([a.id, b.id]);
-    expect(state.enemyOrder).toEqual([c.id]);
-  });
-
-  it('an attack rotates the attacker to the back of its own side, leaving the other side untouched', () => {
-    const a = makeCombatant({ name: 'A' });
-    const b = makeCombatant({ name: 'B' });
-    const enemy = makeCombatant({ name: 'E' });
-    let state = createInitialReplayState([a, b], [enemy]);
-
-    const entry: BattleLogEntry = { kind: 'attack', result: fakeAttack({ attacker: a, defender: enemy }) };
-    state = applyReplayEntry(state, entry, {});
-
-    expect(state.allyOrder).toEqual([b.id, a.id]);
-    expect(state.enemyOrder).toEqual([enemy.id]);
-  });
-
-  it('a dodge rotates the attacker (by name lookup) to the back of its side', () => {
-    const a = makeCombatant({ name: 'A' });
-    const b = makeCombatant({ name: 'B' });
-    const enemy = makeCombatant({ name: 'E' });
-    const nameToId = buildNameToId([a, b], [enemy]);
-    let state = createInitialReplayState([a, b], [enemy]);
-
-    state = applyReplayEntry(state, { kind: 'dodge', attacker: a.name, defender: enemy.name }, nameToId);
-
-    expect(state.allyOrder).toEqual([b.id, a.id]);
-  });
-
-  it('a stun-skipped turn rotates the skipped unit to the back of its side', () => {
-    const a = makeCombatant({ name: 'A' });
-    const enemy1 = makeCombatant({ name: 'E1' });
-    const enemy2 = makeCombatant({ name: 'E2' });
-    const nameToId = buildNameToId([a], [enemy1, enemy2]);
-    let state = createInitialReplayState([a], [enemy1, enemy2]);
-
-    state = applyReplayEntry(state, { kind: 'turnSkippedStun', unit: enemy1.name }, nameToId);
-
-    expect(state.enemyOrder).toEqual([enemy2.id, enemy1.id]);
-    expect(state.allyOrder).toEqual([a.id]);
-  });
-
-  it('rotating repeatedly cycles the queue so the next unit is always at the front', () => {
-    const a = makeCombatant({ name: 'A' });
-    const b = makeCombatant({ name: 'B' });
-    const c = makeCombatant({ name: 'C' });
-    let state = createInitialReplayState([a, b, c], []);
-
-    state = applyReplayEntry(state, { kind: 'attack', result: fakeAttack({ attacker: a, dodged: true }) }, {});
-    expect(state.allyOrder).toEqual([b.id, c.id, a.id]);
-
-    state = applyReplayEntry(state, { kind: 'attack', result: fakeAttack({ attacker: b, dodged: true }) }, {});
-    expect(state.allyOrder).toEqual([c.id, a.id, b.id]);
-  });
-
   it('statusExpired decrements the count and removes the entry once it reaches 0', () => {
     const target = makeCombatant({ name: 'T' });
     const nameToId = buildNameToId([target], []);
@@ -230,6 +166,60 @@ describe('replay', () => {
     state = applyReplayEntry(state, { kind: 'statusExpired', target: 'T', status: 'lag' }, nameToId);
 
     expect(state.units[target.id].statuses.lag).toBeUndefined();
+  });
+
+  describe('queue rotation (clashEnd)', () => {
+    it('starts each side in its natural array order', () => {
+      const a = makeCombatant({ name: 'A' });
+      const b = makeCombatant({ name: 'B' });
+      const c = makeCombatant({ name: 'C' });
+      const state = createInitialReplayState([a, b], [c]);
+      expect(state.allyOrder).toEqual([a.id, b.id]);
+      expect(state.enemyOrder).toEqual([c.id]);
+    });
+
+    it('clashEnd rotates both surviving participants to the back of their own side', () => {
+      const a = makeCombatant({ name: 'A' });
+      const b = makeCombatant({ name: 'B' });
+      const enemy = makeCombatant({ name: 'E' });
+      const nameToId = buildNameToId([a, b], [enemy]);
+      let state = createInitialReplayState([a, b], [enemy]);
+
+      state = applyReplayEntry(state, { kind: 'clashEnd', allyUnit: 'A', enemyUnit: 'E' }, nameToId);
+
+      expect(state.allyOrder).toEqual([b.id, a.id]);
+      expect(state.enemyOrder).toEqual([enemy.id]);
+    });
+
+    it('clashEnd drops a participant that died this clash instead of rotating it', () => {
+      const a = makeCombatant({ name: 'A' });
+      const b = makeCombatant({ name: 'B' });
+      const enemy = makeCombatant({ name: 'E' });
+      const nameToId = buildNameToId([a, b], [enemy]);
+      let state = createInitialReplayState([a, b], [enemy]);
+      // Simulate A having died this clash (an 'attack' entry already zeroed its HP).
+      state = { ...state, units: { ...state.units, [a.id]: { ...state.units[a.id], hp: 0 } } };
+
+      state = applyReplayEntry(state, { kind: 'clashEnd', allyUnit: 'A', enemyUnit: 'E' }, nameToId);
+
+      expect(state.allyOrder).toEqual([b.id]);
+      expect(state.enemyOrder).toEqual([enemy.id]);
+    });
+
+    it('rotating repeatedly cycles the queue so the next unit is always at the front', () => {
+      const a = makeCombatant({ name: 'A' });
+      const b = makeCombatant({ name: 'B' });
+      const c = makeCombatant({ name: 'C' });
+      const enemy = makeCombatant({ name: 'E' });
+      const nameToId = buildNameToId([a, b, c], [enemy]);
+      let state = createInitialReplayState([a, b, c], [enemy]);
+
+      state = applyReplayEntry(state, { kind: 'clashEnd', allyUnit: 'A', enemyUnit: 'E' }, nameToId);
+      expect(state.allyOrder).toEqual([b.id, c.id, a.id]);
+
+      state = applyReplayEntry(state, { kind: 'clashEnd', allyUnit: 'B', enemyUnit: 'E' }, nameToId);
+      expect(state.allyOrder).toEqual([c.id, a.id, b.id]);
+    });
   });
 });
 

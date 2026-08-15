@@ -27,12 +27,18 @@ export function formatLogEntry(entry: BattleLogEntry): string | null {
   switch (entry.kind) {
     case 'battleStart':
       return '\n=== Início da batalha ===';
-    case 'roundStart':
-      return `\n--- Rodada ${entry.round} ---`;
+    case 'clashStart':
+      return `\n--- Clash ${entry.round} ---`;
     case 'turnSkippedStun':
-      return `  ${entry.unit} está atordoado e perde a ação.`;
+      return `  ${entry.unit} sofre Crash e perde a ação.`;
     case 'dodge':
       return `  ${entry.defender} esquiva do ataque de ${entry.attacker}.`;
+    case 'actionCancelled':
+      return `  ${entry.unit} é ejetado antes de agir — ação cancelada.`;
+    case 'pingAdvantage':
+      return `  ${entry.unit} tem vantagem de Ping e age primeiro.`;
+    case 'clashEnd':
+      return null; // no narration needed — queue rotation is a UI-layer concern
     case 'attack': {
       const { attacker, defender, finalDamage, crit, shieldAbsorbed, hpDamage, defenderDied } = entry.result;
       const tags = [crit && 'crítico'].filter(Boolean).join(', ');

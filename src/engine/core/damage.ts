@@ -1,6 +1,6 @@
 import type { RngLike } from './rng';
 import type { AttackResult, Combatant } from './types';
-import { consumeMark, effectiveAtk, effectiveDef, effectiveEsq, isMarked } from './statusEffects';
+import { absorbIntoShield, consumeMark, effectiveAtk, effectiveDef, effectiveEsq, isMarked } from './statusEffects';
 import { CONSTANTS } from './loader';
 
 export interface ResolveAttackOptions {
@@ -56,14 +56,8 @@ export function resolveAttack(
 
   const finalDamage = damage;
 
-  // 5. Destino do dano: escudo primeiro (salvo Backdoor), excedente pro HP
-  let shieldAbsorbed = 0;
-  let hpDamage = finalDamage;
-  if (!options.ignoresShield && defender.shield > 0) {
-    shieldAbsorbed = Math.min(defender.shield, finalDamage);
-    defender.shield -= shieldAbsorbed;
-    hpDamage = finalDamage - shieldAbsorbed;
-  }
+  // 5. Destino do dano: escudo primeiro (salvo Backdoor ou Fragmentação-inflacionado), excedente pro HP
+  const { shieldAbsorbed, hpDamage } = absorbIntoShield(defender, finalDamage, options.ignoresShield);
   defender.hp = Math.max(0, defender.hp - hpDamage);
 
   return {

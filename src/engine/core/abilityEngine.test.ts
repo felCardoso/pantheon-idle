@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fireTrigger, type TriggerContext } from './abilityEngine';
+import { fireDeath, fireOnWounded, fireTrigger, maybeFireFrontAllyWounded, type TriggerContext } from './abilityEngine';
 import { makeAbility, makeCombatant, ScriptedRng } from './testUtils';
 import type { AttackResult } from './types';
 
@@ -133,5 +133,145 @@ describe('fireTrigger — Firewall Turret-style battle-start shield', () => {
     fireTrigger('battleStart', ctx);
 
     expect(turret.shield).toBe(120);
+  });
+});
+
+describe('resolveTargets — frontAlly (v2 queue-position target)', () => {
+  const healFrontAlly = makeAbility({
+    id: 'heal-front-ally',
+    trigger: 'battleStart',
+    effects: [{ type: 'heal', target: 'frontAlly', magnitude: { kind: 'flat', value: 100 } }],
+  });
+
+  it('targets the first living unit in ctx.allies (queue order, front = index 0)', () => {
+    const front = makeCombatant({ hp: 500, maxHp: 1000 });
+    const back = makeCombatant({ hp: 500, maxHp: 1000 });
+    const caster = makeCombatant({ abilities: [healFrontAlly] });
+    const ctx = baseCtx({ self: caster, allies: [front, back] });
+
+    fireTrigger('battleStart', ctx);
+
+    expect(front.hp).toBe(600);
+    expect(back.hp).toBe(500);
+  });
+
+  it('skips a dead front-of-queue unit and targets the next living one', () => {
+    const dead = makeCombatant({ hp: 0, maxHp: 1000 });
+    const nextUp = makeCombatant({ hp: 500, maxHp: 1000 });
+    const caster = makeCombatant({ abilities: [healFrontAlly] });
+    const ctx = baseCtx({ self: caster, allies: [dead, nextUp] });
+
+    fireTrigger('battleStart', ctx);
+
+    expect(nextUp.hp).toBe(600);
+  });
+});
+
+describe('applyEffect — dispel (v2 "quebra direta de status inimigo")', () => {
+  const dispelDebuffs = makeAbility({
+    id: 'cleanse-ally',
+    trigger: 'battleStart',
+    effects: [{ type: 'dispel', target: 'self', statuses: ['lag', 'throttling'] }],
+  });
+
+  it('strips exactly the listed statuses and logs one statusExpired per removed status', () => {
+    const c = makeCombatant({ abilities: [dispelDebuffs] });
+    c.statuses.push({ status: 'lag', remainingRounds: 2, value: 0.2 }, { status: 'buffAtk', remainingRounds: 2, value: 0.1 });
+    const logged: string[] = [];
+    const ctx = baseCtx({ self: c, log: (e) => e.kind === 'statusExpired' && logged.push(e.status) });
+
+    fireTrigger('battleStart', ctx);
+
+    expect(c.statuses.map((s) => s.status)).toEqual(['buffAtk']);
+    expect(logged).toEqual(['lag']);
+  });
+
+  it('with no explicit list, strips whichever bucket (debuffs vs buffs) is currently active', () => {
+    const dispelAuto = makeAbility({ id: 'cleanse-auto', trigger: 'battleStart', effects: [{ type: 'dispel', target: 'self' }] });
+    const c = makeCombatant({ abilities: [dispelAuto] });
+    c.statuses.push({ status: 'crash', remainingRounds: 1, value: 0 }, { status: 'buffDef', remainingRounds: 2, value: 0.1 });
+    const ctx = baseCtx({ self: c });
+
+    fireTrigger('battleStart', ctx);
+
+    // crash (a debuff) present -> the debuff bucket is stripped, buffDef untouched.
+    expect(c.statuses.map((s) => s.status)).toEqual(['buffDef']);
+  });
+});
+
+describe('Echo triggers — onAllyAppliedLeak/Trojan/Crash', () => {
+  it('broadcasts to the caster\'s other living allies (not the target) when Leak is successfully applied', () => {
+    const echoAbility = makeAbility({
+      id: 'echo-listener',
+      trigger: 'onAllyAppliedLeak',
+      effects: [{ type: 'grantShield', target: 'self', magnitude: { kind: 'flat', value: 50 } }],
+    });
+    const applyLeak = makeAbility({
+      id: 'apply-leak',
+      trigger: 'battleStart',
+      effects: [{ type: 'applyStatus', target: 'defender', status: 'leak', duration: 3, magnitude: { kind: 'flat', value: 10 } }],
+    });
+    const caster = makeCombatant({ abilities: [applyLeak] });
+    const listener = makeCombatant({ abilities: [echoAbility] });
+    const enemyTarget = makeCombatant();
+    const ctx = baseCtx({ self: caster, allies: [caster, listener], defender: enemyTarget });
+
+    fireTrigger('battleStart', ctx);
+
+    expect(listener.shield).toBe(50);
+    expect(caster.shield).toBe(0); // the caster itself doesn't hear its own echo
+  });
+});
+
+describe('shared exports — fireDeath/fireOnWounded broadcast their "ally" pair', () => {
+  it('fireDeath fires onAllyDeath on the dead unit\'s living allies (not on the dead unit or the enemy side)', () => {
+    const onAllyDeathAbility = makeAbility({ id: 'on-ally-death', trigger: 'onAllyDeath', effects: [{ type: 'grantShield', target: 'self', magnitude: { kind: 'flat', value: 20 } }] });
+    const dead = makeCombatant({ hp: 0 });
+    const ally = makeCombatant({ abilities: [onAllyDeathAbility] });
+    const enemy = makeCombatant({ abilities: [onAllyDeathAbility] });
+
+    fireDeath(dead, [dead, ally], [enemy], new ScriptedRng([]), () => {});
+
+    expect(ally.shield).toBe(20);
+    expect(enemy.shield).toBe(0);
+  });
+
+  it('fireOnWounded fires onWounded on the unit and onAllyWounded on its living allies', () => {
+    const onWoundedAbility = makeAbility({ id: 'on-wounded', trigger: 'onWounded', effects: [{ type: 'grantShield', target: 'self', magnitude: { kind: 'flat', value: 5 } }] });
+    const onAllyWoundedAbility = makeAbility({ id: 'on-ally-wounded', trigger: 'onAllyWounded', effects: [{ type: 'grantShield', target: 'self', magnitude: { kind: 'flat', value: 7 } }] });
+    const wounded = makeCombatant({ abilities: [onWoundedAbility] });
+    const ally = makeCombatant({ abilities: [onAllyWoundedAbility] });
+
+    fireOnWounded(wounded, [wounded, ally], [], new ScriptedRng([]), () => {});
+
+    expect(wounded.shield).toBe(5);
+    expect(ally.shield).toBe(7);
+  });
+});
+
+describe('maybeFireFrontAllyWounded — "Proxy Defense"', () => {
+  const proxyDefense = makeAbility({
+    id: 'proxy-defense',
+    trigger: 'onFrontAllyWounded',
+    effects: [{ type: 'grantShield', target: 'self', magnitude: { kind: 'flat', value: 30 } }],
+  });
+
+  it('fires on whoever is directly in front of the wounded unit in its own queue', () => {
+    const front = makeCombatant({ abilities: [proxyDefense] });
+    const wounded = makeCombatant();
+    const own = [front, wounded]; // front = index 0, wounded = index 1
+
+    maybeFireFrontAllyWounded(wounded, own, [], new ScriptedRng([]), () => {});
+
+    expect(front.shield).toBe(30);
+  });
+
+  it('does not fire when the wounded unit is already at the front of its own queue', () => {
+    const front = makeCombatant({ abilities: [proxyDefense] });
+    const own = [front];
+
+    maybeFireFrontAllyWounded(front, own, [], new ScriptedRng([]), () => {});
+
+    expect(front.shield).toBe(0);
   });
 });

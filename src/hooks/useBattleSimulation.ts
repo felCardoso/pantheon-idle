@@ -521,7 +521,6 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
       totalStages: localFaseNumber(state.session.fase) === FASES_PER_WORLD ? ESTAGIOS_PER_FASE + 1 : ESTAGIOS_PER_FASE,
       isBoss: state.session.isBoss,
       round: state.replay.round,
-      turn: state.replay.turnInRound,
     },
     logFeed: state.logFeed,
     floaters: state.floaters,

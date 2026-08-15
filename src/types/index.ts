@@ -65,8 +65,8 @@ export interface StageInfo {
   stage: number;
   totalStages: number;
   isBoss: boolean;
+  /** Clash count this battle — v2's line-up combat has no sub-round turn counter (1 round = 1 clash). */
   round: number;
-  turn: number;
 }
 
 export type ChatTabId = 'global' | 'guild' | 'anuncios' | 'log';

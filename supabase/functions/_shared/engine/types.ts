@@ -56,10 +56,17 @@ export interface AttackResult {
 
 export type BattleLogEntry =
   | { kind: 'battleStart' }
-  | { kind: 'roundStart'; round: number }
+  /** One clashStart = one line-up clash (front-of-queue vs front-of-queue) — "round" now means "clash," not "every unit's turn." */
+  | { kind: 'clashStart'; round: number }
   | { kind: 'turnSkippedStun'; unit: string }
   | { kind: 'attack'; result: AttackResult }
   | { kind: 'dodge'; attacker: string; defender: string }
+  /** The lower-Ping clash participant's attack was skipped because the higher-Ping one's attack ejected it first. */
+  | { kind: 'actionCancelled'; unit: string }
+  /** Fires when a clash's priority is decided by a real Ping (INI) difference (not alwaysActsFirst, not a tie). */
+  | { kind: 'pingAdvantage'; unit: string }
+  /** Marks a clash as fully resolved — the two line-up participants that round, for replay to requeue (survivor to back, dead one dropped). */
+  | { kind: 'clashEnd'; allyUnit: string; enemyUnit: string }
   | { kind: 'statusApplied'; target: string; status: StatusType; source: string; rounds: number | null }
   | {
       kind: 'statusTick';

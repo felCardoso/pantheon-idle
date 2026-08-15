@@ -99,6 +99,22 @@ export function dispelStatuses(target: Combatant, statuses?: StatusType[]): Stat
   return removed;
 }
 
+/**
+ * How much of `damage` the target's shield absorbs, and how much spills to
+ * HP. Fragmentação ("multiplica o dano causado a Escudos") inflates how much
+ * shield a point of damage costs to absorb — the portion of `damage` a full
+ * shield can cover shrinks, so more spills to HP than it normally would; the
+ * total damage dealt is unchanged.
+ */
+export function absorbIntoShield(target: Combatant, damage: number, ignoresShield?: boolean): { shieldAbsorbed: number; hpDamage: number } {
+  if (ignoresShield || target.shield <= 0) return { shieldAbsorbed: 0, hpDamage: damage };
+  const fragMultiplier = 1 + sumActive(target, 'fragmentation');
+  const shieldDrawn = Math.min(target.shield, damage * fragMultiplier);
+  const shieldAbsorbed = shieldDrawn / fragMultiplier;
+  target.shield -= shieldDrawn;
+  return { shieldAbsorbed, hpDamage: damage - shieldAbsorbed };
+}
+
 export interface StatusTick {
   status: StatusType;
   amount: number;
@@ -122,15 +138,9 @@ export function endOfRoundTick(c: Combatant): EndOfRoundResult {
   for (const s of c.statuses) {
     if (DAMAGE_OVER_TIME.has(s.status)) {
       const dmg = s.value;
-      let fromShield = 0;
-      if (s.ignoresShield) {
-        c.hp = Math.max(0, c.hp - dmg);
-      } else {
-        fromShield = Math.min(c.shield, dmg);
-        c.shield -= fromShield;
-        c.hp = Math.max(0, c.hp - (dmg - fromShield));
-      }
-      ticks.push({ status: s.status, amount: dmg, kind: 'damage', shieldAbsorbed: fromShield });
+      const { shieldAbsorbed, hpDamage } = absorbIntoShield(c, dmg, s.ignoresShield);
+      c.hp = Math.max(0, c.hp - hpDamage);
+      ticks.push({ status: s.status, amount: dmg, kind: 'damage', shieldAbsorbed });
     } else if (s.status === 'nanites') {
       const heal = Math.min(s.value, c.maxHp - c.hp);
       c.hp += heal;

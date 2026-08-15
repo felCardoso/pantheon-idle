@@ -1,11 +1,17 @@
 import type { AbilityDefinition, AbilityEffect, AbilityTrigger, BuffableAttribute, Magnitude, StatusType, TargetSelector } from './schema.ts';
 import type { AttackResult, BattleLogEntry, Combatant } from './types.ts';
 import type { RngLike } from './rng.ts';
-import { applyStatus, dispelStatuses, effectiveAtk, effectiveDef, effectiveEsq, effectiveIni } from './statusEffects.ts';
+import { absorbIntoShield, applyStatus, dispelStatuses, effectiveAtk, effectiveDef, effectiveEsq, effectiveIni } from './statusEffects.ts';
 import { CONSTANTS } from './loader.ts';
 
 export interface TriggerContext {
   self: Combatant;
+  /**
+   * self's own side, in line-up/queue order (front = index 0) — the battle
+   * loop's ally/enemy arrays ARE the live queues, reordered as clashes
+   * resolve, so this doubles as both "who's on my team" and "what order are
+   * they queued in" (needed for the `frontAlly` target and Proxy Defense).
+   */
   allies: Combatant[];
   enemies: Combatant[];
   rng: RngLike;
@@ -42,8 +48,7 @@ function resolveTargets(selector: TargetSelector, ctx: TriggerContext): Combatan
     case 'highestAtkAlly':
       return pickExtreme(ctx.allies, effectiveAtk, true);
     case 'frontAlly': {
-      // Team-list order is the line-up/queue order (docs/combate.md §1) — the
-      // first living ally in that order is the front of the queue.
+      // ctx.allies is queue-ordered (front = index 0) — see the field doc above.
       const front = ctx.allies.find((c) => c.hp > 0);
       return front ? [front] : [];
     }
@@ -87,21 +92,56 @@ const BUFF_STATUS_BY_ATTRIBUTE: Record<BuffableAttribute, StatusType> = {
   ice: 'buffIce',
 };
 
+/** The "Echo" triggers — fire on the *caster's* other living allies when the caster successfully applies one of these 3 statuses to something. */
+const ECHO_TRIGGER_BY_STATUS: Partial<Record<StatusType, AbilityTrigger>> = {
+  trojan: 'onAllyAppliedTrojan',
+  leak: 'onAllyAppliedLeak',
+  crash: 'onAllyAppliedCrash',
+};
+
 /** Fires ctx-relative triggers for a target that just received shield/heal — reuses ctx's own team topology, which is correct whenever the target is on the same side as ctx.self (always true for grantShield/heal, the only effects that call this). */
 function fireReceivedTriggers(trigger: 'onShieldReceived' | 'onHealReceived', target: Combatant, ctx: TriggerContext): void {
   fireTrigger(trigger, { self: target, allies: ctx.allies, enemies: ctx.enemies, rng: ctx.rng, log: ctx.log });
 }
 
+/** Broadcasts `trigger` to every one of `subject`'s living allies except `subject` itself — the shared "quando aliado X" fan-out used by every ally-reaction trigger (Network Breach, Node Offline, Network Firewall, the 3 Echo triggers). */
+export function fireAllyBroadcast(
+  trigger: AbilityTrigger,
+  subject: Combatant,
+  own: Combatant[],
+  opposing: Combatant[],
+  rng: RngLike,
+  log: (entry: BattleLogEntry) => void,
+): void {
+  for (const ally of own.filter((a) => a !== subject && a.hp > 0)) {
+    fireTrigger(trigger, { self: ally, allies: own, enemies: opposing, rng, log });
+  }
+}
+
 /**
- * "ao morrer" / "ao perder 50% da vida" / "quando escudo quebra" fire from
- * multiple, structurally different call sites (a basic attack in battle.ts,
- * an ability's directDamage effect right here, DoT ticks, ICE reflects,
- * enrage true damage) — these three are shared exports rather than private
- * to one module so every damage path fires them the same way, given
- * whichever allies/enemies pair is correct for the affected unit's own side.
+ * "ao morrer" / "ao perder 50% da vida" / "quando escudo quebra" / "ao sofrer
+ * dano" fire from multiple, structurally different call sites (a basic
+ * attack in battle.ts, an ability's directDamage effect right here, DoT
+ * ticks, ICE reflects, enrage true damage) — these shared exports (each also
+ * broadcasting its "quando aliado..." pair to the affected unit's own living
+ * allies) are exported rather than private to one module so every damage
+ * path fires them the same way, given whichever allies/enemies pair is
+ * correct for the affected unit's own side.
  */
 export function fireDeath(unit: Combatant, allies: Combatant[], enemies: Combatant[], rng: RngLike, log: (entry: BattleLogEntry) => void): void {
   fireTrigger('onDeath', { self: unit, allies, enemies, rng, log });
+  fireAllyBroadcast('onAllyDeath', unit, allies, enemies, rng, log);
+}
+
+/** Fires whenever `unit` just lost HP, from any source. Call whenever hpDamage > 0. */
+export function fireOnWounded(unit: Combatant, allies: Combatant[], enemies: Combatant[], rng: RngLike, log: (entry: BattleLogEntry) => void): void {
+  fireTrigger('onWounded', { self: unit, allies, enemies, rng, log });
+  fireAllyBroadcast('onAllyWounded', unit, allies, enemies, rng, log);
+}
+
+/** Fires on `killer` when something it did ejected an opposing unit. */
+export function fireOnKill(killer: Combatant, allies: Combatant[], enemies: Combatant[], rng: RngLike, log: (entry: BattleLogEntry) => void): void {
+  fireTrigger('onKill', { self: killer, allies, enemies, rng, log });
 }
 
 /** Fires once, the first time `unit`'s HP crosses below half its max; never re-fires on a later heal-then-redrop. */
@@ -122,9 +162,25 @@ export function maybeFireShieldBreak(
 ): void {
   if (shieldBefore <= 0 || unit.shield > 0) return;
   fireTrigger('onShieldBreak', { self: unit, allies, enemies, rng, log });
+  fireAllyBroadcast('onAllyShieldBreak', unit, allies, enemies, rng, log);
 }
 
-/** Which allies/enemies list `target` itself belongs to, given the perspective of `ctx` (ctx.self's own team) — needed because an ability effect can target either side (self/allies vs. an enemy), and the death/half-HP/shield-break triggers need to fire from the *target's* own perspective, not the caster's. */
+/** "Proxy Defense" — fires on whichever living ally is directly in front of `wounded` in its own queue (`own[index(wounded) - 1]`), if one exists; the front-most unit has no one in front of it. */
+export function maybeFireFrontAllyWounded(
+  wounded: Combatant,
+  own: Combatant[],
+  opposing: Combatant[],
+  rng: RngLike,
+  log: (entry: BattleLogEntry) => void,
+): void {
+  const idx = own.indexOf(wounded);
+  if (idx <= 0) return;
+  const front = own[idx - 1];
+  if (front.hp <= 0) return;
+  fireTrigger('onFrontAllyWounded', { self: front, allies: own, enemies: opposing, rng, log });
+}
+
+/** Which allies/enemies list `target` itself belongs to, given the perspective of `ctx` (ctx.self's own team) — needed because an ability effect can target either side (self/allies vs. an enemy), and the death/half-HP/shield-break/wounded triggers need to fire from the *target's* own perspective, not the caster's. */
 function teamContextFor(target: Combatant, ctx: TriggerContext): { allies: Combatant[]; enemies: Combatant[] } {
   return ctx.allies.includes(target) ? { allies: ctx.allies, enemies: ctx.enemies } : { allies: ctx.enemies, enemies: ctx.allies };
 }
@@ -142,6 +198,8 @@ function applyEffect(effect: AbilityEffect, ctx: TriggerContext): void {
           ignoresShield: effect.ignoresShield,
         });
         ctx.log({ kind: 'statusApplied', target: target.name, status: effect.status, source: ctx.self.name, rounds: duration });
+        const echoTrigger = ECHO_TRIGGER_BY_STATUS[effect.status];
+        if (echoTrigger) fireAllyBroadcast(echoTrigger, ctx.self, ctx.allies, ctx.enemies, ctx.rng, ctx.log);
         break;
       }
       case 'heal': {
@@ -157,9 +215,7 @@ function applyEffect(effect: AbilityEffect, ctx: TriggerContext): void {
         ctx.log({ kind: 'shieldGranted', target: target.name, amount, source: ctx.self.name });
         if (amount > 0) {
           fireReceivedTriggers('onShieldReceived', target, ctx);
-          for (const ally of ctx.allies.filter((a) => a !== target && a.hp > 0)) {
-            fireTrigger('onAllyShieldReceived', { self: ally, allies: ctx.allies, enemies: ctx.enemies, rng: ctx.rng, log: ctx.log });
-          }
+          fireAllyBroadcast('onAllyShieldReceived', target, ctx.allies, ctx.enemies, ctx.rng, ctx.log);
         }
         break;
       }
@@ -168,20 +224,19 @@ function applyEffect(effect: AbilityEffect, ctx: TriggerContext): void {
         const mitigated = effect.ignoresDef ? raw : raw * (1 - effectiveDef(target));
         const damage = Math.max(0, Math.round(mitigated));
         const shieldBefore = target.shield;
-        let shieldAbsorbed = 0;
-        let hpDamage = damage;
-        if (!effect.ignoresShield && target.shield > 0) {
-          shieldAbsorbed = Math.min(target.shield, damage);
-          target.shield -= shieldAbsorbed;
-          hpDamage = damage - shieldAbsorbed;
-        }
+        const { shieldAbsorbed, hpDamage } = absorbIntoShield(target, damage, effect.ignoresShield);
         target.hp = Math.max(0, target.hp - hpDamage);
         const targetDied = target.hp <= 0;
         ctx.log({ kind: 'directDamage', target: target.name, source: ctx.self.name, amount: damage, shieldAbsorbed, hpDamage, targetDied });
         const { allies: tAllies, enemies: tEnemies } = teamContextFor(target, ctx);
         maybeFireShieldBreak(target, shieldBefore, tAllies, tEnemies, ctx.rng, ctx.log);
-        if (targetDied) fireDeath(target, tAllies, tEnemies, ctx.rng, ctx.log);
-        else maybeFireHalfHp(target, tAllies, tEnemies, ctx.rng, ctx.log);
+        if (hpDamage > 0) fireOnWounded(target, tAllies, tEnemies, ctx.rng, ctx.log);
+        if (targetDied) {
+          fireDeath(target, tAllies, tEnemies, ctx.rng, ctx.log);
+          fireOnKill(ctx.self, ctx.allies, ctx.enemies, ctx.rng, ctx.log);
+        } else {
+          maybeFireHalfHp(target, tAllies, tEnemies, ctx.rng, ctx.log);
+        }
         break;
       }
       case 'buffAttribute': {

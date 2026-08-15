@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyStatus, effectiveAtk, effectiveDef, effectiveIni, endOfRoundTick, isStunned } from './statusEffects';
+import { absorbIntoShield, applyStatus, dispelStatuses, effectiveAtk, effectiveDef, effectiveIni, endOfRoundTick, isStunned } from './statusEffects';
 import { makeCombatant } from './testUtils';
 
 describe('applyStatus', () => {
@@ -120,5 +120,72 @@ describe('endOfRoundTick', () => {
 
     expect(expired).toHaveLength(0);
     expect(c.statuses).toHaveLength(1);
+  });
+});
+
+describe('absorbIntoShield — Fragmentação (docs/combate.md §3: "multiplica o dano causado a Escudos")', () => {
+  it('with no Fragmentação active, behaves exactly like a plain shield-then-HP split', () => {
+    const c = makeCombatant({ shield: 100 });
+    const { shieldAbsorbed, hpDamage } = absorbIntoShield(c, 60);
+    expect(shieldAbsorbed).toBe(60);
+    expect(hpDamage).toBe(0);
+    expect(c.shield).toBe(40);
+  });
+
+  it('a 50% Fragmentação multiplier drains the shield 1.5x faster per point of damage covered', () => {
+    const c = makeCombatant({ shield: 100 });
+    applyStatus(c, c, 'fragmentation', 2, 0.5);
+
+    const { shieldAbsorbed, hpDamage } = absorbIntoShield(c, 100);
+
+    // 100 shield only covers 100/1.5 ≈ 66.67 of the raw damage before running out.
+    expect(shieldAbsorbed).toBeCloseTo(66.67, 1);
+    expect(hpDamage).toBeCloseTo(33.33, 1);
+    expect(c.shield).toBe(0);
+  });
+
+  it('ignoresShield bypasses Fragmentação entirely, same as a normal shield bypass', () => {
+    const c = makeCombatant({ shield: 100 });
+    applyStatus(c, c, 'fragmentation', 2, 0.5);
+
+    const { shieldAbsorbed, hpDamage } = absorbIntoShield(c, 40, true);
+
+    expect(shieldAbsorbed).toBe(0);
+    expect(hpDamage).toBe(40);
+    expect(c.shield).toBe(100);
+  });
+});
+
+describe('dispelStatuses', () => {
+  it('strips exactly the listed statuses and returns them', () => {
+    const c = makeCombatant();
+    applyStatus(c, c, 'lag', 2, 0.2);
+    applyStatus(c, c, 'crash', 1, 0);
+    applyStatus(c, c, 'buffAtk', 2, 0.1);
+
+    const removed = dispelStatuses(c, ['lag', 'crash']);
+
+    expect(removed.sort()).toEqual(['crash', 'lag']);
+    expect(c.statuses.map((s) => s.status)).toEqual(['buffAtk']);
+  });
+
+  it('with no explicit list, strips the debuff bucket when a debuff is present', () => {
+    const c = makeCombatant();
+    applyStatus(c, c, 'throttling', 2, 0.15);
+    applyStatus(c, c, 'buffDef', 2, 0.1);
+
+    dispelStatuses(c);
+
+    expect(c.statuses.map((s) => s.status)).toEqual(['buffDef']);
+  });
+
+  it('with no explicit list and no debuffs present, strips the buff bucket instead', () => {
+    const c = makeCombatant();
+    applyStatus(c, c, 'buffAtk', 2, 0.1);
+    applyStatus(c, c, 'buffEsq', 2, 0.1);
+
+    dispelStatuses(c);
+
+    expect(c.statuses).toHaveLength(0);
   });
 });

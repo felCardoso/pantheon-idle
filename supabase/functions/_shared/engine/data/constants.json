@@ -23,7 +23,7 @@
     "5": 0.32
   },
   "antiInfiniteRound": {
-    "roundLimit": 45,
+    "roundLimit": 50,
     "enrageStartRound": 30,
     "enrageBasePercent": 0.02
   }
