@@ -10,14 +10,19 @@ import atenaArt from "../assets/characters/atena.png";
 import caiporaArt from "../assets/characters/caipora.png";
 import curupiraArt from "../assets/characters/curupira.png";
 import freyaArt from "../assets/characters/freya.png";
+import fujinArt from "../assets/characters/fujin.png";
 import hadesArt from "../assets/characters/hades.png";
 import herculesArt from "../assets/characters/hercules.png";
 import jurupariArt from "../assets/characters/jurupari.png";
+import kagutsuchiArt from "../assets/characters/kagutsuchi.png";
 import medusaArt from "../assets/characters/medusa.png";
 import minotauroArt from "../assets/characters/minotauro.png";
 import odinArt from "../assets/characters/odin.png";
+import raijinArt from "../assets/characters/raijin.png";
 import ratatoskrArt from "../assets/characters/ratatoskr.png";
 import saciArt from "../assets/characters/saci.png";
+import susanooArt from "../assets/characters/susanoo.png";
+import tsukoyomiArt from "../assets/characters/tsukoyomi.png";
 
 import type { Element, Faction, Rarity } from "../types";
 
@@ -89,14 +94,19 @@ export const DISPLAY_PORTRAIT_BY_TEMPLATE_ID: Record<string, string> = {
   caipora: caiporaArt,
   curupira: curupiraArt,
   freya: freyaArt,
+  fujin: fujinArt,
   hades: hadesArt,
   hercules: herculesArt,
   jurupari: jurupariArt,
+  kagutsuchi: kagutsuchiArt,
   medusa: medusaArt,
   minotauro: minotauroArt,
   odin: odinArt,
+  raijin: raijinArt,
   ratatoskr: ratatoskrArt,
   saci: saciArt,
+  susanoo: susanooArt,
+  tsukoyomi: tsukoyomiArt,
 };
 
 /**
@@ -115,14 +125,19 @@ export const DISPLAY_AVATAR_FOCUS_BY_TEMPLATE_ID: Record<
   caipora: { x: 55, y: 23 },
   curupira: { x: 50, y: 23 },
   freya: { x: 50, y: 23 },
+  fujin: { x: 50, y: 23 },
   hades: { x: 50, y: 23 },
   hercules: { x: 50, y: 23 },
   jurupari: { x: 50, y: 23 },
+  kagutsuchi: { x: 50, y: 23 },
   medusa: { x: 50, y: 23 },
   minotauro: { x: 50, y: 23 },
   odin: { x: 50, y: 23 },
+  raijin: { x: 50, y: 23 },
   ratatoskr: { x: 50, y: 23 },
   saci: { x: 50, y: 22 },
+  susanoo: { x: 50, y: 23 },
+  tsukoyomi: { x: 50, y: 23 },
 };
 
 export const DISPLAY_AVATAR_FOCUS_FALLBACK = { x: 50, y: 25 };
@@ -132,13 +147,16 @@ export const DISPLAY_AVATAR_FOCUS_FALLBACK = { x: 50, y: 25 };
  * WORLD_BACKGROUND_BY_ID below — see progression.ts's WORLD_IDS for the
  * canonical id list/order (docs/mundos.md's proposed launch order).
  */
-export const WORLD_DISPLAY_BY_ID: Record<string, { name: string; subtitle: string }> = {
-  jurupari: { name: 'Jurupari.iso', subtitle: 'Folclore Brasileiro' },
-  duat: { name: 'Duat.iso', subtitle: 'Egípcia' },
-  orun: { name: 'Orun.iso', subtitle: 'Iorubá' },
-  takamagahara: { name: 'Takamagahara.iso', subtitle: 'Japonesa' },
-  olympus: { name: 'Olympus.iso', subtitle: 'Grega' },
-  yggdrasil: { name: 'Yggdrasil.iso', subtitle: 'Nórdica' },
+export const WORLD_DISPLAY_BY_ID: Record<
+  string,
+  { name: string; subtitle: string }
+> = {
+  jurupari: { name: "Jurupari.iso", subtitle: "Folclore Brasileiro" },
+  duat: { name: "Duat.iso", subtitle: "Egípcia" },
+  orun: { name: "Orun.iso", subtitle: "Iorubá" },
+  takamagahara: { name: "Takamagahara.iso", subtitle: "Japonesa" },
+  olympus: { name: "Olympus.iso", subtitle: "Grega" },
+  yggdrasil: { name: "Yggdrasil.iso", subtitle: "Nórdica" },
 };
 
 /**

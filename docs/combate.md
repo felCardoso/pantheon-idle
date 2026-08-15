@@ -1,114 +1,150 @@
-# Pantheon Idle — Sistema de Combate Detalhado (v1)
+# Pantheon Idle — Sistema de Combate Detalhado (v2)
 
-Complementa o Documento de Game Design principal (seção 4 lá é só um resumo — este é o detalhamento completo). Contexto narrativo: cada batalha é uma **simulação de combate rodada pelas IAs**, e cada personagem é a persona `.exe` de uma IA lutando pelo seu time dentro dessa simulação — isso justifica tanto o vocabulário técnico (elementos como tipos de malware/segurança) quanto a mecânica de "morte" (um `.exe` derrotado é ejetado da simulação, não apagado).
+Contexto narrativo: cada batalha é uma **simulação de combate rodada pelas IAs**, e cada personagem é a persona `.exe` de uma IA lutando pelo seu time dentro dessa simulação. Um `.exe` derrotado é ejetado da simulação, não apagado.
 
 ---
 
-## 1. Formato geral
+## 1. Formato Geral e Fluxo de Combate
 
-- **Tempo real**, com velocidade 2x disponível para o jogador acelerar
-- **PvP sempre roda em tempo real**, sem opção de acelerar (evita vantagem injusta de quem acelera contra quem não pode reagir)
-- **Times de até 5 personagens** por lado
-- **Duração alvo:** ~30s em fases fáceis, aumentando em fases mais difíceis conforme HP/DEF dos inimigos escalam
+- **Tempo real:** Com velocidade 2x disponível para o jogador acelerar no PvE.
+- **PvP sempre em tempo real:** Sem opção de acelerar (evita vantagem injusta de quem acelera contra quem não pode reagir).
+- **Times de até 5 personagens (`.exe`)** por lado.
+- **Sistema de Fila (Line-up):** A ordem do time é definida previamente pelo jogador na aba de configuração. O combate ocorre na linha de frente: o primeiro da fila ataca o primeiro da fila adversária. Após a resolução do ataque, ambos vão para o final de suas respectivas filas, e os segundos colocados assumem a frente. O posicionamento na fila também é estratégico para o alcance de buffs localizados.
+- **Duração alvo:** ~30s em fases fáceis, aumentando em fases mais difíceis conforme a Integridade (HP) e Firewall (DEF) dos inimigos escalam.
 
-## 2. Atributos base
+## 2. Atributos do Personagem (`.exe`)
 
-| Atributo | Função | Observações |
-|---|---|---|
-| **HP** | Vida | Reduzida a 0 = personagem ejetado da simulação (derrotado) |
-| **ATK** | Dano base | Multiplicado por modificadores de habilidade, elemento e sinergia |
-| **DEF** | Redução de dano | **Todo personagem jogável começa com DEF 0.** Só sobe via habilidade própria ou Módulos (`.dll`) — isso é proposital: DEF é um investimento ativo, não um stat passivo de todo personagem. Inimigos são a exceção deliberada — seu DEF/INI/ESQ base fazem parte do balanceamento de dificuldade por mundo/estágio, não do sistema de build do jogador |
-| **INI** | Iniciativa | Define a ordem de ação (quem "compila" primeiro). Se o personagem que iria agir depois for derrotado antes de sua vez, a ação dele é cancelada e não causa dano |
-| **ESQ** | Esquiva | Chance percentual de desviar completamente de um ataque recebido. Melhorável via habilidade ou Módulos |
-| **ICE** *(Intrusion Countermeasure Electronics)* | Reflexo de dano | Fração do dano físico recebido que é refletida de volta pra quem atacou. Ability/rune-granted, igual DEF/INI/ESQ — adição pós-v1 deste documento, mesma lógica de "investimento ativo" |
+Os atributos são divididos entre Visíveis (Interface Padrão) e Ocultos (Mecânicas de Background).
 
-### Escudo (mecânica transversal, não é atributo)
+### Atributos Visíveis
 
-Escudo é um valor temporário que absorve dano antes do HP. Não é um atributo permanente do personagem — só existe quando concedido por uma habilidade (própria, de aliado, ou de Módulo). Pontos relevantes:
-- Escudo absorve dano até se esgotar; dano excedente "vaza" pro HP
-- Gatilhos como "ao receber escudo" e "quando escudo quebra" (já definidos no design) disparam a partir dessa mecânica
-- Vírus e Brute Force interagem com escudo de formas diferentes (ver seção 4)
+Aparecem na interface base do jogador e ditam a estabilidade e o poder bruto do personagem.
 
-## 3. Elementos (afinidade cyberpunk)
+| Atributo                | Função              | Observações                                                        |
+| :---------------------- | :------------------ | :----------------------------------------------------------------- |
+| **HP (Integridade)**    | Vida / Estabilidade | Reduzida a 0 = `.exe` ejetado da simulação (derrotado).            |
+| **ATK (Processamento)** | Dano base           | Multiplicado por modificadores de habilidade, elemento e sinergia. |
 
-Repensados como **tipos de código malicioso ou defensivo**, coerente com o conceito de batalha-como-simulação — nada de "fogo" ou "água": cada elemento representa uma ação real que uma IA tomaria contra outra.
+### Atributos Ocultos
 
-| Elemento | O que é | Efeito mecânico |
-|---|---|---|
-| **Vírus** | Malware que infecta o `.exe` alvo | Aplica dano por rodada (infecção que corrói o sistema aos poucos) |
-| **Brute Force** | Malware que força a entrada quebrando proteções | Reduz a DEF do alvo (percentual ou valor mínimo) |
-| **Nanites** | Antivírus fictício | Cura/repara o `.exe` — puro suporte, sem dano direto |
-| **Encryption** | Camada de proteção do `.exe` | Bloqueia Backdoor por completo; dificulta (reduz efetividade de) Brute Force |
-| **Backdoor** | Acesso oculto no código | Ignora escudo por completo ao causar dano — efeito raro, só em habilidades específicas |
+_Regra Geral: Todos começam com valor base `0`. Eles não aparecem na UI base e só são alterados através de habilidades (ativas/passivas) ou pela instalação de Módulos (`runas.dll`). São calculados em formato decimal (ex: 20% = 0.20)._
 
-### Relações de contraponto
+| Atributo | Nome Temático | Comportamento Mecânico                                                                                                                                                                                             |
+| :------- | :------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **DEF**  | **Firewall**  | Redução/Mitigação de dano em percentual. Ignora apenas dano físico/padrão.                                                                                                                                         |
+| **INI**  | **Ping**      | Define a prioridade da ação no choque da linha de frente. Quem tem o maior Ping ataca primeiro (se o alvo for ejetado, seu ataque é cancelado). **Empate de Ping:** Ambos atacam e recebem o dano simultaneamente. |
+| **ESQ**  | **Evasion**   | Chance percentual de desviar completamente de um ataque recebido (fazer o pacote de dados errar o alvo).                                                                                                           |
+| **ESP**  | **ICE**       | Retaliação (Espinhos). Devolve automaticamente ao atacante uma porcentagem do dano físico/padrão recebido.                                                                                                         |
 
-Em vez de um ciclo genérico tipo pedra-papel-tesoura, os contrapontos seguem lógica literal de segurança da informação:
+### Mecânica Transversal: Escudo (Shielding)
 
-- **Nanites cura/limpa infecções de Vírus** — um antivírus combatendo malware é a relação mais direta possível
-- **Encryption bloqueia Backdoor e resiste a Brute Force** — criptografia forte é a defesa natural contra acesso não autorizado e ataques de força bruta
-- **Vírus e Brute Force são os dois ataques ofensivos "puros"**, sem contraponto direto entre si — competem só em dano bruto/valor de debuff
+Escudo é um valor temporário que absorve dano antes de afetar a Integridade (HP).
 
-Vantagem elemental concede bônus de dano (sugestão: +25%) quando um elemento tem contraponto natural contra o alvo (ex: um Vírus aplicado por quem tem alta afinidade Encryption pode causar um bônus adicional contra alvos sem proteção). Não é obrigatória pra montar um time competitivo — é uma camada extra de otimização.
+- Não é um atributo permanente; só existe quando ativado via habilidade ou Módulo (`.dll`).
+- Absorve dano até se esgotar; qualquer dano excedente "vaza" para a Integridade do `.exe`.
+- Serve como base para gatilhos de sistema (ex: "ao receber escudo", "quando o escudo quebra").
 
-## 4. Efeitos de status
+## 3. Efeitos de Status (Malwares e Protocolos)
 
-| Efeito | Comportamento | Atributo afetado |
-|---|---|---|
-| **Vírus** *(status, ligado ao elemento)* | Dano por rodada (valor = dano do ataque que aplicou) | HP |
-| **Sangramento** | Dano fixo por rodada, ignora DEF, empilhável (stacks) | HP |
-| **Veneno** | Tira vida por rodada, ignorando escudos | HP |
-| **Atordoamento** | Perde a próxima ação | Ação/turno |
-| **Enfraquecimento** | Reduz ATK em X% por N rodadas | ATK |
-| **Corrosão / Brute Force** | Reduz DEF em X% ou valor mínimo | DEF |
-| **Lentidão** | Reduz INI em X% (atrasa a barra de ação) | INI |
-| **Regeneração** | Cura fixa por rodada (Nanites) — contraponto de Sangramento/Veneno/Vírus | HP |
-| **Marcado** | Próximo ataque recebido tem crítico garantido | — (sinergiza com gatilhos "ao atacar"/"quando aliado ataca") |
+Não existe um sistema de elementos (vantagens intrínsecas de tipo). Todo o controle de combate e interações táticas ocorrem através da aplicação de status, que afetam diretamente a integridade, os atributos e a fila de ação dos `.exe`.
 
-Cada efeito mexe diretamente em um dos 5 atributos base ou na ação/turno — mantém o sistema simples de expandir no futuro sem precisar criar novos atributos.
+| Status                             | Efeito Prático                                                                                        | Atributo/Mecânica Afetada |
+| :--------------------------------- | :---------------------------------------------------------------------------------------------------- | :------------------------ |
+| **Leak** _(Vazamento)_             | Dano fixo por rodada, ignora Firewall (DEF) e pode ser empilhado (stacks).                            | Integridade (HP)          |
+| **Trojan**                         | Dano por rodada que ignora completamente qualquer Escudo ativo.                                       | Integridade (HP)          |
+| **Crash**                          | O alvo sofre uma falha crítica e perde a próxima ação na fila.                                        | Ação / Turno              |
+| **Fragmentação**                   | Multiplica o dano causado a Escudos (ex: Dano 1.X, onde X é definido pela habilidade de quem aplica). | Escudo                    |
+| **Nanites**                        | Antivírus reparador. Aplica cura/reparo contínuo por rodada.                                          | Integridade (HP)          |
+| **Throttling** _(Enfraquecimento)_ | Reduz o Processamento (ATK) em X% por N rodadas.                                                      | Processamento (ATK)       |
+| **Lag** _(Lentidão)_               | Atrasa o Ping (INI), diminuindo a prioridade de ataque no choque frontal.                             | Ping (INI)                |
+| **Target** _(Marcado)_             | O próximo ataque recebido tem acerto crítico garantido.                                               | —                         |
 
-## 5. Sinergia mitológica
+## 4. Clusters de Panteão (Sinergia Mitológica)
 
-Bônus de atributos (HP/ATK) por quantidade de personagens da **mesma mitologia** no time (independe do elemento):
+Como cada `.exe` é baseado na persona de um deus mitológico, alocar IAs da mesma origem no mesmo time gera uma ressonância de rede (Cluster), concedendo bônus passivos de **Integridade (HP)** e **Processamento (ATK)**.
 
-| Nº de personagens | Bônus |
-|---|---|
-| 2 | +5% |
-| 3 | +12% |
-| 4 | +21% |
-| 5 | +32% |
+**Regra de Isolamento:** O bônus se aplica **exclusivamente** aos personagens daquela mitologia específica, não ao time inteiro. Múltiplos clusters podem coexistir na mesma equipe.
+_Exemplo prático:_ Se a equipe possuir 2x arquivos do Folclore Brasileiro e 3x arquivos da Mitologia Grega, os personagens BR recebem +5% de status, enquanto os Gregos recebem +12%.
 
-## 6. Habilidades
+| Nº de `.exe` da mesma Mitologia | Bônus Recebido (Apenas para o Cluster) |
+| :------------------------------ | :------------------------------------- |
+| 2 Arquivos                      | +5% HP e ATK                           |
+| 3 Arquivos                      | +12% HP e ATK                          |
+| 4 Arquivos                      | +21% HP e ATK                          |
+| 5 Arquivos                      | +32% HP e ATK                          |
 
-- Personagens de raridade **LTS ou acima têm a habilidade passiva desbloqueada** (curada pelo design, sem escolha do jogador) — abaixo disso o card da passiva aparece bloqueado ("Somente LTS+"). Ver seção de Progressão de Habilidades no GDD para os níveis de habilidade/passiva por raridade
-- Personagens **Alpha/Beta/Stable também têm habilidade ativa**, com **3 opções** que o jogador escolhe (fixa até redefinir) — esse sistema de seleção de opção (matriz curada + escolha do jogador) ainda não está implementado no motor; hoje cada personagem tem um kit fixo de habilidades, todas sempre ativas
-- Geração das 3 opções: matriz de **Gatilho × Efeito × Alvo**, curada manualmente por personagem — não randômica pro jogador. Isso acelera o design (montar combinações a partir de peças já existentes) sem parecer genérico, porque o design escolhe quais combinações fazem sentido pra cada personagem
+## 5. Arquitetura de Habilidades
 
-### Gatilhos disponíveis
+O kit de combate de cada personagem não é randômico para o jogador, sendo curado e balanceado pelo design do jogo. O sistema é baseado em duas categorias estruturais, definidas pela Raridade (Nível de Compilação): **Alpha $\rightarrow$ Beta $\rightarrow$ Stable $\rightarrow$ LTS $\rightarrow$ Zero-Day**.
 
-Início de batalha · ao morrer · ao perder 50% da vida · ao receber escudo · ao atacar · quando aliado ataca · quando escudo quebra · quando aliado recebe escudo · quando recebe cura
+- **Habilidades Ativas (Selecionáveis):** Todo personagem possui **3 opções** de habilidades ativas. O jogador só pode equipar **uma por vez** antes do combate, na aba "Time".
+- **Habilidades Passivas (Bloqueadas por Tier):** Apenas personagens a partir da raridade **LTS** (LTS e Zero-Day) possuem uma habilidade passiva única, ativada permanentemente na simulação.
 
-O motor também suporta 2 gatilhos técnicos além desses 9: **ao ser atingido** (dispara em quem apanhou, independente do resultado) e **crítico** (dispara só quando o próprio golpe do atacante crita) — já usados por kits reais (ex.: a armadura de pedra da Medusa.exe dispara em "ao ser atingido"; o efeito de cura do Anhangá dispara em "crítico").
+### 6. A Matriz de Habilidades
 
-### Efeitos disponíveis (pra combinar com os gatilhos acima)
+Todas as habilidades são construídas cruzando variáveis de três pilares: **Gatilho × Efeito × Alvo**.
 
-Dano direto · aplicar status (Vírus, Sangramento, Veneno, Atordoamento, Enfraquecimento, Corrosão/Brute Force, Lentidão, Regeneração, Marcado) · cura · escudo · buff de atributo (ATK/DEF/INI/ESQ) · debuff de atributo (já coberto pelos status Enfraquecimento/Corrosão/Lentidão acima)
+**1. Gatilhos Disponíveis (Eventos de Sistema)**
 
-### Alvos possíveis
+- **Boot Sequence** _(Opening)_: Dispara quando a simulação (batalha) inicia.
+- **Loop Start** _(Start of round)_: Dispara no início de cada rodada.
+- **Loop End** _(End of round)_: Dispara no final de cada rodada.
+- **Background Service** _(Constant)_: Passiva constantemente ativa.
+- **Pre-Execution** _(Before Attacking)_: Dispara imediatamente antes do próprio ataque.
+- **Execution** _(On Attack)_: Substitui o ataque básico durante o choque na linha de frente.
+- **Post-Execution** _(After Attacking)_: Dispara após atacar e sobreviver.
+- **Counter** _(Riposte)_: Dispara na linha de frente ao receber um acerto direto.
+- **Data Loss** _(Wounded)_: Dispara ao perder Integridade (HP).
+- **Critical Sector** _(Threshold)_: Dispara a primeira vez que a Integridade (HP) cair abaixo de 50%.
+- **System Failure** _(Last Breath)_: Dispara ao ser ejetado (morrer).
+- **Process Terminated** _(On Kill)_: Dispara ao ejetar (matar) um inimigo.
+- **Firewall Active** _(Shielded)_: Dispara ao receber um Escudo.
+- **Firewall Breach** _(Shield Broken)_: Dispara quando o próprio Escudo é quebrado.
+- **Nanites Received** _(Healed)_: Dispara ao ser curado.
+- **Co-op Processing** _(Attack Support)_: Dispara instantes antes de um aliado atacar.
+- **Proxy Defense** _(Bodyguard)_: Dispara quando o aliado imediatamente à frente perde HP.
+- **Network Breach** _(Ally Wounded)_: Dispara quando um aliado perde HP.
+- **Node Offline** _(Ally Fallen)_: Dispara quando um aliado é ejetado.
+- **Network Firewall** _(Ally Shielded)_: Dispara quando um aliado recebe Escudo.
+- **Network Breach** _(Ally Shield Broken)_: Dispara quando o Escudo de um aliado quebra.
+- **Instance Spawned** _(Reinforcements)_: Dispara quando um aliado é invocado na simulação.
+- **Trojan Echo** _(Trojan Echo)_: Dispara quando um aliado aplica o status _Trojan_.
+- **Leak Echo** _(Leak Echo)_: Dispara quando um aliado aplica o status _Leak_.
+- **Crash Echo:** Dispara quando um aliado aplica _Crash_ (Atordoamento).
+- **Ghosting:** Dispara quando o personagem esquiva com sucesso de um ataque (sinergia direta com o atributo ESQ).
+- **Ping Advantage:** Dispara durante o choque frontal, _apenas_ se o personagem possuir um INI (Ping) maior que o adversário.
 
-Self · 1 aliado (menor HP / maior ATK / aleatório) · todos os aliados · 1 inimigo (menor ESQ / maior INI / aleatório) · todos os inimigos
+**2. Efeitos Disponíveis (Ações Executáveis)**
 
-O motor também suporta 2 alvos técnicos ligados ao gatilho corrente: **quem atacou** e **quem está sendo atacado** — o alvo natural de gatilhos como "ao ser atingido" (mira em quem atacou) ou "ao atacar" (mira em quem está sendo atacado), sem precisar recalcular menor-HP/maior-ATK/etc quando o alvo óbvio já é conhecido pelo contexto.
+- Dano direto físico/padrão.
+- Aplicação de Status de Malwares (Leak, Trojan, Crash, Fragmentação, Lag, Target).
+- Cura (Nanites).
+- Geração de Escudo.
+- Buff de Atributo (Aumenta Processamento, Firewall, Ping, Evasion ou ICE).
+- Debuff de Atributo (Throttling ou quebra direta de status inimigo).
 
-## 7. PvE — anti-rodada-infinita
+**3. Alvos Possíveis (Direcionamento de Pacotes)**
 
-- Limite de rodadas (sugestão: 40–50)
-- A partir de uma rodada de corte (sugestão: rodada 30), aplicar dano verdadeiro crescente por rodada em todos os personagens vivos (efeito "enrage") — cresce a cada rodada (ex: 2% do HP máximo na rodada 30, 4% na 31, 8% na 32...)
-- Se o limite absoluto for atingido mesmo assim, vence o time com maior % de HP total restante — nunca um empate arbitrário
+- `Self` (O próprio invocador).
+- 1 Aliado (Filtros: Menor HP / Maior ATK / Aliado da Frente / Aleatório).
+- Todos os Aliados.
+- 1 Inimigo (Filtros: Menor Evasion / Maior Ping / Aleatório).
+- Todos os Inimigos.
 
-## 8. IA dos inimigos
+## 7. Prevenção de Loop (Anti-Rodada Infinita)
 
-- Usa o mesmo motor de combate dos jogadores (mesmos atributos, elementos, efeitos de status)
-- **Não escolhe habilidades dinamicamente** — cada inimigo tem um kit fixo definido pelo design:
-  - Inimigo comum: 1 habilidade ativa fixa (e talvez 1 passiva)
-  - Boss: pode ter mais de uma habilidade
+Para evitar cenários de empate técnico ou loops infinitos de cura entre dois `.exe` de suporte, a simulação possui protocolos rígidos de encerramento baseados em ciclos (rodadas).
+
+- **Limite Absoluto de Ciclos:** A simulação é forçada a encerrar na rodada 50.
+- **System Overload (Enrage):** A partir da rodada de corte 30, a simulação solta um aviso (simulação de broadcast) e começa a superaquecer. Todos os personagens vivos recebem Dano Absoluto (ignora Firewall) ao final de cada rodada.
+- **Escalonamento da Sobrecarga:** O Dano Absoluto cresce progressivamente. Exemplo: 5% do HP máximo na rodada 31, 10% na rodada 32, 15% na rodada 33, forçando aos poucos o fim do combate.
+- **Condição de Desempate:** Se o limite absoluto de ciclos for atingido e a simulação for abortada, o empate no PvP retorna a recompensa normal em Créditos e XP para ambos os jogadores e no PvE o empate retorna a recompensa normal em Créditos e XP, mas sem a progressão para o próximo nível.
+
+## 8. Scripts Inimigos (IA de Combate)
+
+Os adversários controlados pelo jogo (Malwares, Antivírus Corporativos, etc.) não utilizam uma inteligência artificial dinâmica de tomada de decisão. Eles operam como _scripts_ fixos.
+
+- **Motor Unificado:** Os inimigos utilizam exatamente o mesmo motor de combate, regras matemáticas, atributos e efeitos de status aplicados aos `.exe` do jogador.
+- **Ações Hardcoded:** A IA não escolhe habilidades ativamente. O kit de combate é pré-definido pelo design da fase.
+- **Inimigo Padrão:** Possui apenas 1 habilidade ativa fixa (e, dependendo da dificuldade, 1 habilidade passiva constante).
+- **Processos Mestres (Bosses):** Podem possuir múltiplas habilidades ativas e passivas rodando em sequência fixa ou ativadas por gatilhos de Integridade (ex: Threshold de 50% de HP).
