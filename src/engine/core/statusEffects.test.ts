@@ -56,9 +56,15 @@ describe('effective stats', () => {
   });
 
   it('a negative buffDef reduces effective Firewall (no dedicated Firewall-reduction status in v2)', () => {
-    const c = makeCombatant({ baseStats: { def: 40 } });
+    const c = makeCombatant({ baseStats: { def: 0.4 } });
     applyStatus(c, c, 'buffDef', 2, -0.5);
-    expect(effectiveDef(c)).toBeCloseTo(20);
+    expect(effectiveDef(c)).toBeCloseTo(0.2);
+  });
+
+  it('effective Firewall is capped at 0.9 (90% mitigation) even when stacked buffDef would push it past 1.0', () => {
+    const c = makeCombatant({ baseStats: { def: 0.5 } });
+    applyStatus(c, c, 'buffDef', 2, 3);
+    expect(effectiveDef(c)).toBe(0.9);
   });
 });
 

@@ -11,10 +11,18 @@ export function effectiveAtk(c: Combatant): number {
   return Math.max(0, c.base.atk * (1 - reduction) * (1 + buff));
 }
 
-/** No dedicated Firewall-reduction status exists in v2 — debuffing DEF beyond Throttling/Lag is just a negative buffDef (see schema.ts's BuffAttributeEffect doc comment). */
+/**
+ * No dedicated Firewall-reduction status exists in v2 — debuffing DEF beyond
+ * Throttling/Lag is just a negative buffDef (see schema.ts's
+ * BuffAttributeEffect doc comment). Capped at 0.9 (90% mitigation): DEF is a
+ * fraction of damage ignored, and stacked buffDef applications must never
+ * push it to/past 1.0 — damage.ts computes `rawDamage * (1 - effectiveDef)`,
+ * and an uncapped value at or above 1 flips that negative, which reads as
+ * the attack healing the target's shield/HP instead of damaging it.
+ */
 export function effectiveDef(c: Combatant): number {
   const buff = sumActive(c, 'buffDef');
-  return Math.max(0, c.base.def * (1 + buff));
+  return Math.min(0.9, Math.max(0, c.base.def * (1 + buff)));
 }
 
 export function effectiveIni(c: Combatant): number {
