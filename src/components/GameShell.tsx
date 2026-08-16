@@ -33,7 +33,7 @@ import { useProfile, type UpdateUsernameResult } from '../hooks/useProfile';
 import { useCluster } from '../hooks/useCluster';
 import { usePvp } from '../hooks/usePvp';
 import { useMarket } from '../hooks/useMarket';
-import { useCharacterProgression } from '../hooks/useCharacterProgression';
+import { selectedAbilityMapFrom, useCharacterProgression } from '../hooks/useCharacterProgression';
 import {
   ABILITY_MAX_LEVEL_BY_RARITY,
   ABILITY_UPGRADE_COST_CREDITS,
@@ -282,12 +282,10 @@ function GameShellReady({
   const [chatOpen, setChatOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
-  const selectedAbilityByCharacterId = useMemo(() => {
-    const entries = Object.values(characterProgression.progression)
-      .filter((p) => p.selectedAbilityId)
-      .map((p) => [p.characterId, p.selectedAbilityId as string] as const);
-    return Object.fromEntries(entries);
-  }, [characterProgression.progression]);
+  const selectedAbilityByCharacterId = useMemo(
+    () => selectedAbilityMapFrom(characterProgression.progression),
+    [characterProgression.progression],
+  );
 
   const battle = useBattleSimulation({
     initialOwnedCharacters: pveCharacters,

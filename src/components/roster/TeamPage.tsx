@@ -11,7 +11,7 @@ import type { TeamSlot, UsePlayerTeamsResult } from '../../hooks/usePlayerTeams'
 import { MAX_TEAM_MEMBERS } from '../../hooks/usePlayerTeams';
 import { TEAM_SLOT_COST_TOKENS } from '../../hooks/usePlayerProgress';
 import type { UsePvpResult } from '../../hooks/usePvp';
-import type { UseCharacterProgressionResult } from '../../hooks/useCharacterProgression';
+import { selectedAbilityMapFrom, type UseCharacterProgressionResult } from '../../hooks/useCharacterProgression';
 import type { Rarity } from '../../types';
 
 interface TeamPageProps {
@@ -103,11 +103,15 @@ export function TeamPage({
   // section 6) — mirror it into pvp_defense_teams any time either changes, replacing the old
   // Arena page's separate "save defense team" step entirely.
   const pvpTeam = teams.teams.find((t) => t.slot === pvpTeamSlot);
+  const selectedAbilityByCharacterId = useMemo(
+    () => selectedAbilityMapFrom(characterProgression.progression),
+    [characterProgression.progression],
+  );
   useEffect(() => {
     if (!pvpTeam || pvpTeam.characterIds.length === 0) return;
-    pvp.setDefenseTeam(resolveTeamMembers(pvpTeam, ownedCharacters));
+    pvp.setDefenseTeam(resolveTeamMembers(pvpTeam, ownedCharacters), selectedAbilityByCharacterId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pvpTeamSlot, pvpTeam?.characterIds, ownedCharacters]);
+  }, [pvpTeamSlot, pvpTeam?.characterIds, ownedCharacters, selectedAbilityByCharacterId]);
 
   function handleSelectSlot(slot: number) {
     if (slot > effectiveUnlockedSlots) return;

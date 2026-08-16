@@ -22,6 +22,14 @@ export interface UseCharacterProgressionResult {
   setSelectedAbility: (characterId: string, abilityId: string) => Promise<void>;
 }
 
+/** Keyed by characterId, only for characters with an explicit selection — the shape loader.ts's OwnedCharacterEntry.selectedAbilityId / the pvp defense-team snapshot both want. Shared by GameShell.tsx (PvE) and TeamPage.tsx (PvP defense snapshot) so the derivation isn't duplicated. */
+export function selectedAbilityMapFrom(progression: Record<string, CharacterAbilityProgress>): Record<string, string> {
+  const entries = Object.values(progression)
+    .filter((p) => p.selectedAbilityId)
+    .map((p) => [p.characterId, p.selectedAbilityId as string] as const);
+  return Object.fromEntries(entries);
+}
+
 /** Loads and persists per-character ability/passive levels (`character_ability_progress`) — shared across every rarity copy of a character a player owns. */
 export function useCharacterProgression(userId: string | undefined): UseCharacterProgressionResult {
   const [progression, setProgression] = useState<Record<string, CharacterAbilityProgress>>({});

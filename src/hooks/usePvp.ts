@@ -24,7 +24,8 @@ export interface UsePvpResult {
   losses: number;
   /** The player's own saved defense squad — what an attacker actually fights. Empty until set. */
   defenseTeam: OwnedCharacter[];
-  setDefenseTeam: (characters: OwnedCharacter[]) => Promise<void>;
+  /** `selectedAbilityByCharacterId` is saved into the snapshot alongside each character (docs/gdd.md §6: "defensor luta com o que salvou por último") — omit an id to snapshot activeOptions[0] for that character, same default the engine applies everywhere else. */
+  setDefenseTeam: (characters: OwnedCharacter[], selectedAbilityByCharacterId?: Record<string, string>) => Promise<void>;
   findOpponents: () => Promise<PvpOpponent[]>;
   /**
    * Runs a full attack against `opponent`'s saved defense team, entirely
@@ -41,6 +42,7 @@ interface DefenseSnapshotCharacter {
   characterId: string;
   xp: number;
   rarity?: Rarity;
+  selectedAbilityId?: string;
 }
 
 /** Old defense snapshots (saved before rarity existed) fall back here — combat itself never reads rarity, only display does. */
@@ -90,10 +92,15 @@ export function usePvp(userId: string | undefined): UsePvpResult {
   }, [userId]);
 
   const setDefenseTeam = useCallback(
-    async (characters: OwnedCharacter[]) => {
+    async (characters: OwnedCharacter[], selectedAbilityByCharacterId: Record<string, string> = {}) => {
       if (!userId) return;
       setDefenseTeamState(characters);
-      const snapshot: DefenseSnapshotCharacter[] = characters.map((c) => ({ characterId: c.characterId, xp: c.xp, rarity: c.rarity }));
+      const snapshot: DefenseSnapshotCharacter[] = characters.map((c) => ({
+        characterId: c.characterId,
+        xp: c.xp,
+        rarity: c.rarity,
+        selectedAbilityId: selectedAbilityByCharacterId[c.characterId],
+      }));
       const { error: upsertError } = await supabase
         .from('pvp_defense_teams')
         .upsert({ user_id: userId, characters: snapshot, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
