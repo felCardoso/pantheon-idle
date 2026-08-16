@@ -149,7 +149,7 @@ function buildCombatant(
   // grants (today always 0, until kits that grant them exist). Enemies are untouched by that
   // rule — their DEF/INI/ESQ scaling by statMultiplier is world/estágio difficulty tuning, a
   // separate, pre-existing mechanic (progression.ts's difficultyMultiplier).
-  const def = isAlly ? data.baseStats.def : Math.round(data.baseStats.def * statMultiplier);
+  const def = isAlly ? data.baseStats.def : data.baseStats.def * statMultiplier;
   const ini = isAlly ? data.baseStats.ini : Math.round(data.baseStats.ini * statMultiplier);
   const esq = isAlly ? data.baseStats.esq : data.baseStats.esq * statMultiplier;
   const ice = isAlly ? data.baseStats.ice : (data.baseStats.ice ?? 0) * statMultiplier;

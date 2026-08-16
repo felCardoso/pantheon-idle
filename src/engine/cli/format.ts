@@ -37,6 +37,8 @@ export function formatLogEntry(entry: BattleLogEntry): string | null {
       return `  ${entry.unit} é ejetado antes de agir — ação cancelada.`;
     case 'pingAdvantage':
       return `  ${entry.unit} tem vantagem de Ping e age primeiro.`;
+    case 'abilityUsed':
+      return `  ${entry.unit} usa ${entry.abilityName}!`;
     case 'clashEnd':
       return null; // no narration needed — queue rotation is a UI-layer concern
     case 'attack': {

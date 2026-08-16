@@ -91,12 +91,28 @@ export interface FloatingText {
 /** How long a floating number stays on screen before being pruned. */
 const FLOATER_LIFETIME_MS = 1100;
 
+/** The full-screen "ability cast" callout (darken + sliding name + caster portrait) triggered by a BattleLogEntry's 'abilityUsed' kind — see abilityEngine.ts's fireTrigger. */
+export interface AbilityCastEvent {
+  id: string;
+  unitId: string;
+  unitName: string;
+  isAlly: boolean;
+  abilityName: string;
+  portraitUrl?: string;
+  createdAt: number;
+}
+
+/** How long the ability-cast callout stays on screen before being pruned — matches index.css's ability-cast-* keyframe durations. */
+const ABILITY_CAST_LIFETIME_MS = 1800;
+
 interface PlaybackState {
   session: BattleSession;
   replay: ReplayState;
   index: number;
   logFeed: ChatMessage[];
   floaters: FloatingText[];
+  /** Non-null while the "ability cast" callout should be showing — see ABILITY_CAST_LIFETIME_MS. */
+  activeAbility: AbilityCastEvent | null;
   finished: boolean;
   winner: 'allies' | 'enemies' | 'draw' | null;
   totalCredits: number;
@@ -119,10 +135,12 @@ type Action =
   | { type: 'reset'; session: BattleSession; frontier: WorldPosition; recoveryWinsRemaining: number | null }
   | { type: 'tick' }
   | { type: 'pruneFloaters' }
+  | { type: 'pruneActiveAbility' }
   | { type: 'adjustCredits'; delta: number };
 
 let chatIdCounter = 0;
 let floaterIdCounter = 0;
+let abilityCastIdCounter = 0;
 
 // The reward numbers below are the same across every world — a placeholder
 // until the real per-world economy (docs/mundos.md's "recompensas
@@ -192,6 +210,21 @@ function floatersFor(entry: BattleLogEntry, nameToId: Record<string, string>): O
   }
 }
 
+/** Resolves an 'abilityUsed' entry into the ability-cast callout's data (caster identity + portrait) — null for every other entry kind. */
+function abilityCastEventFor(entry: BattleLogEntry, session: BattleSession): Omit<AbilityCastEvent, 'id' | 'createdAt'> | null {
+  if (entry.kind !== 'abilityUsed') return null;
+  const unitId = session.nameToId[entry.unit];
+  const combatant = session.allies.find((c) => c.id === unitId) ?? session.enemies.find((c) => c.id === unitId);
+  if (!combatant) return null;
+  return {
+    unitId,
+    unitName: entry.unit,
+    isAlly: combatant.isAlly,
+    abilityName: entry.abilityName,
+    portraitUrl: DISPLAY_PORTRAIT_BY_TEMPLATE_ID[combatant.templateId],
+  };
+}
+
 function buildInitialState(
   seed: number,
   position: WorldPosition,
@@ -208,6 +241,7 @@ function buildInitialState(
     index: 0,
     logFeed: [],
     floaters: [],
+    activeAbility: null,
     finished: session.log.length === 0,
     winner: null,
     totalCredits: initialCredits,
@@ -229,6 +263,7 @@ function reducer(state: PlaybackState, action: Action): PlaybackState {
       totalCredits: state.totalCredits,
       totalXp: state.totalXp,
       floaters: [],
+      activeAbility: null,
       finished: action.session.log.length === 0,
       winner: null,
       lastReward: null,
@@ -241,6 +276,11 @@ function reducer(state: PlaybackState, action: Action): PlaybackState {
     const now = Date.now();
     const floaters = state.floaters.filter((f) => now - f.createdAt < FLOATER_LIFETIME_MS);
     return floaters.length === state.floaters.length ? state : { ...state, floaters };
+  }
+
+  if (action.type === 'pruneActiveAbility') {
+    if (!state.activeAbility || Date.now() - state.activeAbility.createdAt < ABILITY_CAST_LIFETIME_MS) return state;
+    return { ...state, activeAbility: null };
   }
 
   if (action.type === 'adjustCredits') {
@@ -273,6 +313,12 @@ function reducer(state: PlaybackState, action: Action): PlaybackState {
       floaterIdCounter += 1;
       return { ...f, id: `floater-${floaterIdCounter}`, createdAt: now };
     });
+  const castEvent = abilityCastEventFor(entry, state.session);
+  let activeAbility = state.activeAbility;
+  if (castEvent) {
+    abilityCastIdCounter += 1;
+    activeAbility = { ...castEvent, id: `ability-cast-${abilityCastIdCounter}`, createdAt: now };
+  }
   const winner = entry.kind === 'battleEnd' ? entry.winner : state.winner;
   const index = state.index + 1;
 
@@ -285,6 +331,7 @@ function reducer(state: PlaybackState, action: Action): PlaybackState {
     totalXp,
     lastReward,
     floaters: [...state.floaters, ...newFloaters],
+    activeAbility,
     winner,
     finished: index >= state.session.log.length,
   };
@@ -342,6 +389,8 @@ export interface BattleSimulation {
   stage: StageInfo;
   logFeed: ChatMessage[];
   floaters: FloatingText[];
+  /** Non-null while the "ability cast" callout should be showing — see ABILITY_CAST_LIFETIME_MS. */
+  activeAbility: AbilityCastEvent | null;
   /** Créditos/XP earned since `initialCredits`/`initialXp` — the caller is responsible for persisting these. */
   credits: number;
   xp: number;
@@ -402,6 +451,12 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     const id = setInterval(() => dispatch({ type: 'pruneFloaters' }), 250);
     return () => clearInterval(id);
   }, [state.floaters.length]);
+
+  useEffect(() => {
+    if (!state.activeAbility) return;
+    const id = setTimeout(() => dispatch({ type: 'pruneActiveAbility' }), ABILITY_CAST_LIFETIME_MS);
+    return () => clearTimeout(id);
+  }, [state.activeAbility]);
 
   // World progression — see progression.ts's resolveProgression for the full Avançar/Repetir/
   // retirar-se-ao-perder rules this follows. Only while Auto is on.
@@ -540,6 +595,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     },
     logFeed: state.logFeed,
     floaters: state.floaters,
+    activeAbility: state.activeAbility,
     credits: state.totalCredits,
     xp: state.totalXp,
     lastReward: state.lastReward,

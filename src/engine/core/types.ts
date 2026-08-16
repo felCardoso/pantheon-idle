@@ -58,6 +58,8 @@ export type BattleLogEntry =
   | { kind: 'battleStart' }
   /** One clashStart = one line-up clash (front-of-queue vs front-of-queue) — "round" now means "clash," not "every unit's turn." */
   | { kind: 'clashStart'; round: number }
+  /** An active ability (kind: 'active') actually fired — passed its trigger and chance roll. Passives don't log this; they're not a "cast" moment worth a UI callout. */
+  | { kind: 'abilityUsed'; unit: string; abilityId: string; abilityName: string }
   | { kind: 'turnSkippedStun'; unit: string }
   | { kind: 'attack'; result: AttackResult }
   | { kind: 'dodge'; attacker: string; defender: string }

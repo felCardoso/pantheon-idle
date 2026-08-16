@@ -154,14 +154,14 @@ describe('loadJurupariComuns / loadJurupariBoss', () => {
     expect(boss.name).toBe('Anhangá.exe');
     expect(boss.maxHp).toBe(12000);
     expect(boss.base.atk).toBe(250);
-    expect(boss.base.def).toBe(50);
+    expect(boss.base.def).toBe(0.5);
   });
 
   it('scales comuns stats by the given multiplier (per-estágio scaling)', () => {
     const scaled = loadJurupariComuns(3, 1.2); // estágio 5 of a fase (+20%)
     const boitata = scaled.find((c) => c.name === 'Boitatá.sh')!;
     expect(boitata.maxHp).toBe(Math.round(600 * 1.2));
-    expect(boitata.base.def).toBe(Math.round(30 * 1.2));
+    expect(boitata.base.def).toBeCloseTo(0.3 * 1.2);
   });
 
   it('scales the boss by an optional multiplier too (team-size scaling)', () => {
