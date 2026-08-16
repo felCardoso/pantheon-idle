@@ -3,7 +3,7 @@ import { CharacterDetailModal } from './CharacterDetailModal';
 import { PixelFigure } from '../battle/PixelFigure';
 import { Icon } from '../common/Icon';
 import { buildFullRosterView, type RosterCharacter } from '../../data/roster';
-import { ELEMENT_COLOR, RARITY_COLOR } from '../../data/theme';
+import { FACTION_COLOR, RARITY_COLOR } from '../../data/theme';
 import type { OwnedCharacter } from '../../hooks/useOwnedCharacters';
 import type { Rarity } from '../../types';
 
@@ -24,6 +24,7 @@ export function CharactersPage({ ownedCharacters }: CharactersPageProps) {
   const [selected, setSelected] = useState<RosterCharacter | null>(null);
 
   const ownedSet = useMemo(() => new Set(ownedCharacters.map((o) => o.characterId)), [ownedCharacters]);
+  const ownedByCharacterId = useMemo(() => new Map(ownedCharacters.map((o) => [o.characterId, o])), [ownedCharacters]);
   const fullRoster = useMemo(() => buildFullRosterView(ownedCharacters), [ownedCharacters]);
   const mythologies = useMemo(() => Array.from(new Set(fullRoster.map((c) => c.mythology))), [fullRoster]);
 
@@ -120,7 +121,7 @@ export function CharactersPage({ ownedCharacters }: CharactersPageProps) {
           {filtered.map((c) => {
             const owned = ownedSet.has(c.templateId);
             const rarityColor = RARITY_COLOR[c.rarity];
-            const elementColor = ELEMENT_COLOR[c.element];
+            const factionColor = FACTION_COLOR[c.faction];
             return (
               <button
                 key={c.templateId}
@@ -138,7 +139,7 @@ export function CharactersPage({ ownedCharacters }: CharactersPageProps) {
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center">
-                      <PixelFigure className={`h-[70%] w-[70%] ${owned ? '' : 'opacity-25 brightness-75'}`} style={{ color: elementColor }} />
+                      <PixelFigure className={`h-[70%] w-[70%] ${owned ? '' : 'opacity-25 brightness-75'}`} style={{ color: factionColor }} />
                     </div>
                   )}
                 </div>
@@ -178,7 +179,14 @@ export function CharactersPage({ ownedCharacters }: CharactersPageProps) {
         </div>
       )}
 
-      {selected && <CharacterDetailModal character={selected} owned={ownedSet.has(selected.templateId)} onClose={() => setSelected(null)} />}
+      {selected && (
+        <CharacterDetailModal
+          character={selected}
+          owned={ownedSet.has(selected.templateId)}
+          ownedRarity={ownedByCharacterId.get(selected.templateId)?.rarity ?? null}
+          onClose={() => setSelected(null)}
+        />
+      )}
     </div>
   );
 }

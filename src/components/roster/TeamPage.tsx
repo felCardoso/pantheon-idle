@@ -11,7 +11,7 @@ import type { TeamSlot, UsePlayerTeamsResult } from '../../hooks/usePlayerTeams'
 import { MAX_TEAM_MEMBERS } from '../../hooks/usePlayerTeams';
 import { TEAM_SLOT_COST_TOKENS } from '../../hooks/usePlayerProgress';
 import type { UsePvpResult } from '../../hooks/usePvp';
-import type { AbilityTrigger } from '../../engine/schema';
+import { selectedAbilityMapFrom, type UseCharacterProgressionResult } from '../../hooks/useCharacterProgression';
 import type { Rarity } from '../../types';
 
 interface TeamPageProps {
@@ -28,18 +28,12 @@ interface TeamPageProps {
   pvp: UsePvpResult;
   onRewardCredits: (amount: number) => void;
   onToast: (message: string) => void;
+  characterProgression: UseCharacterProgressionResult;
 }
 
 const RARITY_ORDER: Record<Rarity, number> = { 'Zero-Day': 0, LTS: 1, Stable: 2, Beta: 3, Alpha: 4 };
 const RARITIES: Rarity[] = ['Alpha', 'Beta', 'Stable', 'LTS', 'Zero-Day'];
 type SortKey = 'rarity' | 'level' | 'name';
-
-const TRIGGER_LABEL: Record<AbilityTrigger, string> = {
-  battleStart: 'Início de batalha',
-  onAttack: 'Ao atacar',
-  onDamaged: 'Ao ser atingido',
-  onCriticalHit: 'Crítico',
-};
 
 function resolveTeamMembers(team: TeamSlot, owned: OwnedCharacter[]): OwnedCharacter[] {
   const byId = new Map(owned.map((o) => [o.characterId, o]));
@@ -66,6 +60,7 @@ export function TeamPage({
   pvp,
   onRewardCredits,
   onToast,
+  characterProgression,
 }: TeamPageProps) {
   const [activeSlot, setActiveSlot] = useState(1);
   const [renamingSlot, setRenamingSlot] = useState<number | null>(null);
@@ -103,17 +98,20 @@ export function TeamPage({
 
   const teamPower = activeTeamRoster.reduce((sum, c) => sum + characterPower(c.stats), 0);
   const synergyPercent = Math.round((CONSTANTS.synergyByCount[String(activeTeamRoster.length)] ?? 0) * 100);
-  const orderOfAction = [...activeTeamRoster].sort((a, b) => (b.alwaysActsFirst ? 1 : 0) - (a.alwaysActsFirst ? 1 : 0) || b.stats.ini - a.stats.ini);
 
   // The PvP dropdown/team it points to is the one an attacker actually fights (docs/gdd.md
   // section 6) — mirror it into pvp_defense_teams any time either changes, replacing the old
   // Arena page's separate "save defense team" step entirely.
   const pvpTeam = teams.teams.find((t) => t.slot === pvpTeamSlot);
+  const selectedAbilityByCharacterId = useMemo(
+    () => selectedAbilityMapFrom(characterProgression.progression),
+    [characterProgression.progression],
+  );
   useEffect(() => {
     if (!pvpTeam || pvpTeam.characterIds.length === 0) return;
-    pvp.setDefenseTeam(resolveTeamMembers(pvpTeam, ownedCharacters));
+    pvp.setDefenseTeam(resolveTeamMembers(pvpTeam, ownedCharacters), selectedAbilityByCharacterId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pvpTeamSlot, pvpTeam?.characterIds, ownedCharacters]);
+  }, [pvpTeamSlot, pvpTeam?.characterIds, ownedCharacters, selectedAbilityByCharacterId]);
 
   function handleSelectSlot(slot: number) {
     if (slot > effectiveUnlockedSlots) return;
@@ -274,7 +272,7 @@ export function TeamPage({
                   onDrop={(e) => handleDropOnSlot(i, e)}
                 >
                   <button onClick={() => setDetailCharacter(c)} className="relative">
-                    <CharacterPortrait name={c.name} element={c.element} rarity={c.rarity} portraitUrl={c.portraitUrl} size={64} />
+                    <CharacterPortrait name={c.name} faction={c.faction} rarity={c.rarity} portraitUrl={c.portraitUrl} size={64} />
                   </button>
                   <button
                     onClick={(e) => {
@@ -381,41 +379,17 @@ export function TeamPage({
               )}
             </div>
             {activeTeamRoster.length === 0 ? (
-              <p className="text-xs text-white/40">Adicione personagens ao time para ver a ordem de ação.</p>
+              <p className="text-xs text-white/40">Adicione personagens ao time para ver a ordem de fila.</p>
             ) : (
               <>
                 <p className="mb-3 text-[11px] text-white/40">
                   Personagens do mesmo mundo/mitologia ganham bônus por time — atualmente:{' '}
                   {Array.from(new Set(activeTeamRoster.map((c) => c.mythology))).join(' · ')}
                 </p>
-                <h3 className="mb-2 font-display text-xs font-bold uppercase tracking-widest text-white/50">Ordem de ação</h3>
-                <div className="flex flex-col gap-2">
-                  {orderOfAction.map((c, i) => (
-                    <div key={c.templateId} className="rounded-lg border border-void-600 bg-void-900/40 p-2.5">
-                      <div className="mb-1 flex items-center gap-2">
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-void-800 font-mono text-[10px] text-white/60">
-                          {i + 1}
-                        </span>
-                        <span className="truncate text-xs font-bold text-white">{c.name}</span>
-                        {c.alwaysActsFirst && (
-                          <span className="shrink-0 rounded-full border border-signal-amber/30 bg-signal-amber/10 px-1.5 py-0.5 text-[9px] text-signal-amber">
-                            Sempre primeiro
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex flex-col gap-1 pl-7">
-                        {c.abilities.map((a, ai) => (
-                          <div key={ai} className="flex items-center gap-1.5 text-[10px] text-white/50">
-                            <span className="shrink-0 rounded-full border border-arcane-400/30 bg-arcane-400/10 px-1.5 py-0.5 font-bold uppercase tracking-wide text-arcane-300">
-                              {TRIGGER_LABEL[a.trigger]}
-                            </span>
-                            <span className="truncate">{a.description}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <p className="text-[11px] text-white/40">
+                  A ordem dos slots do time (à direita) é a ordem da fila de combate — o primeiro personagem do time é
+                  quem entra em combate primeiro. Arraste para reordenar.
+                </p>
               </>
             )}
           </div>
@@ -525,7 +499,16 @@ export function TeamPage({
       </div>
 
       {attackModalOpen && <PvpAttackModal pvp={pvp} onRewardCredits={onRewardCredits} onToast={onToast} onClose={() => setAttackModalOpen(false)} />}
-      {detailCharacter && <CharacterDetailModal character={detailCharacter} owned onClose={() => setDetailCharacter(null)} />}
+      {detailCharacter && (
+        <CharacterDetailModal
+          character={detailCharacter}
+          owned
+          ownedRarity={ownedById.get(detailCharacter.templateId)?.rarity ?? null}
+          selectedAbilityId={characterProgression.progression[detailCharacter.templateId]?.selectedAbilityId}
+          onSelectAbility={(abilityId) => characterProgression.setSelectedAbility(detailCharacter.templateId, abilityId)}
+          onClose={() => setDetailCharacter(null)}
+        />
+      )}
     </div>
   );
 }

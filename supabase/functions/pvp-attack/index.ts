@@ -70,16 +70,22 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Attacker's roster is fetched server-side from their own row, never
-    // trusted from the request body — the only thing the client supplies is
-    // who to attack.
-    const [{ data: attackerChars, error: attackerCharsError }, { data: attackerProgress }, { data: defenseRow }, { data: defenderProgress }] =
-      await Promise.all([
-        supabase.from('player_characters').select('character_id, xp').eq('user_id', user.id),
-        supabase.from('player_progress').select('pvp_rating').eq('user_id', user.id).maybeSingle(),
-        supabase.from('pvp_defense_teams').select('characters').eq('user_id', defenderId).maybeSingle(),
-        supabase.from('player_progress').select('pvp_rating').eq('user_id', defenderId).maybeSingle(),
-      ]);
+    // Attacker's roster (and its ability selections) are fetched server-side
+    // from their own rows, never trusted from the request body — the only
+    // thing the client supplies is who to attack.
+    const [
+      { data: attackerChars, error: attackerCharsError },
+      { data: attackerAbilityProgress },
+      { data: attackerProgress },
+      { data: defenseRow },
+      { data: defenderProgress },
+    ] = await Promise.all([
+      supabase.from('player_characters').select('character_id, xp, rarity').eq('user_id', user.id),
+      supabase.from('character_ability_progress').select('character_id, selected_ability_id').eq('user_id', user.id),
+      supabase.from('player_progress').select('pvp_rating').eq('user_id', user.id).maybeSingle(),
+      supabase.from('pvp_defense_teams').select('characters').eq('user_id', defenderId).maybeSingle(),
+      supabase.from('player_progress').select('pvp_rating').eq('user_id', defenderId).maybeSingle(),
+    ]);
 
     if (attackerCharsError) {
       return new Response(JSON.stringify({ error: attackerCharsError.message }), {
@@ -88,7 +94,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    const attackerEntries: OwnedCharacterEntry[] = (attackerChars ?? []).map((c) => ({ id: c.character_id, xp: c.xp }));
+    const attackerSelectedAbilityByCharacterId = Object.fromEntries(
+      (attackerAbilityProgress ?? []).filter((p) => p.selected_ability_id).map((p) => [p.character_id, p.selected_ability_id as string]),
+    );
+    const attackerEntries: OwnedCharacterEntry[] = (attackerChars ?? []).map((c) => ({
+      id: c.character_id,
+      xp: c.xp,
+      rarity: c.rarity,
+      selectedAbilityId: attackerSelectedAbilityByCharacterId[c.character_id],
+    }));
     if (attackerEntries.length === 0) {
       return new Response(JSON.stringify({ error: 'No characters to attack with' }), {
         status: 400,
@@ -96,14 +110,20 @@ Deno.serve(async (req) => {
       });
     }
 
-    const defenderSnapshot = (defenseRow?.characters as unknown as { characterId: string; xp: number }[] | null) ?? [];
+    const defenderSnapshot =
+      (defenseRow?.characters as unknown as { characterId: string; xp: number; rarity?: string; selectedAbilityId?: string }[] | null) ?? [];
     if (defenderSnapshot.length === 0) {
       return new Response(JSON.stringify({ error: 'Defender has no defense team set' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    const defenderEntries: OwnedCharacterEntry[] = defenderSnapshot.map((c) => ({ id: c.characterId, xp: c.xp }));
+    const defenderEntries: OwnedCharacterEntry[] = defenderSnapshot.map((c) => ({
+      id: c.characterId,
+      xp: c.xp,
+      rarity: c.rarity as OwnedCharacterEntry['rarity'],
+      selectedAbilityId: c.selectedAbilityId,
+    }));
 
     const attackerRating = attackerProgress?.pvp_rating ?? 1000;
     const defenderRating = defenderProgress?.pvp_rating ?? 1000;

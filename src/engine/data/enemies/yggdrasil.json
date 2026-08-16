@@ -4,33 +4,66 @@
       "id": "draugr",
       "name": "Draugr.sh",
       "faction": "Malware",
-      "element": "Vírus",
-      "baseStats": { "hp": 200, "atk": 30, "def": 0, "ini": 60, "esq": 0.03, "ice": 0 },
-      "abilities": ["draugr-lentidao"]
+      "baseStats": {
+        "hp": 200,
+        "atk": 30,
+        "def": 0,
+        "ini": 60,
+        "esq": 0.03,
+        "ice": 0
+      },
+      "activeOptions": [
+        "draugr-lentidao"
+      ]
     },
     {
       "id": "valquiria-corrompida",
       "name": "Valquíria Corrompida.sh",
       "faction": "Firewall",
-      "element": "Encryption",
-      "baseStats": { "hp": 600, "atk": 20, "def": 30, "ini": 40, "esq": 0.02, "ice": 0 },
-      "abilities": ["valquiria-corrompida-shield"]
+      "baseStats": {
+        "hp": 600,
+        "atk": 20,
+        "def": 30,
+        "ini": 40,
+        "esq": 0.02,
+        "ice": 0
+      },
+      "activeOptions": [
+        "valquiria-corrompida-shield"
+      ]
     },
     {
       "id": "lobo-selvagem",
       "name": "Lobo Selvagem.sh",
       "faction": "Malware",
-      "element": "Brute Force",
-      "baseStats": { "hp": 350, "atk": 50, "def": 0, "ini": 70, "esq": 0.04, "ice": 0 },
-      "abilities": ["lobo-selvagem-sangramento"]
+      "baseStats": {
+        "hp": 350,
+        "atk": 50,
+        "def": 0,
+        "ini": 70,
+        "esq": 0.04,
+        "ice": 0
+      },
+      "activeOptions": [
+        "lobo-selvagem-sangramento"
+      ]
     }
   ],
   "boss": {
     "id": "fenrir",
     "name": "Fenrir.exe",
     "faction": null,
-    "element": "Backdoor",
-    "baseStats": { "hp": 12000, "atk": 250, "def": 50, "ini": 95, "esq": 0.06, "ice": 0 },
-    "abilities": ["fenrir-enfraquecimento", "fenrir-cura-sangramento"]
+    "baseStats": {
+      "hp": 12000,
+      "atk": 250,
+      "def": 50,
+      "ini": 95,
+      "esq": 0.06,
+      "ice": 0
+    },
+    "activeOptions": [
+      "fenrir-enfraquecimento",
+      "fenrir-cura-sangramento"
+    ]
   }
 }

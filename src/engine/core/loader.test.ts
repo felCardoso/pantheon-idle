@@ -35,17 +35,35 @@ describe('loadCharactersByIds', () => {
     expect(team.map((c) => c.name)).toEqual(['Jurupari.exe', 'Odin.exe', 'Zeus.exe']);
   });
 
-  it('applies the synergy bonus by team size regardless of which ids are passed', () => {
+  it('applies the synergy bonus per same-mythology subgroup, not by raw team size', () => {
     const solo = loadCharactersByIds([{ id: 'saci', xp: 0 }]);
-    expect(solo[0].maxHp).toBe(800); // no bonus at team size 1 (no "1" entry in synergyByCount)
+    expect(solo[0].maxHp).toBe(800); // no bonus at group size 1 (no "1" entry in synergyByCount)
 
-    const trio = loadCharactersByIds([
+    // jurupari/odin/zeus are 3 different mythologies (Folclore/Nórdica/Grega) — a mixed team gets
+    // no bonus for any of them, since each mythology's own subgroup size is still just 1.
+    const mixedTrio = loadCharactersByIds([
       { id: 'jurupari', xp: 0 },
       { id: 'odin', xp: 0 },
       { id: 'zeus', xp: 0 },
     ]);
-    // docs/combate.md: +12% at team size 3
-    expect(trio[0].maxHp).toBe(Math.round(800 * 1.12));
+    expect(mixedTrio.map((c) => c.maxHp)).toEqual([800, 800, 800]);
+
+    // curupira/caipora/saci are all Folclore Brasileiro — a same-mythology trio gets the real +12%.
+    const sameMythologyTrio = loadCharactersByIds([
+      { id: 'curupira', xp: 0 },
+      { id: 'caipora', xp: 0 },
+      { id: 'saci', xp: 0 },
+    ]);
+    expect(sameMythologyTrio[0].maxHp).toBe(Math.round(800 * 1.12));
+
+    // Mixing mythologies applies each character's own mythology-subgroup bonus independently: the
+    // 2 Folclore members get +5% (group of 2), the 1 Nórdica member gets none (group of 1).
+    const partialMix = loadCharactersByIds([
+      { id: 'curupira', xp: 0 },
+      { id: 'caipora', xp: 0 },
+      { id: 'odin', xp: 0 },
+    ]);
+    expect(partialMix.map((c) => c.maxHp)).toEqual([Math.round(800 * 1.05), Math.round(800 * 1.05), 800]);
   });
 
   it('throws for an unknown character id', () => {
@@ -63,29 +81,41 @@ describe('loadCharactersByIds', () => {
     expect(leveled.maxHp).toBe(Math.round(800 * 1.02));
   });
 
-  it('loads Medusa/Hércules/Minotauro, each carrying all 4 of their described abilities (the engine fires every ability a character owns independently)', () => {
+  it('resolves Medusa/Hércules/Minotauro to only their first candidate active ability (v2: one equipped active at a time; activeOptions[0] wins with no selection)', () => {
     const [medusa, hercules, minotauro] = loadCharactersByIds([
       { id: 'medusa', xp: 0 },
       { id: 'hercules', xp: 0 },
       { id: 'minotauro', xp: 0 },
     ]);
     expect(medusa.name).toBe('Medusa.exe');
-    expect(medusa.abilities.map((a) => a.id)).toEqual([
-      'medusa-petrificar',
-      'medusa-veneno',
-      'medusa-armadura-pedra',
-      'medusa-espinhos-veneno',
-    ]);
+    expect(medusa.abilities.map((a) => a.id)).toEqual(['medusa-petrificar']);
     expect(hercules.name).toBe('Hércules.exe');
-    expect(hercules.abilities).toHaveLength(4);
+    expect(hercules.abilities.map((a) => a.id)).toEqual(['hercules-impacto']);
     expect(minotauro.name).toBe('Minotauro.exe');
-    expect(minotauro.abilities).toHaveLength(4);
+    expect(minotauro.abilities.map((a) => a.id)).toEqual(['minotauro-provocar']);
   });
 
-  it('loads Amaterasu.exe (Mitologia Japonesa) with its 3 abilities', () => {
+  it('resolves Amaterasu.exe (Mitologia Japonesa) to only her first candidate active ability', () => {
     const [amaterasu] = loadCharactersByIds([{ id: 'amaterasu', xp: 0 }]);
     expect(amaterasu.name).toBe('Amaterasu.exe');
-    expect(amaterasu.abilities.map((a) => a.id)).toEqual(['amaterasu-regen-team', 'amaterasu-shield-team', 'amaterasu-reflexo-solar']);
+    expect(amaterasu.abilities.map((a) => a.id)).toEqual(['amaterasu-regen-team']);
+  });
+
+  it('equips selectedAbilityId when it names an id actually in activeOptions', () => {
+    const [medusa] = loadCharactersByIds([{ id: 'medusa', xp: 0, selectedAbilityId: 'medusa-petrificar' }]);
+    expect(medusa.abilities.map((a) => a.id)).toEqual(['medusa-petrificar']);
+  });
+
+  it('falls back to activeOptions[0] when selectedAbilityId is not one of the character\'s options (e.g. a stale/unauthored id)', () => {
+    const [medusa] = loadCharactersByIds([{ id: 'medusa', xp: 0, selectedAbilityId: 'not-a-real-option' }]);
+    expect(medusa.abilities.map((a) => a.id)).toEqual(['medusa-petrificar']);
+  });
+
+  it('never equips a passive below the LTS rarity gate, even when rarity is passed (no character has an authored passive yet, so this stays empty either way)', () => {
+    const [alpha] = loadCharactersByIds([{ id: 'medusa', xp: 0, rarity: 'Alpha' }]);
+    const [lts] = loadCharactersByIds([{ id: 'medusa', xp: 0, rarity: 'LTS' }]);
+    expect(alpha.abilities.map((a) => a.id)).toEqual(['medusa-petrificar']);
+    expect(lts.abilities.map((a) => a.id)).toEqual(['medusa-petrificar']);
   });
 });
 

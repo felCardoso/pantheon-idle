@@ -103,9 +103,7 @@ export function BattleStage({
         </div>
 
         <div className="invisible rounded-lg border border-void-600 bg-void-950/50 px-2.5 py-1.5 text-right backdrop-blur-sm sm:visible">
-          <p className="font-mono text-xs text-white/70">
-            Round {stage.round} · Turno {stage.turn}
-          </p>
+          <p className="font-mono text-xs text-white/70">Rodada {stage.round}</p>
         </div>
       </div>
 

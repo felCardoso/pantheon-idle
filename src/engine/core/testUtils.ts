@@ -44,7 +44,6 @@ export function makeCombatant(overrides: Partial<Combatant> & { baseStats?: Part
     templateId: overrides.templateId ?? 'test-unit',
     name: overrides.name ?? `Test Unit ${idCounter}`,
     faction: overrides.faction ?? null,
-    element: overrides.element ?? null,
     isAlly: overrides.isAlly ?? true,
     stars: overrides.stars ?? 0,
     level: overrides.level ?? 0,
@@ -56,6 +55,7 @@ export function makeCombatant(overrides: Partial<Combatant> & { baseStats?: Part
     abilities: overrides.abilities ?? [],
     statusDurationBonus: overrides.statusDurationBonus ?? 0,
     alwaysActsFirst: overrides.alwaysActsFirst ?? false,
+    halfHpTriggered: overrides.halfHpTriggered ?? false,
   };
 }
 
@@ -63,6 +63,7 @@ export function makeAbility(overrides: Partial<AbilityDefinition> & Pick<Ability
   return {
     id: overrides.id ?? 'test-ability',
     name: overrides.name ?? 'Test Ability',
+    kind: overrides.kind ?? 'active',
     chance: overrides.chance,
     trigger: overrides.trigger,
     effects: overrides.effects,

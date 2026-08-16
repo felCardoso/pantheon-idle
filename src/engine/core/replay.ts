@@ -4,9 +4,7 @@ import type { StatusType } from '../schema';
 /**
  * Framework-agnostic playback layer: turns a finished battle's log into a
  * sequence of HP/shield/round snapshots any UI can step through at its own
- * pace (the log itself carries every delta needed — see docs/mvp.md's
- * calibration for why each field exists, e.g. shieldAbsorbed on statusTick
- * so a Vírus tick replays the same shield-then-HP order as a real attack).
+ * pace (the log itself carries every delta needed).
  */
 export interface UnitSnapshot {
   id: string;
@@ -19,27 +17,26 @@ export interface UnitSnapshot {
 
 export interface ReplayState {
   round: number;
-  /** Count of turn-spending actions (attack/dodge/stun-skip) taken since the last roundStart. */
-  turnInRound: number;
   units: Record<string, UnitSnapshot>;
   /**
-   * Front-to-back queue order per side, for the "front of the line" formation
-   * display: whoever just spent a turn (attack/dodge/stun-skip) rotates to the
-   * back, so the next unit due to act is always shown at the front.
+   * Front-to-back line-up/queue order per side (front = index 0) — the two
+   * front units are this round's clash participants; on `clashEnd` the
+   * survivor rotates to the back of its own side and the dead one is
+   * dropped entirely, mirroring battle.ts's own queue rotation.
    */
   allyOrder: string[];
   enemyOrder: string[];
 }
 
 /**
- * Statuses that stack into independent instances (docs/combate.md: Sangramento
+ * Statuses that stack into independent instances (docs/combate.md: Leak
  * is explicitly stackable). Everything else replaces its existing instance in
  * place, so a re-application should reset the visible count to 1 rather than
- * accumulate — otherwise repeated non-stacking applies (e.g. Lentidão reapplied
+ * accumulate — otherwise repeated non-stacking applies (e.g. Lag reapplied
  * every round) would drift upward, since a replace never logs a matching expiry
  * for the instance it replaced.
  */
-const STACKABLE_STATUSES: ReadonlySet<StatusType> = new Set(['sangramento']);
+const STACKABLE_STATUSES: ReadonlySet<StatusType> = new Set(['leak']);
 
 export function createInitialReplayState(allies: Combatant[], enemies: Combatant[]): ReplayState {
   const units: Record<string, UnitSnapshot> = {};
@@ -48,20 +45,22 @@ export function createInitialReplayState(allies: Combatant[], enemies: Combatant
   }
   return {
     round: 0,
-    turnInRound: 0,
     units,
     allyOrder: allies.map((u) => u.id),
     enemyOrder: enemies.map((u) => u.id),
   };
 }
 
-/** Moves `id` to the back of whichever side's order array currently holds it — the unit that just acted cedes the front. */
-function rotateToBack(state: ReplayState, id: string): ReplayState {
+/** Rotates `id` to the back of whichever side's order array currently holds it if it's still alive, or drops it entirely if it died this clash. */
+function rotateOrDrop(state: ReplayState, id: string): ReplayState {
+  const alive = (state.units[id]?.hp ?? 0) > 0;
   if (state.allyOrder.includes(id)) {
-    return { ...state, allyOrder: [...state.allyOrder.filter((u) => u !== id), id] };
+    const rest = state.allyOrder.filter((u) => u !== id);
+    return { ...state, allyOrder: alive ? [...rest, id] : rest };
   }
   if (state.enemyOrder.includes(id)) {
-    return { ...state, enemyOrder: [...state.enemyOrder.filter((u) => u !== id), id] };
+    const rest = state.enemyOrder.filter((u) => u !== id);
+    return { ...state, enemyOrder: alive ? [...rest, id] : rest };
   }
   return state;
 }
@@ -89,21 +88,21 @@ function damage(prev: UnitSnapshot, hpDamage: number, shieldAbsorbed: number): P
 /** Applies one log entry on top of a snapshot, returning the next snapshot. Pure — safe to step forward or replay from scratch. */
 export function applyReplayEntry(state: ReplayState, entry: BattleLogEntry, nameToId: Record<string, string>): ReplayState {
   switch (entry.kind) {
-    case 'roundStart':
-      return { ...state, round: entry.round, turnInRound: 0 };
+    case 'clashStart':
+      return { ...state, round: entry.round };
 
-    case 'turnSkippedStun':
-      return rotateToBack({ ...state, turnInRound: state.turnInRound + 1 }, nameToId[entry.unit]);
-
-    case 'dodge':
-      return rotateToBack({ ...state, turnInRound: state.turnInRound + 1 }, nameToId[entry.attacker]);
+    case 'clashEnd': {
+      let next = rotateOrDrop(state, nameToId[entry.allyUnit]);
+      next = rotateOrDrop(next, nameToId[entry.enemyUnit]);
+      return next;
+    }
 
     case 'attack': {
-      const next = rotateToBack({ ...state, turnInRound: state.turnInRound + 1 }, entry.result.attacker.id);
-      if (entry.result.dodged) return next;
+      if (entry.result.dodged) return state;
       const id = entry.result.defender.id;
       const prev = state.units[id];
-      return withUnit(next, id, damage(prev, entry.result.hpDamage, entry.result.shieldAbsorbed));
+      if (!prev) return state;
+      return withUnit(state, id, damage(prev, entry.result.hpDamage, entry.result.shieldAbsorbed));
     }
 
     case 'statusTick': {
@@ -131,6 +130,13 @@ export function applyReplayEntry(state: ReplayState, entry: BattleLogEntry, name
     }
 
     case 'iceReflect': {
+      const id = nameToId[entry.target];
+      const prev = state.units[id];
+      if (!prev) return state;
+      return withUnit(state, id, damage(prev, entry.hpDamage, entry.shieldAbsorbed));
+    }
+
+    case 'directDamage': {
       const id = nameToId[entry.target];
       const prev = state.units[id];
       if (!prev) return state;
@@ -170,6 +176,10 @@ export function applyReplayEntry(state: ReplayState, entry: BattleLogEntry, name
     }
 
     case 'battleStart':
+    case 'turnSkippedStun':
+    case 'dodge':
+    case 'actionCancelled':
+    case 'pingAdvantage':
     case 'death':
     case 'battleEnd':
       return state;

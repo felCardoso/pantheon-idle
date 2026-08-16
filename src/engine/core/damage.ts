@@ -1,6 +1,6 @@
 import type { RngLike } from './rng';
 import type { AttackResult, Combatant } from './types';
-import { consumeMark, effectiveAtk, effectiveDef, effectiveEsq, isMarked } from './statusEffects';
+import { absorbIntoShield, consumeMark, effectiveAtk, effectiveDef, effectiveEsq, isMarked } from './statusEffects';
 import { CONSTANTS } from './loader';
 
 export interface ResolveAttackOptions {
@@ -11,8 +11,9 @@ export interface ResolveAttackOptions {
 }
 
 /**
- * Resolves a single attack following the exact order from docs/mvp.md section 2:
- * esquiva -> dano bruto -> mitigação por DEF -> crítico -> vantagem elemental -> escudo/HP.
+ * Resolves a single attack: esquiva -> dano bruto -> mitigação por Firewall
+ * -> crítico -> escudo/HP. There's no elemental-advantage step — v2 has no
+ * elemental-affinity system.
  */
 export function resolveAttack(
   attacker: Combatant,
@@ -30,7 +31,6 @@ export function resolveAttack(
       defender,
       dodged: true,
       crit: false,
-      elementalAdvantage: false,
       rawDamage: 0,
       finalDamage: 0,
       shieldAbsorbed: 0,
@@ -42,10 +42,10 @@ export function resolveAttack(
   // 2. Dano bruto
   const rawDamage = effectiveAtk(attacker) * multiplier;
 
-  // 3. Mitigação por DEF (fração direta do dano físico ignorada, ex.: 0.15 = ignora 15%)
+  // 3. Mitigação por Firewall (fração direta do dano físico ignorada, ex.: 0.15 = ignora 15%)
   let damage = rawDamage * (1 - effectiveDef(defender));
 
-  // 4. Crítico (Marcado guarantees it, and is consumed by the hit that uses it)
+  // 4. Crítico (Target guarantees it, and is consumed by the hit that uses it)
   let crit = isMarked(defender);
   if (crit) {
     consumeMark(defender);
@@ -54,21 +54,10 @@ export function resolveAttack(
   }
   if (crit) damage *= CONSTANTS.critMultiplier;
 
-  // 5. Vantagem elemental
-  const counters = attacker.element ? CONSTANTS.elementalCounters[attacker.element] : undefined;
-  const elementalAdvantage = Boolean(defender.element && counters?.includes(defender.element));
-  if (elementalAdvantage) damage *= CONSTANTS.elementalAdvantageMultiplier;
-
   const finalDamage = damage;
 
-  // 6. Destino do dano: escudo primeiro (salvo Backdoor), excedente pro HP
-  let shieldAbsorbed = 0;
-  let hpDamage = finalDamage;
-  if (!options.ignoresShield && defender.shield > 0) {
-    shieldAbsorbed = Math.min(defender.shield, finalDamage);
-    defender.shield -= shieldAbsorbed;
-    hpDamage = finalDamage - shieldAbsorbed;
-  }
+  // 5. Destino do dano: escudo primeiro (salvo Backdoor ou Fragmentação-inflacionado), excedente pro HP
+  const { shieldAbsorbed, hpDamage } = absorbIntoShield(defender, finalDamage, options.ignoresShield);
   defender.hp = Math.max(0, defender.hp - hpDamage);
 
   return {
@@ -76,7 +65,6 @@ export function resolveAttack(
     defender,
     dodged: false,
     crit,
-    elementalAdvantage,
     rawDamage,
     finalDamage,
     shieldAbsorbed,

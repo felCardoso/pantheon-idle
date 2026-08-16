@@ -2,19 +2,20 @@ import { useState } from 'react';
 import { Icon } from '../common/Icon';
 import { CharacterPortrait } from '../roster/CharacterPortrait';
 import { buildCompendium, diagramName } from '../../data/roster';
-import { FALLBACK_RARITY } from '../../data/engineDisplay';
+import { FALLBACK_FACTION } from '../../data/engineDisplay';
 import type { UseMarketResult } from '../../hooks/useMarket';
+import type { FragmentStack } from '../../hooks/useOwnedCharacters';
 import type { Rarity } from '../../types';
 
 interface MarketPageProps {
   market: UseMarketResult;
-  fragments: Record<string, number>;
+  fragments: FragmentStack[];
   vipActive: boolean;
   credits: number;
   bytes: number;
   onAdjustCredits: (delta: number) => void;
   onAdjustBytes: (delta: number) => Promise<boolean>;
-  onSellFragment: (characterId: string) => void;
+  onSellFragment: (characterId: string, rarity: Rarity) => void;
   onRefreshFragments: () => Promise<void>;
   onToast: (message: string) => void;
 }
@@ -30,6 +31,17 @@ const FRAGMENT_CONVERSION_BYTES_BY_RARITY: Record<Rarity, number> = {
 };
 
 type MarketTab = 'inventory' | 'offers' | 'market';
+
+/** Composite select-option key — a character can have several fragment stacks, one per rarity. */
+function stackKey(characterId: string, rarity: Rarity): string {
+  return `${characterId}|${rarity}`;
+}
+
+function parseStackKey(key: string): { characterId: string; rarity: Rarity } | null {
+  const [characterId, rarity] = key.split('|');
+  if (!characterId || !rarity) return null;
+  return { characterId, rarity: rarity as Rarity };
+}
 
 export function MarketPage({
   market,
@@ -47,8 +59,7 @@ export function MarketPage({
   const compendium = buildCompendium();
   const byId = new Map(compendium.map((c) => [c.templateId, c]));
 
-  const fragmentEntries = Object.entries(fragments).filter(([, count]) => count > 0);
-  const [publishCharacterId, setPublishCharacterId] = useState(fragmentEntries[0]?.[0] ?? '');
+  const [publishSelection, setPublishSelection] = useState(fragments[0] ? stackKey(fragments[0].characterId, fragments[0].rarity) : '');
   const [publishQuantity, setPublishQuantity] = useState(1);
   const [publishPrice, setPublishPrice] = useState(MIN_PRICE_CREDITS);
   const [publishing, setPublishing] = useState(false);
@@ -56,22 +67,26 @@ export function MarketPage({
   const [busyListingId, setBusyListingId] = useState<string | null>(null);
   const [convertingId, setConvertingId] = useState<string | null>(null);
 
-  const maxFragmentsForPublish = fragments[publishCharacterId] ?? 0;
+  const publishTarget = parseStackKey(publishSelection);
+  const maxFragmentsForPublish = publishTarget
+    ? fragments.find((f) => f.characterId === publishTarget.characterId && f.rarity === publishTarget.rarity)?.count ?? 0
+    : 0;
 
-  async function handleConvertFragment(characterId: string) {
+  async function handleConvertFragment(characterId: string, rarity: Rarity) {
+    const key = stackKey(characterId, rarity);
     if (convertingId) return;
-    const rate = FRAGMENT_CONVERSION_BYTES_BY_RARITY[byId.get(characterId)?.rarity ?? FALLBACK_RARITY];
-    setConvertingId(characterId);
-    onSellFragment(characterId);
+    const rate = FRAGMENT_CONVERSION_BYTES_BY_RARITY[rarity];
+    setConvertingId(key);
+    onSellFragment(characterId, rarity);
     await onAdjustBytes(rate);
     setConvertingId(null);
     onToast(`+${rate} bytes pela conversão do diagrama.`);
   }
 
   async function handlePublish() {
-    if (publishing || !publishCharacterId || publishQuantity < 1 || publishQuantity > maxFragmentsForPublish || publishPrice < MIN_PRICE_CREDITS) return;
+    if (publishing || !publishTarget || publishQuantity < 1 || publishQuantity > maxFragmentsForPublish || publishPrice < MIN_PRICE_CREDITS) return;
     setPublishing(true);
-    const ok = await market.publishListing(publishCharacterId, publishQuantity, publishPrice);
+    const ok = await market.publishListing(publishTarget.characterId, publishTarget.rarity, publishQuantity, publishPrice);
     setPublishing(false);
     if (ok) {
       await onRefreshFragments();
@@ -145,36 +160,39 @@ export function MarketPage({
             <Icon name="binary" size={12} className="text-signal-cyan" />
             Diagramas rendem mais bytes quanto maior a raridade do personagem. Seu saldo: {bytes} bytes.
           </p>
-          {fragmentEntries.length === 0 ? (
+          {fragments.length === 0 ? (
             <p className="rounded-xl border border-void-600 bg-void-800/30 p-4 text-xs text-white/40">
               Nenhum diagrama ainda — personagens repetidos de invocações aparecem aqui.
             </p>
           ) : (
             <div className="flex flex-col gap-2">
-              {fragmentEntries.map(([characterId, count]) => {
-                const info = byId.get(characterId);
-                const rate = FRAGMENT_CONVERSION_BYTES_BY_RARITY[info?.rarity ?? FALLBACK_RARITY];
+              {fragments.map((f) => {
+                const info = byId.get(f.characterId);
+                const rate = FRAGMENT_CONVERSION_BYTES_BY_RARITY[f.rarity];
+                const key = stackKey(f.characterId, f.rarity);
                 return (
-                  <div key={characterId} className="flex items-center justify-between gap-3 rounded-lg border border-void-600 bg-void-800/50 p-3">
+                  <div key={key} className="flex items-center justify-between gap-3 rounded-lg border border-void-600 bg-void-800/50 p-3">
                     <div className="flex min-w-0 items-center gap-3">
                       <CharacterPortrait
-                        name={info?.name ?? characterId}
-                        element={info?.element ?? 'Encryption'}
-                        rarity={info?.rarity ?? FALLBACK_RARITY}
+                        name={info?.name ?? f.characterId}
+                        faction={info?.faction ?? FALLBACK_FACTION}
+                        rarity={f.rarity}
                         portraitUrl={info?.portraitUrl}
                         size={40}
                       />
                       <div className="min-w-0">
-                        <p className="truncate text-sm text-white">{diagramName(info?.name ?? characterId)}</p>
-                        <p className="text-xs text-white/50">{count}x diagrama</p>
+                        <p className="truncate text-sm text-white">{diagramName(info?.name ?? f.characterId)}</p>
+                        <p className="text-xs text-white/50">
+                          {f.count}x diagrama · {f.rarity}
+                        </p>
                       </div>
                     </div>
                     <button
-                      onClick={() => handleConvertFragment(characterId)}
-                      disabled={convertingId === characterId}
+                      onClick={() => handleConvertFragment(f.characterId, f.rarity)}
+                      disabled={convertingId === key}
                       className="flex shrink-0 items-center gap-1.5 rounded-lg border border-void-600 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-white/70 transition hover:border-signal-cyan/50 hover:text-signal-cyan disabled:opacity-50"
                     >
-                      {convertingId === characterId && <Icon name="loader" size={12} className="animate-spin" />}
+                      {convertingId === key && <Icon name="loader" size={12} className="animate-spin" />}
                       <Icon name="binary" size={12} />
                       Converter +{rate}
                     </button>
@@ -202,23 +220,23 @@ export function MarketPage({
             </div>
           ) : (
             <div className="rounded-xl border border-void-600 bg-void-800/40 p-4">
-              {fragmentEntries.length === 0 ? (
+              {fragments.length === 0 ? (
                 <p className="text-xs text-white/40">Você não tem diagramas para vender ainda.</p>
               ) : (
                 <div className="flex flex-wrap items-end gap-2">
                   <label className="flex flex-col gap-1">
                     <span className="text-[10px] uppercase tracking-wide text-white/40">Personagem</span>
                     <select
-                      value={publishCharacterId}
+                      value={publishSelection}
                       onChange={(e) => {
-                        setPublishCharacterId(e.target.value);
+                        setPublishSelection(e.target.value);
                         setPublishQuantity(1);
                       }}
                       className="rounded-lg border border-void-600 bg-void-900 px-2 py-1.5 text-xs text-white/80 focus:outline-none"
                     >
-                      {fragmentEntries.map(([characterId, count]) => (
-                        <option key={characterId} value={characterId}>
-                          {diagramName(byId.get(characterId)?.name ?? characterId)} ({count}x)
+                      {fragments.map((f) => (
+                        <option key={stackKey(f.characterId, f.rarity)} value={stackKey(f.characterId, f.rarity)}>
+                          {diagramName(byId.get(f.characterId)?.name ?? f.characterId)} · {f.rarity} ({f.count}x)
                         </option>
                       ))}
                     </select>
@@ -265,15 +283,15 @@ export function MarketPage({
                   <div className="flex min-w-0 items-center gap-3">
                     <CharacterPortrait
                       name={byId.get(l.characterId)?.name ?? l.characterId}
-                      element={byId.get(l.characterId)?.element ?? 'Encryption'}
-                      rarity={byId.get(l.characterId)?.rarity ?? FALLBACK_RARITY}
+                      faction={byId.get(l.characterId)?.faction ?? FALLBACK_FACTION}
+                      rarity={l.rarity}
                       portraitUrl={byId.get(l.characterId)?.portraitUrl}
                       size={40}
                     />
                     <div className="min-w-0">
                       <p className="truncate text-sm text-white">{diagramName(byId.get(l.characterId)?.name ?? l.characterId)}</p>
                       <p className="text-xs text-white/50">
-                        {l.quantity}x · {l.priceCredits} créditos/un.
+                        {l.rarity} · {l.quantity}x · {l.priceCredits} créditos/un.
                       </p>
                     </div>
                   </div>
@@ -309,15 +327,15 @@ export function MarketPage({
                     <div className="flex min-w-0 items-center gap-3">
                       <CharacterPortrait
                         name={info?.name ?? l.characterId}
-                        element={info?.element ?? 'Encryption'}
-                        rarity={info?.rarity ?? FALLBACK_RARITY}
+                        faction={info?.faction ?? FALLBACK_FACTION}
+                        rarity={l.rarity}
                         portraitUrl={info?.portraitUrl}
                         size={40}
                       />
                       <div className="min-w-0">
                         <p className="truncate text-sm text-white">{diagramName(info?.name ?? l.characterId)}</p>
                         <p className="text-xs text-white/50">
-                          {l.sellerUsername} · {l.quantity}x disponíveis · {l.priceCredits} créditos/un.
+                          {l.sellerUsername} · {l.rarity} · {l.quantity}x disponíveis · {l.priceCredits} créditos/un.
                         </p>
                       </div>
                     </div>

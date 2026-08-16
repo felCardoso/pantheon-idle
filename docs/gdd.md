@@ -29,9 +29,16 @@ Não são papéis rígidos de combate, mas arquétipos que orientam design de ha
 
 - Raridades: **Alpha → Beta → Stable → LTS → Zero-Day**
 - Cada personagem pertence a uma mitologia (define sinergia) e a uma facção (define arquétipo)
-- Personagens de raridade **Stable ou acima têm 1 habilidade passiva**; os demais têm **habilidade ativa** disparada por gatilho
+- Personagens de raridade **LTS ou acima têm a habilidade passiva desbloqueada**; abaixo disso o card da passiva aparece bloqueado ("Somente LTS+")
 - Personagens excepcionalmente fortes e raros (ex: Chronos) só podem existir nas raridades **Stable ou LTS** — nunca em Alpha/Beta
 - Cada personagem oferece **3 opções de habilidade** para o jogador escolher (fixa até redefinir), geradas por uma matriz de Gatilho × Efeito × Alvo curada manualmente por personagem (lista completa de gatilhos no documento de Combate Detalhado)
+
+### Progressão de habilidades
+
+Cada personagem possui duas trilhas de melhoria, compartilhadas entre todas as cópias (raridades) que o jogador possuir do mesmo `.exe` — subir de raridade nunca reseta o nível de habilidade, só o nível de XP/personagem:
+
+- **Nível de Habilidade (1-5)**, limitado pela maior raridade já possuída: Alpha até 1, Beta até 2, Stable até 3, LTS até 4, Zero-Day até 5. Custo: nível 2 = 5.000 Créditos, 3 = 15.000, 4 = 30.000, 5 = 50.000 (nível 1 é o padrão, sem custo)
+- **Nível de Passiva (0-2)**, só disponível a partir de LTS: LTS libera até o nível 1, Zero-Day até o nível 2. Custo: nível 1 é o padrão ao desbloquear LTS, nível 2 custa 50.000 Créditos
 
 ## 4. Sistema de Combate
 
@@ -40,7 +47,7 @@ Detalhamento completo (atributos, elementos, efeitos de status, gatilhos de habi
 - Tempo real (2x disponível no PvE; PvP sempre em tempo real puro), times de até 5, ~30s de duração alvo
 - Atributos: HP, ATK, DEF (todos começam em 0), INI, ESQ
 - Elementos são tipos de código malicioso/defensivo (Vírus, Brute Force, Nanites, Encryption, Backdoor) — batalha é tratada como uma simulação rodada por IAs, cada personagem é a persona `.exe` de uma IA
-- Habilidade passiva única (Stable+) ou ativa com 3 opções (Alpha/Beta)
+- Habilidade passiva única (desbloqueada a partir de LTS) ou ativa com 3 opções (Alpha/Beta)
 - Sinergia mitológica por quantidade de personagens da mesma mitologia no time
 
 ## 5. Mundos e Fases (PvE)

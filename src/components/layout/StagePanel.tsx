@@ -72,9 +72,7 @@ export function StagePanel({
             <span className={stage.isBoss ? 'font-bold text-signal-red' : 'text-white/50'}>
               Fase {localFaseNumber(stage.phase)} · {stage.isBoss ? 'Chefe de Mundo' : `Estágio ${stage.stage}/${stage.totalStages}`}
             </span>
-            <span className="font-mono text-code-400">
-              Round {stage.round} · T{stage.turn}
-            </span>
+            <span className="font-mono text-code-400">Round {stage.round}</span>
           </div>
 
           {mode === 'repeat' ? (

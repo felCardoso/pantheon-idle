@@ -9,12 +9,16 @@ import {
   buildCompendium,
   currentShowcaseWeek,
   pickWeeklyBannerCharacter,
-  pullGachaCharacter,
+  pullBannerCharacter,
+  pullGachaCharacterWithRarity,
+  RARITY_RANK,
+  type GachaTier,
   type RosterCharacter,
 } from '../../data/roster';
 import { RARITY_COLOR } from '../../data/theme';
 import { Rng } from '../../engine/core/rng';
-import type { OwnedCharacter } from '../../hooks/useOwnedCharacters';
+import { BANNER_PITY_MAX } from '../../hooks/usePlayerProgress';
+import type { AcquireOutcome, OwnedCharacter } from '../../hooks/useOwnedCharacters';
 import type { Rarity } from '../../types';
 
 // First-pass numbers, easy to retune later — change these to retune the whole gacha economy.
@@ -25,44 +29,75 @@ const BUNDLE_SIZE = 10;
 const BUNDLE_DISCOUNT_PERCENT = 0.1;
 /** Decoy portraits scrolled through before landing on a pull's flourish winner — purely visual. */
 const REEL_LENGTH = 24;
+/** The banner's spotlighted character always displays at this rarity, independent of anything a pull actually rolls. */
+const BANNER_DISPLAY_RARITY: Rarity = 'Zero-Day';
 
 /** The 10x price for any unit price, always `BUNDLE_SIZE` at `BUNDLE_DISCOUNT_PERCENT` off. */
 function bundlePrice(unitPrice: number): number {
   return Math.round(unitPrice * BUNDLE_SIZE * (1 - BUNDLE_DISCOUNT_PERCENT));
 }
 
-const RARITY_RANK: Record<Rarity, number> = { Alpha: 0, Beta: 1, Stable: 2, LTS: 3, 'Zero-Day': 4 };
-
 interface GachaPageProps {
   credits: number;
   tokens: number;
   ownedCharacters: OwnedCharacter[];
-  onAcquireCharacter: (characterId: string) => Promise<'new' | 'duplicate'>;
+  onAcquireCharacter: (characterId: string, rarity: Rarity) => Promise<AcquireOutcome>;
   onAdjustCredits: (delta: number) => void;
   onSpendTokens: (amount: number) => Promise<boolean>;
   onToast: (message: string) => void;
+  bannerPity: number;
+  onIncrementBannerPity: (count: number) => void;
+  onClaimBannerPity: () => void;
+  /** The banner's "50/50" carry-over — true once the next Zero-Day pulled on the banner is guaranteed to be the spotlighted character. */
+  bannerGuaranteed: boolean;
+  onSetBannerGuaranteed: (value: boolean) => void;
 }
 
 interface PullResult {
   characterId: string;
-  outcome: 'new' | 'duplicate';
+  rarity: Rarity;
+  outcome: AcquireOutcome;
 }
 
-export function GachaPage({ credits, tokens, ownedCharacters, onAcquireCharacter, onAdjustCredits, onSpendTokens, onToast }: GachaPageProps) {
+const OUTCOME_LABEL: Record<AcquireOutcome, string> = {
+  new: 'Novo personagem desbloqueado!',
+  upgraded: 'Carta evoluída para uma raridade maior!',
+  duplicate: 'Personagem repetido',
+};
+
+export function GachaPage({
+  credits,
+  tokens,
+  ownedCharacters,
+  onAcquireCharacter,
+  onAdjustCredits,
+  onSpendTokens,
+  onToast,
+  bannerPity,
+  onIncrementBannerPity,
+  onClaimBannerPity,
+  bannerGuaranteed,
+  onSetBannerGuaranteed,
+}: GachaPageProps) {
   const [pulling, setPulling] = useState(false);
   const [reelItems, setReelItems] = useState<RosterCharacter[] | null>(null);
   const [reveal, setReveal] = useState<PullResult | null>(null);
   const [batchReveal, setBatchReveal] = useState<PullResult[] | null>(null);
   const [viewingBanner, setViewingBanner] = useState(false);
+  const [claimingPity, setClaimingPity] = useState(false);
   const pendingRef = useRef<PullResult[]>([]);
 
   const compendium = buildCompendium();
   const byId = useMemo(() => new Map(compendium.map((c) => [c.templateId, c])), [compendium]);
+  const ownedByCharacterId = useMemo(() => new Map(ownedCharacters.map((o) => [o.characterId, o])), [ownedCharacters]);
   const ownedSet = useMemo(() => new Set(ownedCharacters.map((o) => o.characterId)), [ownedCharacters]);
   const bannerCharacterId = useMemo(() => pickWeeklyBannerCharacter(currentShowcaseWeek()), []);
   const bannerCharacter = byId.get(bannerCharacterId);
+  // The banner spotlight always reads as Zero-Day, regardless of the compendium's baseline rarity or what pulls actually roll.
+  const bannerDisplay = bannerCharacter ? { ...bannerCharacter, rarity: BANNER_DISPLAY_RARITY } : null;
+  const pityReady = bannerPity >= BANNER_PITY_MAX;
 
-  async function resolvePulls(count: number, pay: () => Promise<boolean>) {
+  async function resolvePulls(count: number, tier: GachaTier, pay: () => Promise<boolean>) {
     if (pulling) return;
     setPulling(true);
     const paid = await pay();
@@ -73,20 +108,31 @@ export function GachaPage({ credits, tokens, ownedCharacters, onAcquireCharacter
     }
 
     const results: PullResult[] = [];
-    for (let i = 0; i < count; i++) {
-      const characterId = pullGachaCharacter(new Rng((Date.now() + i) >>> 0));
-      const outcome = await onAcquireCharacter(characterId);
-      results.push({ characterId, outcome });
+    if (tier === 'banner') {
+      // The 50/50 carry-over (see pullBannerCharacter) depends on the outcome of the previous
+      // banner pull, so this batch has to thread it through sequentially rather than rolling
+      // all `count` pulls independently.
+      let guaranteed = bannerGuaranteed;
+      for (let i = 0; i < count; i++) {
+        const { characterId, rarity, guaranteedNext } = pullBannerCharacter(new Rng((Date.now() + i) >>> 0), bannerCharacterId, guaranteed);
+        guaranteed = guaranteedNext;
+        const outcome = await onAcquireCharacter(characterId, rarity);
+        results.push({ characterId, rarity, outcome });
+      }
+      onSetBannerGuaranteed(guaranteed);
+      onIncrementBannerPity(count);
+    } else {
+      for (let i = 0; i < count; i++) {
+        const { characterId, rarity } = pullGachaCharacterWithRarity(new Rng((Date.now() + i) >>> 0), tier);
+        const outcome = await onAcquireCharacter(characterId, rarity);
+        results.push({ characterId, rarity, outcome });
+      }
     }
 
-    const flourishWinnerId = [...results].sort((a, b) => {
-      const rarityA = byId.get(a.characterId)?.rarity ?? 'Alpha';
-      const rarityB = byId.get(b.characterId)?.rarity ?? 'Alpha';
-      return RARITY_RANK[rarityB] - RARITY_RANK[rarityA];
-    })[0].characterId;
+    const flourishWinnerId = [...results].sort((a, b) => RARITY_RANK[b.rarity] - RARITY_RANK[a.rarity])[0].characterId;
     const winner = byId.get(flourishWinnerId);
     if (!winner) {
-      // Shouldn't happen — pullGachaCharacter only ever returns ids the compendium knows about.
+      // Shouldn't happen — pullGachaCharacterWithRarity only ever returns ids the compendium knows about.
       setPulling(false);
       if (count === 1) setReveal(results[0]);
       else setBatchReveal(results);
@@ -119,7 +165,21 @@ export function GachaPage({ credits, tokens, ownedCharacters, onAcquireCharacter
     return onSpendTokens(amount);
   }
 
+  async function handleClaimPity() {
+    if (claimingPity || !pityReady || !bannerCharacter) return;
+    setClaimingPity(true);
+    const outcome = await onAcquireCharacter(bannerCharacterId, BANNER_DISPLAY_RARITY);
+    onClaimBannerPity();
+    setClaimingPity(false);
+    onToast(
+      outcome === 'duplicate'
+        ? `Diagrama Zero-Day de ${bannerCharacter.name} extraído — convertido em fragmento.`
+        : `${bannerCharacter.name}.exe extraído com root access garantido!`,
+    );
+  }
+
   const revealInfo = reveal ? byId.get(reveal.characterId) : null;
+  const revealDisplay = revealInfo && reveal ? { ...revealInfo, rarity: reveal.rarity } : null;
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5">
@@ -130,14 +190,14 @@ export function GachaPage({ credits, tokens, ownedCharacters, onAcquireCharacter
 
       <div className="flex flex-col gap-4">
         {/* Banner semanal */}
-        {bannerCharacter && (
-          <AnimatedBorderCard accentColor={RARITY_COLOR[bannerCharacter.rarity]}>
+        {bannerDisplay && (
+          <AnimatedBorderCard accentColor={RARITY_COLOR[bannerDisplay.rarity]}>
             <div className="relative overflow-hidden rounded-[10px] p-4 sm:p-5">
               {/* discreet rotating glow wash behind the banner content */}
               <div
                 className="pointer-events-none absolute inset-[-100%] animate-spin opacity-20 [animation-duration:14s]"
                 style={{
-                  background: `conic-gradient(from 0deg, transparent 0%, ${RARITY_COLOR[bannerCharacter.rarity]} 8%, transparent 20%, transparent 50%, ${RARITY_COLOR[bannerCharacter.rarity]} 58%, transparent 70%)`,
+                  background: `conic-gradient(from 0deg, transparent 0%, ${RARITY_COLOR[bannerDisplay.rarity]} 8%, transparent 20%, transparent 50%, ${RARITY_COLOR[bannerDisplay.rarity]} 58%, transparent 70%)`,
                 }}
               />
               <div className="relative z-10 flex items-center justify-between gap-4">
@@ -147,8 +207,8 @@ export function GachaPage({ credits, tokens, ownedCharacters, onAcquireCharacter
                     Banner Semanal
                   </span>
                   <div>
-                    <p className="font-display text-base font-bold text-white sm:text-lg">{bannerCharacter.name}</p>
-                    <RosterChips faction={bannerCharacter.faction} element={bannerCharacter.element} rarity={bannerCharacter.rarity} />
+                    <p className="font-display text-base font-bold text-white sm:text-lg">{bannerDisplay.name}</p>
+                    <RosterChips faction={bannerDisplay.faction} rarity={bannerDisplay.rarity} />
                   </div>
                   <button
                     onClick={() => setViewingBanner(true)}
@@ -159,7 +219,7 @@ export function GachaPage({ credits, tokens, ownedCharacters, onAcquireCharacter
                   </button>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
                     <button
-                      onClick={() => resolvePulls(1, () => payTokens(BANNER_PULL_PRICE_TOKENS))}
+                      onClick={() => resolvePulls(1, 'banner', () => payTokens(BANNER_PULL_PRICE_TOKENS))}
                       disabled={pulling || tokens < BANNER_PULL_PRICE_TOKENS}
                       className="flex items-center gap-1.5 rounded-lg bg-signal-cyan px-3 py-2 font-display text-xs font-bold uppercase tracking-wide text-void-950 transition hover:bg-signal-cyan/80 disabled:opacity-50"
                     >
@@ -167,19 +227,43 @@ export function GachaPage({ credits, tokens, ownedCharacters, onAcquireCharacter
                       1x <Icon name="gem" size={12} /> {BANNER_PULL_PRICE_TOKENS}
                     </button>
                     <button
-                      onClick={() => resolvePulls(BUNDLE_SIZE, () => payTokens(bundlePrice(BANNER_PULL_PRICE_TOKENS)))}
+                      onClick={() => resolvePulls(BUNDLE_SIZE, 'banner', () => payTokens(bundlePrice(BANNER_PULL_PRICE_TOKENS)))}
                       disabled={pulling || tokens < bundlePrice(BANNER_PULL_PRICE_TOKENS)}
                       className="flex items-center gap-1.5 rounded-lg border border-signal-cyan/50 px-3 py-2 font-display text-xs font-bold uppercase tracking-wide text-signal-cyan transition hover:bg-signal-cyan/10 disabled:opacity-50"
                     >
                       10x <Icon name="gem" size={12} /> {bundlePrice(BANNER_PULL_PRICE_TOKENS)}
                     </button>
                   </div>
+
+                  {/* Hard pity — X/150, guaranteed banner character once maxed */}
+                  <div className="mt-1 flex w-full max-w-xs flex-col gap-1">
+                    <div className="h-2 w-full overflow-hidden rounded-full border border-signal-cyan/20 bg-void-900/70">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-signal-cyan/70 to-signal-cyan transition-all"
+                        style={{ width: `${Math.min(100, (bannerPity / BANNER_PITY_MAX) * 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] uppercase tracking-wide text-white/40">
+                        Garantia: {Math.min(bannerPity, BANNER_PITY_MAX)}/{BANNER_PITY_MAX}
+                      </span>
+                      <button
+                        onClick={handleClaimPity}
+                        disabled={!pityReady || claimingPity}
+                        className="flex items-center gap-1 rounded-full border border-signal-amber/50 bg-signal-amber/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-signal-amber transition hover:bg-signal-amber/20 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {claimingPity && <Icon name="loader" size={10} className="animate-spin" />}
+                        <Icon name="unlock" size={10} />
+                        Extrair Executável Garantido
+                      </button>
+                    </div>
+                  </div>
                 </div>
                 <CharacterPortrait
-                  name={bannerCharacter.name}
-                  element={bannerCharacter.element}
-                  rarity={bannerCharacter.rarity}
-                  portraitUrl={bannerCharacter.portraitUrl}
+                  name={bannerDisplay.name}
+                  faction={bannerDisplay.faction}
+                  rarity={bannerDisplay.rarity}
+                  portraitUrl={bannerDisplay.portraitUrl}
                   size={120}
                   className="shrink-0"
                 />
@@ -203,7 +287,7 @@ export function GachaPage({ credits, tokens, ownedCharacters, onAcquireCharacter
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button
-                  onClick={() => resolvePulls(1, () => payCredits(COMMON_PULL_PRICE_CREDITS))}
+                  onClick={() => resolvePulls(1, 'normal', () => payCredits(COMMON_PULL_PRICE_CREDITS))}
                   disabled={pulling || credits < COMMON_PULL_PRICE_CREDITS}
                   className="flex items-center gap-1.5 rounded-lg bg-code-500 px-3 py-2 font-display text-xs font-bold uppercase tracking-wide text-void-950 transition hover:bg-code-400 disabled:opacity-50"
                 >
@@ -211,7 +295,7 @@ export function GachaPage({ credits, tokens, ownedCharacters, onAcquireCharacter
                   1x <Icon name="coins" size={12} /> {COMMON_PULL_PRICE_CREDITS}
                 </button>
                 <button
-                  onClick={() => resolvePulls(BUNDLE_SIZE, () => payCredits(bundlePrice(COMMON_PULL_PRICE_CREDITS)))}
+                  onClick={() => resolvePulls(BUNDLE_SIZE, 'normal', () => payCredits(bundlePrice(COMMON_PULL_PRICE_CREDITS)))}
                   disabled={pulling || credits < bundlePrice(COMMON_PULL_PRICE_CREDITS)}
                   className="flex items-center gap-1.5 rounded-lg border border-code-500/50 px-3 py-2 font-display text-xs font-bold uppercase tracking-wide text-code-300 transition hover:bg-code-500/10 disabled:opacity-50"
                 >
@@ -234,7 +318,7 @@ export function GachaPage({ credits, tokens, ownedCharacters, onAcquireCharacter
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button
-                  onClick={() => resolvePulls(1, () => payTokens(IMPROVED_PULL_PRICE_TOKENS))}
+                  onClick={() => resolvePulls(1, 'hard', () => payTokens(IMPROVED_PULL_PRICE_TOKENS))}
                   disabled={pulling || tokens < IMPROVED_PULL_PRICE_TOKENS}
                   className="flex items-center gap-1.5 rounded-lg bg-arcane-400 px-3 py-2 font-display text-xs font-bold uppercase tracking-wide text-void-950 transition hover:bg-arcane-400/80 disabled:opacity-50"
                 >
@@ -242,7 +326,7 @@ export function GachaPage({ credits, tokens, ownedCharacters, onAcquireCharacter
                   1x <Icon name="gem" size={12} /> {IMPROVED_PULL_PRICE_TOKENS}
                 </button>
                 <button
-                  onClick={() => resolvePulls(BUNDLE_SIZE, () => payTokens(bundlePrice(IMPROVED_PULL_PRICE_TOKENS)))}
+                  onClick={() => resolvePulls(BUNDLE_SIZE, 'hard', () => payTokens(bundlePrice(IMPROVED_PULL_PRICE_TOKENS)))}
                   disabled={pulling || tokens < bundlePrice(IMPROVED_PULL_PRICE_TOKENS)}
                   className="flex items-center gap-1.5 rounded-lg border border-arcane-400/50 px-3 py-2 font-display text-xs font-bold uppercase tracking-wide text-arcane-300 transition hover:bg-arcane-400/10 disabled:opacity-50"
                 >
@@ -255,24 +339,23 @@ export function GachaPage({ credits, tokens, ownedCharacters, onAcquireCharacter
 
         {reelItems && <SummonReel items={reelItems} onComplete={handleReelComplete} />}
 
-        {revealInfo && (
+        {revealDisplay && reveal && (
           <div className="flex items-center gap-3 rounded-xl border border-code-500/30 bg-code-900/20 p-4">
             <CharacterPortrait
-              name={revealInfo.name}
-              element={revealInfo.element}
-              rarity={revealInfo.rarity}
-              portraitUrl={revealInfo.portraitUrl}
+              name={revealDisplay.name}
+              faction={revealDisplay.faction}
+              rarity={revealDisplay.rarity}
+              portraitUrl={revealDisplay.portraitUrl}
               size={56}
             />
             <div className="min-w-0 flex-1">
-              <p className="font-display text-sm font-bold text-white">
-                {reveal!.outcome === 'new' ? 'Novo personagem desbloqueado!' : 'Personagem repetido'}
-              </p>
+              <p className="font-display text-sm font-bold text-white">{OUTCOME_LABEL[reveal.outcome]}</p>
               <div className="flex items-center gap-2">
-                <span className="truncate text-xs text-white/70">{revealInfo.name}</span>
-                <RosterChips faction={revealInfo.faction} element={revealInfo.element} rarity={revealInfo.rarity} />
+                <span className="truncate text-xs text-white/70">{revealDisplay.name}</span>
+                <RosterChips faction={revealDisplay.faction} rarity={revealDisplay.rarity} />
               </div>
-              {reveal!.outcome === 'duplicate' && <p className="mt-1 text-[11px] text-white/50">Convertido em +1 diagrama.</p>}
+              {reveal.outcome === 'duplicate' && <p className="mt-1 text-[11px] text-white/50">Convertido em +1 diagrama.</p>}
+              {reveal.outcome === 'upgraded' && <p className="mt-1 text-[11px] text-white/50">Nível de personagem resetado — habilidades preservadas.</p>}
             </div>
             <button onClick={() => setReveal(null)} className="shrink-0 rounded-lg p-1.5 text-white/40 transition hover:text-white/70">
               <Icon name="x" size={16} />
@@ -292,16 +375,17 @@ export function GachaPage({ credits, tokens, ownedCharacters, onAcquireCharacter
               {batchReveal.map((r, i) => {
                 const info = byId.get(r.characterId);
                 if (!info) return null;
+                const badgeLabel = r.outcome === 'new' ? 'novo' : r.outcome === 'upgraded' ? 'up!' : '+1';
                 return (
                   <div key={`${r.characterId}-${i}`} className="flex flex-col items-center gap-1">
                     <div className="relative">
-                      <CharacterPortrait name={info.name} element={info.element} rarity={info.rarity} portraitUrl={info.portraitUrl} size={48} />
+                      <CharacterPortrait name={info.name} faction={info.faction} rarity={r.rarity} portraitUrl={info.portraitUrl} size={48} />
                       <span
                         className={`absolute -right-1 -top-1 rounded-full px-1 py-0.5 text-[8px] font-bold uppercase leading-none ${
-                          r.outcome === 'new' ? 'bg-code-500 text-void-950' : 'bg-void-700 text-white/70'
+                          r.outcome === 'new' ? 'bg-code-500 text-void-950' : r.outcome === 'upgraded' ? 'bg-signal-amber text-void-950' : 'bg-void-700 text-white/70'
                         }`}
                       >
-                        {r.outcome === 'new' ? 'novo' : '+1'}
+                        {badgeLabel}
                       </span>
                     </div>
                     <span className="max-w-[3.5rem] truncate text-center text-[9px] text-white/60">{info.name}</span>
@@ -313,8 +397,13 @@ export function GachaPage({ credits, tokens, ownedCharacters, onAcquireCharacter
         )}
       </div>
 
-      {viewingBanner && bannerCharacter && (
-        <CharacterDetailModal character={bannerCharacter} owned={ownedSet.has(bannerCharacterId)} onClose={() => setViewingBanner(false)} />
+      {viewingBanner && bannerDisplay && (
+        <CharacterDetailModal
+          character={bannerDisplay}
+          owned={ownedSet.has(bannerCharacterId)}
+          ownedRarity={ownedByCharacterId.get(bannerCharacterId)?.rarity ?? null}
+          onClose={() => setViewingBanner(false)}
+        />
       )}
     </div>
   );

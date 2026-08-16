@@ -55,6 +55,8 @@ import {
   Pencil,
   Plus,
   Binary,
+  Unlock,
+  ArrowUpCircle,
   type LucideProps,
 } from 'lucide-react';
 import type { FC } from 'react';
@@ -116,6 +118,8 @@ const REGISTRY: Record<string, FC<LucideProps>> = {
   pencil: Pencil,
   plus: Plus,
   binary: Binary,
+  unlock: Unlock,
+  'arrow-up-circle': ArrowUpCircle,
 };
 
 interface IconProps extends LucideProps {

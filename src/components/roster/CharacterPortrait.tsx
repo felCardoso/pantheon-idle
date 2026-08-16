@@ -1,10 +1,10 @@
 import { PixelFigure } from '../battle/PixelFigure';
-import { ELEMENT_COLOR, RARITY_COLOR } from '../../data/theme';
-import type { Element, Rarity } from '../../types';
+import { FACTION_COLOR, RARITY_COLOR } from '../../data/theme';
+import type { Faction, Rarity } from '../../types';
 
 interface CharacterPortraitProps {
   name: string;
-  element: Element;
+  faction: Faction;
   rarity: Rarity;
   portraitUrl?: string;
   size?: number;
@@ -12,8 +12,8 @@ interface CharacterPortraitProps {
 }
 
 /** Bigger sibling of UnitCard's inline portrait box, for roster screens outside battle. */
-export function CharacterPortrait({ name, element, rarity, portraitUrl, size = 72, className = '' }: CharacterPortraitProps) {
-  const elementColor = ELEMENT_COLOR[element];
+export function CharacterPortrait({ name, faction, rarity, portraitUrl, size = 72, className = '' }: CharacterPortraitProps) {
+  const factionColor = FACTION_COLOR[faction];
   const rarityColor = RARITY_COLOR[rarity];
 
   return (
@@ -23,14 +23,14 @@ export function CharacterPortrait({ name, element, rarity, portraitUrl, size = 7
         width: size,
         height: size,
         background: `linear-gradient(150deg, ${rarityColor}22, #0a0a12)`,
-        border: `1.5px solid ${elementColor}aa`,
-        boxShadow: `0 0 18px -4px ${elementColor}88`,
+        border: `1.5px solid ${factionColor}aa`,
+        boxShadow: `0 0 18px -4px ${factionColor}88`,
       }}
     >
       {portraitUrl ? (
         <img src={portraitUrl} alt={name} className="h-full w-full object-cover" />
       ) : (
-        <PixelFigure className="h-[80%] w-[80%]" style={{ color: elementColor }} />
+        <PixelFigure className="h-[80%] w-[80%]" style={{ color: factionColor }} />
       )}
     </div>
   );

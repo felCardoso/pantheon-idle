@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import type { Rarity } from '../types';
 
 export interface DiagramListing {
   id: string;
   sellerId: string;
   sellerUsername: string;
   characterId: string;
+  rarity: Rarity;
   quantity: number;
   priceCredits: number;
 }
@@ -18,8 +20,8 @@ export interface UseMarketResult {
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
-  /** Publishes a listing (requires Root Access + owning `quantity` diagrams of characterId). Returns whether it succeeded. */
-  publishListing: (characterId: string, quantity: number, priceCredits: number) => Promise<boolean>;
+  /** Publishes a listing (requires Root Access + owning `quantity` diagrams of characterId at that rarity). Returns whether it succeeded. */
+  publishListing: (characterId: string, rarity: Rarity, quantity: number, priceCredits: number) => Promise<boolean>;
   /** Cancels one of the caller's own listings, refunding the diagrams. Returns whether it succeeded. */
   cancelListing: (listingId: string) => Promise<boolean>;
   /** Buys `quantity` from a listing (requires Root Access + affordability). Returns whether it succeeded. */
@@ -43,7 +45,7 @@ export function useMarket(userId: string | undefined): UseMarketResult {
     setError(null);
     const { data, error: selectError } = await supabase
       .from('diagram_listings')
-      .select('id, seller_id, character_id, quantity, price_credits')
+      .select('id, seller_id, character_id, quantity, price_credits, rarity')
       .order('created_at', { ascending: false });
 
     if (selectError) {
@@ -58,6 +60,7 @@ export function useMarket(userId: string | undefined): UseMarketResult {
       sellerId: r.seller_id,
       sellerUsername: names[r.seller_id] ?? 'Node',
       characterId: r.character_id,
+      rarity: r.rarity as Rarity,
       quantity: r.quantity,
       priceCredits: r.price_credits,
     }));
@@ -85,12 +88,13 @@ export function useMarket(userId: string | undefined): UseMarketResult {
   }, [userId, refresh]);
 
   const publishListing = useCallback(
-    async (characterId: string, quantity: number, priceCredits: number): Promise<boolean> => {
+    async (characterId: string, rarity: Rarity, quantity: number, priceCredits: number): Promise<boolean> => {
       if (!userId) return false;
       const { error: rpcError } = await supabase.rpc('publish_diagram_listing', {
         p_character_id: characterId,
         p_quantity: quantity,
         p_price_credits: priceCredits,
+        p_rarity: rarity,
       });
       if (rpcError) {
         setError(rpcError.message);

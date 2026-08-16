@@ -21,7 +21,6 @@ import {
   DISPLAY_PORTRAIT_BY_TEMPLATE_ID,
   DISPLAY_RARITY_BY_TEMPLATE_ID,
   ENEMY_LEVEL_BY_TEMPLATE_ID,
-  FALLBACK_ELEMENT,
   FALLBACK_FACTION,
   FALLBACK_RARITY,
   WORLD_DISPLAY_BY_ID,
@@ -55,10 +54,13 @@ function createSession(
   position: WorldPosition,
   ownedCharacters: OwnedCharacter[],
   bonusMultiplier: number,
+  selectedAbilityByCharacterId: Record<string, string>,
 ): BattleSession {
   const boss = isBossStage(position);
   const worldId = worldIdForFase(position.fase);
-  const allies = loadCharactersByIds(ownedCharacters.map((o) => ({ id: o.characterId, xp: o.xp })));
+  const allies = loadCharactersByIds(
+    ownedCharacters.map((o) => ({ id: o.characterId, xp: o.xp, rarity: o.rarity, selectedAbilityId: selectedAbilityByCharacterId[o.characterId] })),
+  );
   const sizeFactor = teamSizeMultiplier(ownedCharacters.length);
   let enemies: Combatant[];
   if (boss) {
@@ -181,6 +183,8 @@ function floatersFor(entry: BattleLogEntry, nameToId: Record<string, string>): O
       return [{ unitId: nameToId[entry.target], amount: entry.amount, kind: 'shield' }];
     case 'iceReflect':
       return [{ unitId: nameToId[entry.target], amount: entry.amount, kind: 'damage' }];
+    case 'directDamage':
+      return [{ unitId: nameToId[entry.target], amount: entry.amount, kind: 'damage' }];
     case 'enrage':
       return entry.damages.map((d) => ({ unitId: nameToId[d.target], amount: d.amount, kind: 'damage' as const }));
     default:
@@ -195,8 +199,9 @@ function buildInitialState(
   initialCredits: number,
   initialXp: number,
   bonusMultiplier: number,
+  selectedAbilityByCharacterId: Record<string, string>,
 ): PlaybackState {
-  const session = createSession(seed, position, ownedCharacters, bonusMultiplier);
+  const session = createSession(seed, position, ownedCharacters, bonusMultiplier, selectedAbilityByCharacterId);
   return {
     session,
     replay: createInitialReplayState(session.allies, session.enemies),
@@ -300,7 +305,6 @@ function toBattleUnits(templates: Combatant[], replay: ReplayState, order: strin
       id: t.id,
       name: t.name,
       faction: t.faction ?? FALLBACK_FACTION,
-      element: t.element ?? FALLBACK_ELEMENT,
       rarity: DISPLAY_RARITY_BY_TEMPLATE_ID[t.templateId] ?? FALLBACK_RARITY,
       // Allies carry a real level (derived from XP); enemies use a cosmetic per-templateId number.
       level: t.isAlly ? t.level : (ENEMY_LEVEL_BY_TEMPLATE_ID[t.templateId] ?? 1),
@@ -317,6 +321,8 @@ function toBattleUnits(templates: Combatant[], replay: ReplayState, order: strin
 export interface UseBattleSimulationOptions {
   /** The player's owned characters (id + xp) — who actually fights. Always required; there's no fallback team anymore. */
   initialOwnedCharacters: OwnedCharacter[];
+  /** Keyed by characterId — the player's equipped active ability, from useCharacterProgression. Missing entries fall back to activeOptions[0] (see loader.ts's resolveCombatantAbilities). Read fresh on every new battle, same as bonusMultiplier. */
+  selectedAbilityByCharacterId?: Record<string, string>;
   /** Milliseconds between revealed log entries while playing. */
   tickMs?: number;
   /** Pause after Vitória!/Derrota before auto-advancing to the next attempt. */
@@ -368,6 +374,7 @@ export interface BattleSimulation {
 export function useBattleSimulation(options: UseBattleSimulationOptions): BattleSimulation {
   const {
     initialOwnedCharacters,
+    selectedAbilityByCharacterId = {},
     tickMs = 500,
     autoAdvanceDelayMs = 1600,
     initialPosition = { fase: 1, estagio: 1 },
@@ -381,7 +388,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
   const [mode, setMode] = useState<'advance' | 'repeat'>('advance');
   const [retreatOnLoss, setRetreatOnLoss] = useState(true);
   const [state, dispatch] = useReducer(reducer, undefined, () =>
-    buildInitialState(Date.now() >>> 0, initialPosition, initialOwnedCharacters, initialCredits, initialXp, bonusMultiplier),
+    buildInitialState(Date.now() >>> 0, initialPosition, initialOwnedCharacters, initialCredits, initialXp, bonusMultiplier, selectedAbilityByCharacterId),
   );
 
   useEffect(() => {
@@ -412,7 +419,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     const timer = setTimeout(() => {
       dispatch({
         type: 'reset',
-        session: createSession(Date.now() >>> 0, result.position, initialOwnedCharacters, bonusMultiplier),
+        session: createSession(Date.now() >>> 0, result.position, initialOwnedCharacters, bonusMultiplier, selectedAbilityByCharacterId),
         frontier: result.frontier,
         recoveryWinsRemaining: result.recoveryWinsRemaining,
       });
@@ -430,6 +437,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     autoAdvanceDelayMs,
     initialOwnedCharacters,
     bonusMultiplier,
+    selectedAbilityByCharacterId,
   ]);
 
   const startNewBattle = useCallback(() => {
@@ -446,12 +454,23 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     );
     dispatch({
       type: 'reset',
-      session: createSession(Date.now() >>> 0, result.position, initialOwnedCharacters, bonusMultiplier),
+      session: createSession(Date.now() >>> 0, result.position, initialOwnedCharacters, bonusMultiplier, selectedAbilityByCharacterId),
       frontier: result.frontier,
       recoveryWinsRemaining: result.recoveryWinsRemaining,
     });
     setPlaying(true);
-  }, [mode, state.session.fase, state.session.estagio, state.winner, state.frontier, state.recoveryWinsRemaining, retreatOnLoss, initialOwnedCharacters, bonusMultiplier]);
+  }, [
+    mode,
+    state.session.fase,
+    state.session.estagio,
+    state.winner,
+    state.frontier,
+    state.recoveryWinsRemaining,
+    retreatOnLoss,
+    initialOwnedCharacters,
+    bonusMultiplier,
+    selectedAbilityByCharacterId,
+  ]);
 
   const repeatBattle = useCallback(() => {
     // Already repeating — nothing to change; avoids restarting the current battle mid-fight.
@@ -468,7 +487,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     const seed = result.position.fase === position.fase && result.position.estagio === position.estagio ? state.session.seed : Date.now() >>> 0;
     dispatch({
       type: 'reset',
-      session: createSession(seed, result.position, initialOwnedCharacters, bonusMultiplier),
+      session: createSession(seed, result.position, initialOwnedCharacters, bonusMultiplier, selectedAbilityByCharacterId),
       frontier: result.frontier,
       recoveryWinsRemaining: result.recoveryWinsRemaining,
     });
@@ -484,19 +503,20 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     retreatOnLoss,
     initialOwnedCharacters,
     bonusMultiplier,
+    selectedAbilityByCharacterId,
   ]);
 
   const playStage = useCallback(
     (estagio: number) => {
       dispatch({
         type: 'reset',
-        session: createSession(Date.now() >>> 0, { fase: state.session.fase, estagio }, initialOwnedCharacters, bonusMultiplier),
+        session: createSession(Date.now() >>> 0, { fase: state.session.fase, estagio }, initialOwnedCharacters, bonusMultiplier, selectedAbilityByCharacterId),
         frontier: state.frontier,
         recoveryWinsRemaining: null,
       });
       setPlaying(true);
     },
-    [state.session.fase, state.frontier, initialOwnedCharacters, bonusMultiplier],
+    [state.session.fase, state.frontier, initialOwnedCharacters, bonusMultiplier, selectedAbilityByCharacterId],
   );
 
   const adjustCredits = useCallback((delta: number) => dispatch({ type: 'adjustCredits', delta }), []);
@@ -517,7 +537,6 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
       totalStages: localFaseNumber(state.session.fase) === FASES_PER_WORLD ? ESTAGIOS_PER_FASE + 1 : ESTAGIOS_PER_FASE,
       isBoss: state.session.isBoss,
       round: state.replay.round,
-      turn: state.replay.turnInRound,
     },
     logFeed: state.logFeed,
     floaters: state.floaters,

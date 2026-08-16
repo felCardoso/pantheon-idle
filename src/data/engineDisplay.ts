@@ -24,7 +24,7 @@ import saciArt from "../assets/characters/saci.png";
 import susanooArt from "../assets/characters/susanoo.png";
 import tsukoyomiArt from "../assets/characters/tsukoyomi.png";
 
-import type { Element, Faction, Rarity } from "../types";
+import type { Faction, Rarity } from "../types";
 
 /**
  * Enemies have no real level system (no XP, they're not owned/progressed) —
@@ -174,4 +174,3 @@ export const WORLD_BACKGROUND_BY_ID: Record<string, string> = {
 
 export const FALLBACK_FACTION: Faction = "Malware";
 export const FALLBACK_RARITY: Rarity = "Alpha";
-export const FALLBACK_ELEMENT: Element = "Backdoor";

@@ -3,15 +3,19 @@ import { STATUS_COLOR, STATUS_ICON } from '../../data/theme';
 import type { ActiveStatus } from '../../types';
 
 const STATUS_LABEL: Record<ActiveStatus['type'], string> = {
-  virus: 'Vírus',
-  sangramento: 'Sangramento',
-  veneno: 'Veneno',
-  atordoamento: 'Atordoamento',
-  enfraquecimento: 'Enfraquecimento',
-  corrosao: 'Corrosão',
-  lentidao: 'Lentidão',
-  regeneracao: 'Regeneração',
-  marcado: 'Marcado',
+  leak: 'Leak',
+  trojan: 'Trojan',
+  crash: 'Crash',
+  fragmentation: 'Fragmentação',
+  nanites: 'Nanites',
+  throttling: 'Throttling',
+  lag: 'Lag',
+  target: 'Target',
+  buffAtk: 'Processamento aumentado',
+  buffDef: 'Firewall aumentado',
+  buffIni: 'Ping aumentado',
+  buffEsq: 'Evasion aumentada',
+  buffIce: 'ESP aumentado',
 };
 
 interface StatusBadgeProps {

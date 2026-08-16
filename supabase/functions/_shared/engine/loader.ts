@@ -1,4 +1,5 @@
-import type { AbilityDefinition, CombatantData, CombatConstants } from './schema.ts';
+import { PASSIVE_UNLOCK_RARITY, RARITY_RANK } from './schema.ts';
+import type { AbilityDefinition, CombatantData, CombatConstants, Rarity } from './schema.ts';
 import type { Combatant } from './types.ts';
 import { levelForXp, levelMultiplier } from './leveling.ts';
 
@@ -46,6 +47,21 @@ function resolveAbilities(ids: string[]): AbilityDefinition[] {
   });
 }
 
+/**
+ * This mirror only ever builds ally combatants (PvP is always ally-vs-ally),
+ * so it always resolves the "player equips exactly one" rule (docs/combate.md
+ * §5) — `selectedAbilityId` if it's actually one of the character's
+ * activeOptions, else activeOptions[0] — plus the passive once `rarity`
+ * clears PASSIVE_UNLOCK_RARITY.
+ */
+function resolveCombatantAbilities(data: CombatantData, rarity?: Rarity, selectedAbilityId?: string): AbilityDefinition[] {
+  const selected = selectedAbilityId && data.activeOptions.includes(selectedAbilityId) ? selectedAbilityId : data.activeOptions[0];
+  const activeIds = selected ? [selected] : [];
+  const passiveUnlocked = !!rarity && !!data.passiveAbilityId && RARITY_RANK[rarity] >= RARITY_RANK[PASSIVE_UNLOCK_RARITY];
+  const ids = passiveUnlocked ? [...activeIds, data.passiveAbilityId!] : activeIds;
+  return resolveAbilities(ids);
+}
+
 /** Mythological synergy bonus for a same-mythology team, per combate.md section 5. */
 function synergyBonusFor(teamSize: number): number {
   return CONSTANTS.synergyByCount[String(teamSize)] ?? 0;
@@ -58,6 +74,8 @@ function buildCombatant(
   statMultiplier: number = 1,
   idSuffix?: string,
   level: number = 0,
+  rarity?: Rarity,
+  selectedAbilityId?: string,
 ): Combatant {
   const scale = (1 + synergyBonus) * statMultiplier;
   const hp = Math.round(data.baseStats.hp * scale);
@@ -71,7 +89,6 @@ function buildCombatant(
     templateId: data.id,
     name: data.name,
     faction: data.faction,
-    element: data.element,
     isAlly,
     stars: data.stars ?? 0,
     level,
@@ -80,9 +97,10 @@ function buildCombatant(
     hp,
     shield: 0,
     statuses: [],
-    abilities: resolveAbilities(data.abilities),
+    abilities: resolveCombatantAbilities(data, rarity, selectedAbilityId),
     statusDurationBonus: data.statusDurationBonus ?? 0,
     alwaysActsFirst: data.alwaysActsFirst ?? false,
+    halfHpTriggered: false,
   };
 }
 
@@ -90,21 +108,38 @@ export interface OwnedCharacterEntry {
   id: string;
   /** Accumulated XP — level is always derived from this, never passed independently (see engine/core/leveling.ts). */
   xp: number;
+  /** The card's current best owned rarity — gates whether its passive is active (see resolveCombatantAbilities). */
+  rarity?: Rarity;
+  /** The player's equipped active ability id — falls back to the character's first activeOptions entry if omitted or not actually one of its options. */
+  selectedAbilityId?: string;
 }
 
 /**
  * Builds a team from whichever characters are passed (an attacker's owned
  * roster or a defender's saved snapshot, of any size/mythology mix), with
- * the same-mythology-team synergy bonus applied by count (combate.md
- * section 5) and each character's level (derived from its xp) scaling its
- * stats via levelMultiplier.
+ * each character's level (derived from its xp) scaling its stats via
+ * levelMultiplier, and the mythology synergy bonus (combate.md section 5)
+ * applied per same-mythology subgroup — a mixed-mythology team only gets the
+ * bonus for however many characters it has *of each given mythology*, never
+ * a flat bonus for the whole team's size regardless of mix.
  */
 export function loadCharactersByIds(entries: OwnedCharacterEntry[]): Combatant[] {
-  const synergyBonus = synergyBonusFor(entries.length);
-  return entries.map(({ id, xp }) => {
+  const dataByEntry = entries.map(({ id, xp, rarity, selectedAbilityId }) => {
     const data = CHARACTER_REGISTRY[id];
     if (!data) throw new Error(`Unknown character id: ${id}`);
+    return { data, xp, rarity, selectedAbilityId };
+  });
+
+  const countByMythology = new Map<string, number>();
+  for (const { data } of dataByEntry) {
+    const key = data.mythology ?? 'Desconhecida';
+    countByMythology.set(key, (countByMythology.get(key) ?? 0) + 1);
+  }
+
+  return dataByEntry.map(({ data, xp, rarity, selectedAbilityId }) => {
+    const key = data.mythology ?? 'Desconhecida';
+    const synergyBonus = synergyBonusFor(countByMythology.get(key)!);
     const level = levelForXp(xp);
-    return buildCombatant(data, true, synergyBonus, levelMultiplier(level), undefined, level);
+    return buildCombatant(data, true, synergyBonus, levelMultiplier(level), undefined, level, rarity, selectedAbilityId);
   });
 }

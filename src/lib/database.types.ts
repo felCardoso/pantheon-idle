@@ -22,6 +22,8 @@ export interface Database {
           pve_team_slot: number;
           pvp_team_slot: number;
           bytes: number;
+          banner_pity: number;
+          banner_guaranteed: boolean;
           updated_at: string;
         };
         Insert: {
@@ -43,6 +45,8 @@ export interface Database {
           pve_team_slot?: number;
           pvp_team_slot?: number;
           bytes?: number;
+          banner_pity?: number;
+          banner_guaranteed?: boolean;
           updated_at?: string;
         };
         Update: {
@@ -64,6 +68,8 @@ export interface Database {
           pve_team_slot?: number;
           pvp_team_slot?: number;
           bytes?: number;
+          banner_pity?: number;
+          banner_guaranteed?: boolean;
           updated_at?: string;
         };
         Relationships: [];
@@ -74,18 +80,45 @@ export interface Database {
           character_id: string;
           acquired_at: string;
           xp: number;
+          rarity: string;
         };
         Insert: {
           user_id: string;
           character_id: string;
           acquired_at?: string;
           xp?: number;
+          rarity?: string;
         };
         Update: {
           user_id?: string;
           character_id?: string;
           acquired_at?: string;
           xp?: number;
+          rarity?: string;
+        };
+        Relationships: [];
+      };
+      character_ability_progress: {
+        Row: {
+          user_id: string;
+          character_id: string;
+          ability_level: number;
+          passive_level: number;
+          selected_ability_id: string | null;
+        };
+        Insert: {
+          user_id: string;
+          character_id: string;
+          ability_level?: number;
+          passive_level?: number;
+          selected_ability_id?: string | null;
+        };
+        Update: {
+          user_id?: string;
+          character_id?: string;
+          ability_level?: number;
+          passive_level?: number;
+          selected_ability_id?: string | null;
         };
         Relationships: [];
       };
@@ -114,16 +147,19 @@ export interface Database {
         Row: {
           user_id: string;
           character_id: string;
+          rarity: string;
           count: number;
         };
         Insert: {
           user_id: string;
           character_id: string;
+          rarity?: string;
           count?: number;
         };
         Update: {
           user_id?: string;
           character_id?: string;
+          rarity?: string;
           count?: number;
         };
         Relationships: [];
@@ -273,6 +309,7 @@ export interface Database {
           character_id: string;
           quantity: number;
           price_credits: number;
+          rarity: string;
           created_at: string;
         };
         Insert: {
@@ -281,6 +318,7 @@ export interface Database {
           character_id: string;
           quantity: number;
           price_credits: number;
+          rarity?: string;
           created_at?: string;
         };
         Update: {
@@ -289,6 +327,7 @@ export interface Database {
           character_id?: string;
           quantity?: number;
           price_credits?: number;
+          rarity?: string;
           created_at?: string;
         };
         Relationships: [];
@@ -311,6 +350,7 @@ export interface Database {
           p_character_id: string;
           p_quantity: number;
           p_price_credits: number;
+          p_rarity: string;
         };
         Returns: string;
       };
