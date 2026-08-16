@@ -104,18 +104,21 @@ export interface Database {
           character_id: string;
           ability_level: number;
           passive_level: number;
+          selected_ability_id: string | null;
         };
         Insert: {
           user_id: string;
           character_id: string;
           ability_level?: number;
           passive_level?: number;
+          selected_ability_id?: string | null;
         };
         Update: {
           user_id?: string;
           character_id?: string;
           ability_level?: number;
           passive_level?: number;
+          selected_ability_id?: string | null;
         };
         Relationships: [];
       };

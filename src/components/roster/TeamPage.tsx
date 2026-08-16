@@ -11,6 +11,7 @@ import type { TeamSlot, UsePlayerTeamsResult } from '../../hooks/usePlayerTeams'
 import { MAX_TEAM_MEMBERS } from '../../hooks/usePlayerTeams';
 import { TEAM_SLOT_COST_TOKENS } from '../../hooks/usePlayerProgress';
 import type { UsePvpResult } from '../../hooks/usePvp';
+import type { UseCharacterProgressionResult } from '../../hooks/useCharacterProgression';
 import type { Rarity } from '../../types';
 
 interface TeamPageProps {
@@ -27,6 +28,7 @@ interface TeamPageProps {
   pvp: UsePvpResult;
   onRewardCredits: (amount: number) => void;
   onToast: (message: string) => void;
+  characterProgression: UseCharacterProgressionResult;
 }
 
 const RARITY_ORDER: Record<Rarity, number> = { 'Zero-Day': 0, LTS: 1, Stable: 2, Beta: 3, Alpha: 4 };
@@ -58,6 +60,7 @@ export function TeamPage({
   pvp,
   onRewardCredits,
   onToast,
+  characterProgression,
 }: TeamPageProps) {
   const [activeSlot, setActiveSlot] = useState(1);
   const [renamingSlot, setRenamingSlot] = useState<number | null>(null);
@@ -497,6 +500,8 @@ export function TeamPage({
           character={detailCharacter}
           owned
           ownedRarity={ownedById.get(detailCharacter.templateId)?.rarity ?? null}
+          selectedAbilityId={characterProgression.progression[detailCharacter.templateId]?.selectedAbilityId}
+          onSelectAbility={(abilityId) => characterProgression.setSelectedAbility(detailCharacter.templateId, abilityId)}
           onClose={() => setDetailCharacter(null)}
         />
       )}

@@ -11,13 +11,18 @@ interface CharacterDetailModalProps {
   owned: boolean;
   /** The card's current best owned rarity, or null if not owned at all — determines whether the passive ability card below shows locked. Actual ability/passive leveling happens in the Upgrades page, not here. */
   ownedRarity: Rarity | null;
+  /** The player's equipped active ability id, if they've chosen one — undefined/not matching an activeOptions id falls back to activeOptions[0] (same default the engine itself applies, see loader.ts's resolveCombatantAbilities). */
+  selectedAbilityId?: string | null;
+  /** Persists a new equipped active ability. Omit to render the active-ability list read-only (e.g. browsing an unowned character) — no picker buttons, just the option's info. */
+  onSelectAbility?: (abilityId: string) => void;
   onClose: () => void;
 }
 
 const MAX_STARS = 5;
 
-export function CharacterDetailModal({ character, owned, ownedRarity, onClose }: CharacterDetailModalProps) {
+export function CharacterDetailModal({ character, owned, ownedRarity, selectedAbilityId, onSelectAbility, onClose }: CharacterDetailModalProps) {
   const passiveUnlocked = !!ownedRarity && RARITY_RANK[ownedRarity] >= RARITY_RANK[PASSIVE_UNLOCK_RARITY];
+  const equippedId = character.activeOptions.some((a) => a.id === selectedAbilityId) ? selectedAbilityId : character.activeOptions[0]?.id;
 
   return (
     <Modal title={character.name} icon="id-card" onClose={onClose}>
@@ -83,15 +88,50 @@ export function CharacterDetailModal({ character, owned, ownedRarity, onClose }:
           </div>
         </div>
 
-        <div>
-          <h4 className="mb-2 font-display text-[10px] font-bold uppercase tracking-widest text-white/40">Habilidades</h4>
-          <div className="flex flex-col gap-2">
-            {character.abilities.map((a, i) => {
-              const isPassive = a.kind === 'Passiva';
-              const locked = isPassive && !passiveUnlocked;
+        {character.activeOptions.length > 0 && (
+          <div>
+            <h4 className="mb-2 font-display text-[10px] font-bold uppercase tracking-widest text-white/40">
+              Habilidade ativa {onSelectAbility && character.activeOptions.length > 1 && <span className="font-normal normal-case text-white/30">— toque para equipar</span>}
+            </h4>
+            <div className="flex flex-col gap-2">
+              {character.activeOptions.map((a) => {
+                const equipped = a.id === equippedId;
+                const Wrapper = onSelectAbility ? 'button' : 'div';
+                return (
+                  <Wrapper
+                    key={a.id}
+                    {...(onSelectAbility ? { onClick: () => onSelectAbility(a.id), type: 'button' as const } : {})}
+                    className={`relative rounded-lg border p-3 text-left transition ${
+                      equipped ? 'border-code-400 bg-code-500/10' : 'border-void-600 bg-void-900/60 hover:border-void-500'
+                    }`}
+                  >
+                    {equipped && (
+                      <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full border border-code-400/40 bg-code-500/20 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-code-300">
+                        <Icon name="check-circle" size={10} />
+                        Equipada
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-arcane-300">
+                      <Icon name="sparkles" size={12} />
+                      {a.name ?? a.kind}
+                      {a.name && <span className="font-normal text-white/40">· {a.kind}</span>}
+                    </div>
+                    <p className="mt-1 text-xs leading-relaxed text-white/70">{a.description}</p>
+                  </Wrapper>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {(character.passive || character.innateTrait) && (
+          <div>
+            <h4 className="mb-2 font-display text-[10px] font-bold uppercase tracking-widest text-white/40">Passiva</h4>
+            {(() => {
+              const p = character.passive ?? { name: character.innateTrait!.name, kind: 'Passiva' as const, description: character.innateTrait!.description };
+              const locked = !!character.passive && !passiveUnlocked;
               return (
                 <div
-                  key={i}
                   title={locked ? 'Somente LTS+' : undefined}
                   className={`relative rounded-lg border border-void-600 bg-void-900/60 p-3 ${locked ? 'opacity-50' : ''}`}
                 >
@@ -103,15 +143,15 @@ export function CharacterDetailModal({ character, owned, ownedRarity, onClose }:
                   )}
                   <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-arcane-300">
                     <Icon name="sparkles" size={12} />
-                    {a.name ?? a.kind}
-                    {a.name && <span className="font-normal text-white/40">· {a.kind}</span>}
+                    {p.name ?? p.kind}
+                    {p.name && <span className="font-normal text-white/40">· {p.kind}</span>}
                   </div>
-                  <p className="mt-1 text-xs leading-relaxed text-white/70">{a.description}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-white/70">{p.description}</p>
                 </div>
               );
-            })}
+            })()}
           </div>
-        </div>
+        )}
 
         {character.lore && <p className="text-xs italic leading-relaxed text-white/50">{character.lore}</p>}
 

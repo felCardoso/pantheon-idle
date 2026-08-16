@@ -282,8 +282,16 @@ function GameShellReady({
   const [chatOpen, setChatOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
+  const selectedAbilityByCharacterId = useMemo(() => {
+    const entries = Object.values(characterProgression.progression)
+      .filter((p) => p.selectedAbilityId)
+      .map((p) => [p.characterId, p.selectedAbilityId as string] as const);
+    return Object.fromEntries(entries);
+  }, [characterProgression.progression]);
+
   const battle = useBattleSimulation({
     initialOwnedCharacters: pveCharacters,
+    selectedAbilityByCharacterId,
     initialPosition: { fase: initialFase, estagio: initialEstagio },
     initialCredits,
     initialXp,
@@ -406,6 +414,7 @@ function GameShellReady({
               pvp={pvp}
               onRewardCredits={battle.adjustCredits}
               onToast={setToast}
+              characterProgression={characterProgression}
             />
           ) : activeMenuId === 'characters' ? (
             <CharactersPage ownedCharacters={ownedCharacters} />

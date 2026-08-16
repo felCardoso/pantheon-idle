@@ -54,15 +54,16 @@ export function OnboardingScreen({ onSelect }: OnboardingScreenProps) {
 
               <p className="min-h-10 text-xs italic leading-relaxed text-white/50">{c.lore}</p>
 
-              <div className="rounded-lg border border-void-600 bg-void-800/60 p-2.5">
-                <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-arcane-300">
-                  <Icon name="sparkles" size={12} />
-                  {c.abilities[0].name ?? c.abilities[0].kind}
-                  {c.abilities[0].name && <span className="font-normal text-white/40">· {c.abilities[0].kind}</span>}
-                  {c.abilities.length > 1 && <span className="font-normal text-white/40">· +{c.abilities.length - 1}</span>}
+              {c.headlineAbility && (
+                <div className="rounded-lg border border-void-600 bg-void-800/60 p-2.5">
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-arcane-300">
+                    <Icon name="sparkles" size={12} />
+                    {c.headlineAbility.name ?? c.headlineAbility.kind}
+                    {c.headlineAbility.name && <span className="font-normal text-white/40">· {c.headlineAbility.kind}</span>}
+                  </div>
+                  <p className="mt-1 text-xs leading-relaxed text-white/70">{c.headlineAbility.description}</p>
                 </div>
-                <p className="mt-1 text-xs leading-relaxed text-white/70">{c.abilities[0].description}</p>
-              </div>
+              )}
 
               <button
                 onClick={() => handlePick(c.templateId)}

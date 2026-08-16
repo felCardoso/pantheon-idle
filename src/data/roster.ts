@@ -1,18 +1,23 @@
-import { ALL_CHARACTER_IDS, characterIdsByMythology, loadCharactersByIds } from '../engine/core/loader';
+import { ALL_CHARACTER_IDS, activeOptionsFor, characterIdsByMythology, loadCharactersByIds, passiveAbilityFor } from '../engine/core/loader';
 import { xpProgress } from '../engine/core/leveling';
 import { Rng, type RngLike } from '../engine/core/rng';
-import { CHARACTER_INFO, type AbilityInfo, type CharacterInfo } from './characterInfo';
+import { CHARACTER_INFO, type AbilityFlavor, type CharacterInfo } from './characterInfo';
 import { DISPLAY_PORTRAIT_BY_TEMPLATE_ID, DISPLAY_RARITY_BY_TEMPLATE_ID, FALLBACK_FACTION, FALLBACK_RARITY } from './engineDisplay';
 import type { OwnedCharacter } from '../hooks/useOwnedCharacters';
-import type { AbilityTrigger, BaseStats } from '../engine/schema';
+import { RARITY_RANK } from '../engine/schema';
+import type { AbilityDefinition, AbilityTrigger, BaseStats } from '../engine/schema';
 import type { Faction, Rarity } from '../types';
 
-/** An ability entry with its real engine trigger resolved in — see toRosterCharacter's zip below. */
-export interface ResolvedAbilityInfo extends AbilityInfo {
+/** One equippable/display ability entry — the id is what `onSelectAbility` calls back with. */
+export interface ResolvedAbilityInfo {
+  id: string;
+  name: string | null;
+  kind: 'Passiva' | 'Ativa';
+  description: string;
   trigger: AbilityTrigger;
 }
 
-export interface RosterCharacter extends Omit<CharacterInfo, 'abilities'> {
+export interface RosterCharacter extends Omit<CharacterInfo, 'abilityFlavor' | 'innateTrait'> {
   templateId: string;
   name: string;
   faction: Faction;
@@ -26,17 +31,31 @@ export interface RosterCharacter extends Omit<CharacterInfo, 'abilities'> {
   portraitUrl?: string;
   /** Real combat stats: same-mythology synergy bonus (by team size) and level scaling already folded in. */
   stats: BaseStats;
-  abilities: ResolvedAbilityInfo[];
+  /** Every candidate active ability the player can equip (docs/combate.md §5) — today always 0 or 1 per character until more are hand-authored (see docs/combate-v2-ability-authoring.md). */
+  activeOptions: ResolvedAbilityInfo[];
+  /** The character's LTS+ passive, or null if not authored yet (no character has one today). */
+  passive: ResolvedAbilityInfo | null;
+  /** Jurupari.exe's/Saci.exe's hardcoded engine trait — a read-only passive-styled card, not part of activeOptions/passive since it has no backing AbilityDefinition. Null for everyone else. */
+  innateTrait: AbilityFlavor | null;
+  /** The single ability shown in compact contexts (onboarding cards) — activeOptions[0], falling back to the innate trait. Null only if a character somehow has neither. */
+  headlineAbility: ResolvedAbilityInfo | null;
   alwaysActsFirst: boolean;
   statusDurationBonus: number;
   /** Star-up progress — always 0 until a star/rarity-upgrade system exists (docs/gdd.md section 7). */
   stars: number;
 }
 
-const UNKNOWN_INFO: CharacterInfo = {
-  lore: '',
-  abilities: [{ name: null, kind: 'Passiva', description: 'Sem habilidade registrada.' }],
-};
+const UNKNOWN_INFO: CharacterInfo = { lore: '', abilityFlavor: {} };
+
+function toResolvedAbility(def: AbilityDefinition, flavor?: AbilityFlavor): ResolvedAbilityInfo {
+  return {
+    id: def.id,
+    name: flavor?.name ?? def.name,
+    kind: def.kind === 'passive' ? 'Passiva' : 'Ativa',
+    description: flavor?.description ?? 'Sem descrição — ver docs/combate-v2-ability-authoring.md.',
+    trigger: def.trigger,
+  };
+}
 
 /**
  * Team-power figure. Only HP/ATK count — DEF/INI/ESQ/ICE are ability-granted
@@ -54,11 +73,13 @@ function toRosterCharacter(
 ): RosterCharacter {
   const progress = xpProgress(xp);
   const info = CHARACTER_INFO[c.templateId] ?? UNKNOWN_INFO;
-  // CHARACTER_INFO's hand-authored abilities are always written in the same
-  // order/length as the character's real engine abilities (c.abilities) —
-  // zip in each one's actual trigger so UI (Team page's "Order of Action")
-  // can show when it fires without duplicating trigger data by hand.
-  const abilities: ResolvedAbilityInfo[] = info.abilities.map((a, i) => ({ ...a, trigger: c.abilities[i]?.trigger ?? 'battleStart' }));
+  const activeOptions = activeOptionsFor(c.templateId).map((def) => toResolvedAbility(def, info.abilityFlavor[def.id]));
+  const passiveDef = passiveAbilityFor(c.templateId);
+  const passive = passiveDef ? toResolvedAbility(passiveDef, info.abilityFlavor[passiveDef.id]) : null;
+  const innateTrait = info.innateTrait ?? null;
+  const headlineAbility: ResolvedAbilityInfo | null =
+    activeOptions[0] ??
+    (innateTrait ? { id: `${c.templateId}-innate`, name: innateTrait.name, kind: 'Passiva', description: innateTrait.description, trigger: 'battleStart' } : null);
   return {
     templateId: c.templateId,
     name: c.name,
@@ -78,7 +99,10 @@ function toRosterCharacter(
     statusDurationBonus: c.statusDurationBonus,
     stars: c.stars,
     lore: info.lore,
-    abilities,
+    activeOptions,
+    passive,
+    innateTrait,
+    headlineAbility,
   };
 }
 
@@ -135,8 +159,8 @@ export function diagramName(name: string): string {
   return name.replace(/\.exe$/, '.dat');
 }
 
-/** Ascending rank — higher number is rarer. Shared by every rarity comparison (upgrades, pity, sort). */
-export const RARITY_RANK: Record<Rarity, number> = { Alpha: 0, Beta: 1, Stable: 2, LTS: 3, 'Zero-Day': 4 };
+/** Ascending rank — higher number is rarer. Shared by every rarity comparison (upgrades, pity, sort). Defined in engine/schema.ts (loader.ts needs it too); re-exported here for existing UI call sites. */
+export { RARITY_RANK };
 
 export type GachaTier = 'normal' | 'hard' | 'banner';
 

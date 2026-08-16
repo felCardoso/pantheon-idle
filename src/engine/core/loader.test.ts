@@ -81,7 +81,7 @@ describe('loadCharactersByIds', () => {
     expect(leveled.maxHp).toBe(Math.round(800 * 1.02));
   });
 
-  it('resolves Medusa/Hércules/Minotauro to only their first candidate active ability (v2: one equipped active at a time; no player selection yet, so activeOptions[0] wins)', () => {
+  it('resolves Medusa/Hércules/Minotauro to only their first candidate active ability (v2: one equipped active at a time; activeOptions[0] wins with no selection)', () => {
     const [medusa, hercules, minotauro] = loadCharactersByIds([
       { id: 'medusa', xp: 0 },
       { id: 'hercules', xp: 0 },
@@ -99,6 +99,23 @@ describe('loadCharactersByIds', () => {
     const [amaterasu] = loadCharactersByIds([{ id: 'amaterasu', xp: 0 }]);
     expect(amaterasu.name).toBe('Amaterasu.exe');
     expect(amaterasu.abilities.map((a) => a.id)).toEqual(['amaterasu-regen-team']);
+  });
+
+  it('equips selectedAbilityId when it names an id actually in activeOptions', () => {
+    const [medusa] = loadCharactersByIds([{ id: 'medusa', xp: 0, selectedAbilityId: 'medusa-petrificar' }]);
+    expect(medusa.abilities.map((a) => a.id)).toEqual(['medusa-petrificar']);
+  });
+
+  it('falls back to activeOptions[0] when selectedAbilityId is not one of the character\'s options (e.g. a stale/unauthored id)', () => {
+    const [medusa] = loadCharactersByIds([{ id: 'medusa', xp: 0, selectedAbilityId: 'not-a-real-option' }]);
+    expect(medusa.abilities.map((a) => a.id)).toEqual(['medusa-petrificar']);
+  });
+
+  it('never equips a passive below the LTS rarity gate, even when rarity is passed (no character has an authored passive yet, so this stays empty either way)', () => {
+    const [alpha] = loadCharactersByIds([{ id: 'medusa', xp: 0, rarity: 'Alpha' }]);
+    const [lts] = loadCharactersByIds([{ id: 'medusa', xp: 0, rarity: 'LTS' }]);
+    expect(alpha.abilities.map((a) => a.id)).toEqual(['medusa-petrificar']);
+    expect(lts.abilities.map((a) => a.id)).toEqual(['medusa-petrificar']);
   });
 });
 

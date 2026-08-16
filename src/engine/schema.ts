@@ -9,6 +9,12 @@ export type Faction = 'Firewall' | 'Malware' | 'Crypto-Miner' | 'Exploit';
 
 export type Rarity = 'Alpha' | 'Beta' | 'Stable' | 'LTS' | 'Zero-Day';
 
+/** Ascending rank — higher number is rarer. Lives here (not src/data/roster.ts) so loader.ts's ability-selection resolution doesn't have to reach outside the engine layer; re-exported from roster.ts for existing UI call sites. */
+export const RARITY_RANK: Record<Rarity, number> = { Alpha: 0, Beta: 1, Stable: 2, LTS: 3, 'Zero-Day': 4 };
+
+/** Lowest owned rarity that unlocks a character's passive ability at all (docs/combate.md v2 section 5: "só ativa a partir de LTS"). Re-exported from abilityProgression.ts for existing UI call sites. */
+export const PASSIVE_UNLOCK_RARITY: Rarity = 'LTS';
+
 /**
  * The 8 named statuses from docs/combate.md section 3, plus the 5 generic
  * buff/debuff-attribute statuses (buffX with a negative magnitude is how

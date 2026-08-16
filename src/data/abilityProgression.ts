@@ -1,3 +1,4 @@
+import { PASSIVE_UNLOCK_RARITY } from '../engine/schema';
 import type { Rarity } from '../types';
 
 /**
@@ -25,8 +26,8 @@ export const PASSIVE_MAX_LEVEL_BY_RARITY: Record<Rarity, number> = {
   'Zero-Day': 2,
 };
 
-/** Lowest rarity that unlocks the passive ability at all. */
-export const PASSIVE_UNLOCK_RARITY: Rarity = 'LTS';
+/** Lowest rarity that unlocks the passive ability at all. Defined in engine/schema.ts (loader.ts needs it too); re-exported here for existing UI call sites. */
+export { PASSIVE_UNLOCK_RARITY };
 
 /** Créditos cost to reach a given ability level from the one below it. Level 1 is always free (the default). */
 export const ABILITY_UPGRADE_COST_CREDITS: Record<number, number> = {

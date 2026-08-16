@@ -1,4 +1,5 @@
-import type { AbilityDefinition, CombatantData, CombatConstants } from '../schema';
+import { PASSIVE_UNLOCK_RARITY, RARITY_RANK } from '../schema';
+import type { AbilityDefinition, CombatantData, CombatConstants, Rarity } from '../schema';
 import type { Combatant } from './types';
 import { levelForXp, levelMultiplier } from './leveling';
 import type { WorldId } from './progression';
@@ -81,16 +82,48 @@ function resolveAbilities(ids: string[]): AbilityDefinition[] {
 }
 
 /**
+ * Every candidate active-ability definition for a character template, in
+ * data-file order — the ability-picker UI's source of truth for "what can
+ * this character equip" (docs/roster.ts's toRosterCharacter). Distinct from
+ * a resolved Combatant's `.abilities`, which only ever carries whichever one
+ * is actually equipped for a given battle.
+ */
+export function activeOptionsFor(templateId: string): AbilityDefinition[] {
+  const data = CHARACTER_REGISTRY[templateId];
+  return data ? resolveAbilities(data.activeOptions) : [];
+}
+
+/** The character's passive ability definition, if authored — independent of whether it's currently rarity-unlocked for any given owner. */
+export function passiveAbilityFor(templateId: string): AbilityDefinition | undefined {
+  const id = CHARACTER_REGISTRY[templateId]?.passiveAbilityId;
+  return id ? ABILITY_REGISTRY[id] : undefined;
+}
+
+/**
  * Enemies never choose (docs/combate.md §8: "Ações Hardcoded" — a boss can
  * run several abilities at once in fixed sequence) so every one of their
- * activeOptions always fires. Players equip exactly one (docs/combate.md
- * §5: "o jogador equipa uma por vez") — real player choice lands in a later
- * phase; for now this always resolves to the character's first listed
- * option, a placeholder that keeps every ally on a single active ability.
+ * activeOptions fires, plus their passive unconditionally (enemies bypass
+ * the rarity gate). Allies get exactly one active — `selectedAbilityId` if
+ * it's actually one of the character's activeOptions, else activeOptions[0]
+ * (docs/combate.md §5: "o jogador equipa uma por vez") — plus their passive
+ * only once `rarity` clears PASSIVE_UNLOCK_RARITY.
  */
-function resolveCombatantAbilities(data: CombatantData, isAlly: boolean): AbilityDefinition[] {
-  const activeIds = isAlly ? data.activeOptions.slice(0, 1) : data.activeOptions;
-  return resolveAbilities(activeIds);
+function resolveCombatantAbilities(
+  data: CombatantData,
+  isAlly: boolean,
+  rarity?: Rarity,
+  selectedAbilityId?: string,
+): AbilityDefinition[] {
+  if (!isAlly) {
+    const ids = data.passiveAbilityId ? [...data.activeOptions, data.passiveAbilityId] : data.activeOptions;
+    return resolveAbilities(ids);
+  }
+
+  const selected = selectedAbilityId && data.activeOptions.includes(selectedAbilityId) ? selectedAbilityId : data.activeOptions[0];
+  const activeIds = selected ? [selected] : [];
+  const passiveUnlocked = !!rarity && !!data.passiveAbilityId && RARITY_RANK[rarity] >= RARITY_RANK[PASSIVE_UNLOCK_RARITY];
+  const ids = passiveUnlocked ? [...activeIds, data.passiveAbilityId!] : activeIds;
+  return resolveAbilities(ids);
 }
 
 /** Mythological synergy bonus for a same-mythology team, per combate.md section 5. */
@@ -105,6 +138,8 @@ function buildCombatant(
   statMultiplier: number = 1,
   idSuffix?: string,
   level: number = 0,
+  rarity?: Rarity,
+  selectedAbilityId?: string,
 ): Combatant {
   const scale = (1 + synergyBonus) * statMultiplier;
   const hp = Math.round(data.baseStats.hp * scale);
@@ -132,7 +167,7 @@ function buildCombatant(
     hp,
     shield: 0,
     statuses: [],
-    abilities: resolveCombatantAbilities(data, isAlly),
+    abilities: resolveCombatantAbilities(data, isAlly, rarity, selectedAbilityId),
     statusDurationBonus: data.statusDurationBonus ?? 0,
     alwaysActsFirst: data.alwaysActsFirst ?? false,
     halfHpTriggered: false,
@@ -143,6 +178,10 @@ export interface OwnedCharacterEntry {
   id: string;
   /** Accumulated XP — level is always derived from this, never passed independently (see engine/core/leveling.ts). */
   xp: number;
+  /** The card's current best owned rarity — gates whether its passive is active (see resolveCombatantAbilities). Omitted = passive locked, same as browsing an unowned character. */
+  rarity?: Rarity;
+  /** The player's equipped active ability id — falls back to the character's first activeOptions entry if omitted or not actually one of its options. */
+  selectedAbilityId?: string;
 }
 
 /**
@@ -156,10 +195,10 @@ export interface OwnedCharacterEntry {
  * once (no duplicate/star-up support yet).
  */
 export function loadCharactersByIds(entries: OwnedCharacterEntry[]): Combatant[] {
-  const dataByEntry = entries.map(({ id, xp }) => {
+  const dataByEntry = entries.map(({ id, xp, rarity, selectedAbilityId }) => {
     const data = CHARACTER_REGISTRY[id];
     if (!data) throw new Error(`Unknown character id: ${id}`);
-    return { data, xp };
+    return { data, xp, rarity, selectedAbilityId };
   });
 
   const countByMythology = new Map<string, number>();
@@ -168,11 +207,11 @@ export function loadCharactersByIds(entries: OwnedCharacterEntry[]): Combatant[]
     countByMythology.set(key, (countByMythology.get(key) ?? 0) + 1);
   }
 
-  return dataByEntry.map(({ data, xp }) => {
+  return dataByEntry.map(({ data, xp, rarity, selectedAbilityId }) => {
     const key = data.mythology ?? 'Desconhecida';
     const synergyBonus = synergyBonusFor(countByMythology.get(key)!);
     const level = levelForXp(xp);
-    return buildCombatant(data, true, synergyBonus, levelMultiplier(level), undefined, level);
+    return buildCombatant(data, true, synergyBonus, levelMultiplier(level), undefined, level, rarity, selectedAbilityId);
   });
 }
 
