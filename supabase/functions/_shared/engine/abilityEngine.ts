@@ -264,6 +264,9 @@ export function fireTrigger(trigger: AbilityTrigger, ctx: TriggerContext): void 
   for (const ability of ctx.self.abilities) {
     if (ability.trigger !== trigger) continue;
     if (ability.chance !== undefined && !ctx.rng.chance(ability.chance)) continue;
+    if (ability.kind === 'active') {
+      ctx.log({ kind: 'abilityUsed', unit: ctx.self.name, abilityId: ability.id, abilityName: ability.name });
+    }
     for (const effect of ability.effects) {
       applyEffect(effect, ctx);
     }

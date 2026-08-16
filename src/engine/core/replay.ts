@@ -182,6 +182,7 @@ export function applyReplayEntry(state: ReplayState, entry: BattleLogEntry, name
     case 'pingAdvantage':
     case 'death':
     case 'battleEnd':
+    case 'abilityUsed':
       return state;
   }
 }

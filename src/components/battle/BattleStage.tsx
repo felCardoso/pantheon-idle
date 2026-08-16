@@ -3,7 +3,7 @@ import { Icon } from '../common/Icon';
 import { WORLD_BACKGROUND_BY_ID } from '../../data/engineDisplay';
 import { localFaseNumber } from '../../engine/core/progression';
 import type { BattleUnit, StageInfo } from '../../types';
-import type { FloatingText, Reward } from '../../hooks/useBattleSimulation';
+import type { AbilityCastEvent, FloatingText, Reward } from '../../hooks/useBattleSimulation';
 
 interface BattleStageProps {
   allies: BattleUnit[];
@@ -17,6 +17,8 @@ interface BattleStageProps {
   lastReward: Reward | null;
   onNextBattle: () => void;
   floaters: FloatingText[];
+  /** Non-null while the darken-screen/name-slide/portrait callout for a just-used active ability should be showing. */
+  activeAbility: AbilityCastEvent | null;
 }
 
 const WINNER_LABEL: Record<'allies' | 'enemies' | 'draw', string> = {
@@ -36,6 +38,7 @@ export function BattleStage({
   lastReward,
   onNextBattle,
   floaters,
+  activeAbility,
 }: BattleStageProps) {
   const floatersFor = (unitId: string) => floaters.filter((f) => f.unitId === unitId);
   const backgroundArt = WORLD_BACKGROUND_BY_ID[stage.worldId];
@@ -126,6 +129,35 @@ export function BattleStage({
           ))}
         </div>
       </div>
+
+      {activeAbility && (
+        <div key={activeAbility.id} className="absolute inset-0 z-[15] overflow-hidden">
+          <div className="absolute inset-0 animate-ability-cast-darken bg-void-950/75 opacity-0 backdrop-blur-[2px]" />
+          {activeAbility.portraitUrl && (
+            <img
+              src={activeAbility.portraitUrl}
+              alt=""
+              className={`absolute top-1/2 h-[65%] w-auto -translate-y-1/2 animate-ability-cast-portrait object-contain opacity-0 ${
+                activeAbility.isAlly ? 'left-[4%] sm:left-[10%]' : 'right-[4%] scale-x-[-1] sm:right-[10%]'
+              }`}
+            />
+          )}
+          <div className="relative flex h-full items-center justify-center px-4">
+            <div className="animate-ability-cast-text text-center opacity-0">
+              <p
+                className={`font-display text-[10px] font-bold uppercase tracking-[0.3em] sm:text-xs ${
+                  activeAbility.isAlly ? 'text-code-400' : 'text-signal-red'
+                }`}
+              >
+                {activeAbility.unitName}
+              </p>
+              <p className="font-display text-2xl font-black uppercase tracking-wide text-white text-glow-code sm:text-4xl">
+                {activeAbility.abilityName}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {finished && winner && (
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-void-950/70 backdrop-blur-sm">
