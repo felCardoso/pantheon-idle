@@ -1,4 +1,4 @@
-import type { Element, Faction, Rarity } from '../types';
+import type { Faction, Rarity } from '../types';
 import type { StatusType } from '../engine/schema';
 
 /** Ascending tier: Alpha < Beta < Stable < LTS < Zero-Day (docs/personagens.md). */
@@ -10,27 +10,12 @@ export const RARITY_COLOR: Record<Rarity, string> = {
   'Zero-Day': '#ffd700',
 };
 
+/** v2 has no elemental-affinity system — Faction is now a unit's only secondary color signal (alongside Rarity), used for card borders/glow. */
 export const FACTION_COLOR: Record<Faction, string> = {
   Firewall: '#2fd8ff',
   Malware: '#ff3b5c',
   'Crypto-Miner': '#ffb02e',
   Exploit: '#c34aff',
-};
-
-export const ELEMENT_COLOR: Record<Element, string> = {
-  Vírus: '#39ff9c',
-  'Brute Force': '#ff7a3d',
-  Nanites: '#2fd8ff',
-  Encryption: '#5a8bff',
-  Backdoor: '#c34aff',
-};
-
-export const ELEMENT_GLYPH: Record<Element, string> = {
-  Vírus: '</>',
-  'Brute Force': '#!',
-  Nanites: '+',
-  Encryption: '{ }',
-  Backdoor: '::',
 };
 
 /** Icons + colors for the status badge row. Nanites is a buff, not shown there. */

@@ -25,7 +25,7 @@ export function CharacterDetailModal({ character, owned, ownedRarity, onClose }:
         <div className="flex flex-wrap items-center gap-4">
           <CharacterPortrait
             name={character.name}
-            element={character.element}
+            faction={character.faction}
             rarity={character.rarity}
             portraitUrl={character.portraitUrl}
             size={88}
@@ -47,7 +47,7 @@ export function CharacterDetailModal({ character, owned, ownedRarity, onClose }:
             <p className="text-xs text-white/50">
               {character.mythology} · Nível {character.level}
             </p>
-            <RosterChips faction={character.faction} element={character.element} rarity={character.rarity} />
+            <RosterChips faction={character.faction} rarity={character.rarity} />
             <div className="flex items-center gap-0.5" title={`${character.stars}/${MAX_STARS} estrelas`}>
               {Array.from({ length: MAX_STARS }).map((_, i) => (
                 <Icon

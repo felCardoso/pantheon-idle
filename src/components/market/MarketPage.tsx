@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Icon } from '../common/Icon';
 import { CharacterPortrait } from '../roster/CharacterPortrait';
 import { buildCompendium, diagramName } from '../../data/roster';
+import { FALLBACK_FACTION } from '../../data/engineDisplay';
 import type { UseMarketResult } from '../../hooks/useMarket';
 import type { FragmentStack } from '../../hooks/useOwnedCharacters';
 import type { Rarity } from '../../types';
@@ -174,7 +175,7 @@ export function MarketPage({
                     <div className="flex min-w-0 items-center gap-3">
                       <CharacterPortrait
                         name={info?.name ?? f.characterId}
-                        element={info?.element ?? 'Encryption'}
+                        faction={info?.faction ?? FALLBACK_FACTION}
                         rarity={f.rarity}
                         portraitUrl={info?.portraitUrl}
                         size={40}
@@ -282,7 +283,7 @@ export function MarketPage({
                   <div className="flex min-w-0 items-center gap-3">
                     <CharacterPortrait
                       name={byId.get(l.characterId)?.name ?? l.characterId}
-                      element={byId.get(l.characterId)?.element ?? 'Encryption'}
+                      faction={byId.get(l.characterId)?.faction ?? FALLBACK_FACTION}
                       rarity={l.rarity}
                       portraitUrl={byId.get(l.characterId)?.portraitUrl}
                       size={40}
@@ -326,7 +327,7 @@ export function MarketPage({
                     <div className="flex min-w-0 items-center gap-3">
                       <CharacterPortrait
                         name={info?.name ?? l.characterId}
-                        element={info?.element ?? 'Encryption'}
+                        faction={info?.faction ?? FALLBACK_FACTION}
                         rarity={l.rarity}
                         portraitUrl={info?.portraitUrl}
                         size={40}

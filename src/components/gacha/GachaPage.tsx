@@ -208,7 +208,7 @@ export function GachaPage({
                   </span>
                   <div>
                     <p className="font-display text-base font-bold text-white sm:text-lg">{bannerDisplay.name}</p>
-                    <RosterChips faction={bannerDisplay.faction} element={bannerDisplay.element} rarity={bannerDisplay.rarity} />
+                    <RosterChips faction={bannerDisplay.faction} rarity={bannerDisplay.rarity} />
                   </div>
                   <button
                     onClick={() => setViewingBanner(true)}
@@ -261,7 +261,7 @@ export function GachaPage({
                 </div>
                 <CharacterPortrait
                   name={bannerDisplay.name}
-                  element={bannerDisplay.element}
+                  faction={bannerDisplay.faction}
                   rarity={bannerDisplay.rarity}
                   portraitUrl={bannerDisplay.portraitUrl}
                   size={120}
@@ -343,7 +343,7 @@ export function GachaPage({
           <div className="flex items-center gap-3 rounded-xl border border-code-500/30 bg-code-900/20 p-4">
             <CharacterPortrait
               name={revealDisplay.name}
-              element={revealDisplay.element}
+              faction={revealDisplay.faction}
               rarity={revealDisplay.rarity}
               portraitUrl={revealDisplay.portraitUrl}
               size={56}
@@ -352,7 +352,7 @@ export function GachaPage({
               <p className="font-display text-sm font-bold text-white">{OUTCOME_LABEL[reveal.outcome]}</p>
               <div className="flex items-center gap-2">
                 <span className="truncate text-xs text-white/70">{revealDisplay.name}</span>
-                <RosterChips faction={revealDisplay.faction} element={revealDisplay.element} rarity={revealDisplay.rarity} />
+                <RosterChips faction={revealDisplay.faction} rarity={revealDisplay.rarity} />
               </div>
               {reveal.outcome === 'duplicate' && <p className="mt-1 text-[11px] text-white/50">Convertido em +1 diagrama.</p>}
               {reveal.outcome === 'upgraded' && <p className="mt-1 text-[11px] text-white/50">Nível de personagem resetado — habilidades preservadas.</p>}
@@ -379,7 +379,7 @@ export function GachaPage({
                 return (
                   <div key={`${r.characterId}-${i}`} className="flex flex-col items-center gap-1">
                     <div className="relative">
-                      <CharacterPortrait name={info.name} element={info.element} rarity={r.rarity} portraitUrl={info.portraitUrl} size={48} />
+                      <CharacterPortrait name={info.name} faction={info.faction} rarity={r.rarity} portraitUrl={info.portraitUrl} size={48} />
                       <span
                         className={`absolute -right-1 -top-1 rounded-full px-1 py-0.5 text-[8px] font-bold uppercase leading-none ${
                           r.outcome === 'new' ? 'bg-code-500 text-void-950' : r.outcome === 'upgraded' ? 'bg-signal-amber text-void-950' : 'bg-void-700 text-white/70'

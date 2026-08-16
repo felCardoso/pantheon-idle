@@ -84,7 +84,7 @@ export function SummonReel({ items, onComplete }: SummonReelProps) {
               className={locked && i === winnerIndex ? '[filter:brightness(2)_saturate(1.6)]' : undefined}
               style={{ transition: 'filter 0.15s ease-out' }}
             >
-              <CharacterPortrait name={c.name} element={c.element} rarity={c.rarity} portraitUrl={c.portraitUrl} size={CARD_SIZE} />
+              <CharacterPortrait name={c.name} faction={c.faction} rarity={c.rarity} portraitUrl={c.portraitUrl} size={CARD_SIZE} />
             </div>
           ))}
         </motion.div>

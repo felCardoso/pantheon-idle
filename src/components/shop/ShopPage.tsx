@@ -3,7 +3,7 @@ import { Icon } from '../common/Icon';
 import { CharacterPortrait } from '../roster/CharacterPortrait';
 import { RosterChips } from '../roster/RosterChips';
 import { buildCompendium, currentShowcaseWeek, pickWeeklyShowcase } from '../../data/roster';
-import { FALLBACK_RARITY } from '../../data/engineDisplay';
+import { FALLBACK_FACTION, FALLBACK_RARITY } from '../../data/engineDisplay';
 import type { AcquireOutcome } from '../../hooks/useOwnedCharacters';
 import type { Rarity } from '../../types';
 import {
@@ -188,7 +188,7 @@ export function ShopPage({
                   <div className="relative">
                     <CharacterPortrait
                       name={info?.name ?? characterId}
-                      element={info?.element ?? 'Encryption'}
+                      faction={info?.faction ?? FALLBACK_FACTION}
                       rarity={info?.rarity ?? FALLBACK_RARITY}
                       portraitUrl={info?.portraitUrl}
                       size={64}
@@ -200,7 +200,7 @@ export function ShopPage({
                     )}
                   </div>
                   <p className="truncate text-sm font-bold text-white">{info?.name ?? characterId}</p>
-                  {info && <RosterChips faction={info.faction} element={info.element} rarity={info.rarity} />}
+                  {info && <RosterChips faction={info.faction} rarity={info.rarity} />}
                   <button
                     onClick={() => handleBuyShowcase(characterId, index)}
                     disabled={buying || locked || !affordable}

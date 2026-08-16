@@ -11,7 +11,6 @@ import type { TeamSlot, UsePlayerTeamsResult } from '../../hooks/usePlayerTeams'
 import { MAX_TEAM_MEMBERS } from '../../hooks/usePlayerTeams';
 import { TEAM_SLOT_COST_TOKENS } from '../../hooks/usePlayerProgress';
 import type { UsePvpResult } from '../../hooks/usePvp';
-import type { AbilityTrigger } from '../../engine/schema';
 import type { Rarity } from '../../types';
 
 interface TeamPageProps {
@@ -33,37 +32,6 @@ interface TeamPageProps {
 const RARITY_ORDER: Record<Rarity, number> = { 'Zero-Day': 0, LTS: 1, Stable: 2, Beta: 3, Alpha: 4 };
 const RARITIES: Rarity[] = ['Alpha', 'Beta', 'Stable', 'LTS', 'Zero-Day'];
 type SortKey = 'rarity' | 'level' | 'name';
-
-const TRIGGER_LABEL: Record<AbilityTrigger, string> = {
-  battleStart: 'Boot Sequence',
-  roundStart: 'Loop Start',
-  roundEnd: 'Loop End',
-  constant: 'Background Service',
-  preAttack: 'Pre-Execution',
-  onAttack: 'Execution',
-  postAttack: 'Post-Execution',
-  onCounter: 'Counter',
-  onWounded: 'Data Loss',
-  onHalfHp: 'Critical Sector',
-  onDeath: 'System Failure',
-  onKill: 'Process Terminated',
-  onShieldReceived: 'Firewall Active',
-  onShieldBreak: 'Firewall Breach',
-  onHealReceived: 'Nanites Received',
-  onAllyAttack: 'Co-op Processing',
-  onFrontAllyWounded: 'Proxy Defense',
-  onAllyWounded: 'Network Breach',
-  onAllyDeath: 'Node Offline',
-  onAllyShieldReceived: 'Network Firewall',
-  onAllyShieldBreak: 'Network Breach (Escudo)',
-  onAllySpawned: 'Instance Spawned',
-  onAllyAppliedTrojan: 'Trojan Echo',
-  onAllyAppliedLeak: 'Leak Echo',
-  onAllyAppliedCrash: 'Crash Echo',
-  onDodge: 'Ghosting',
-  onPingAdvantage: 'Ping Advantage',
-  onCriticalHit: 'Crítico',
-};
 
 function resolveTeamMembers(team: TeamSlot, owned: OwnedCharacter[]): OwnedCharacter[] {
   const byId = new Map(owned.map((o) => [o.characterId, o]));
@@ -127,7 +95,6 @@ export function TeamPage({
 
   const teamPower = activeTeamRoster.reduce((sum, c) => sum + characterPower(c.stats), 0);
   const synergyPercent = Math.round((CONSTANTS.synergyByCount[String(activeTeamRoster.length)] ?? 0) * 100);
-  const orderOfAction = [...activeTeamRoster].sort((a, b) => (b.alwaysActsFirst ? 1 : 0) - (a.alwaysActsFirst ? 1 : 0) || b.stats.ini - a.stats.ini);
 
   // The PvP dropdown/team it points to is the one an attacker actually fights (docs/gdd.md
   // section 6) — mirror it into pvp_defense_teams any time either changes, replacing the old
@@ -298,7 +265,7 @@ export function TeamPage({
                   onDrop={(e) => handleDropOnSlot(i, e)}
                 >
                   <button onClick={() => setDetailCharacter(c)} className="relative">
-                    <CharacterPortrait name={c.name} element={c.element} rarity={c.rarity} portraitUrl={c.portraitUrl} size={64} />
+                    <CharacterPortrait name={c.name} faction={c.faction} rarity={c.rarity} portraitUrl={c.portraitUrl} size={64} />
                   </button>
                   <button
                     onClick={(e) => {
@@ -405,41 +372,17 @@ export function TeamPage({
               )}
             </div>
             {activeTeamRoster.length === 0 ? (
-              <p className="text-xs text-white/40">Adicione personagens ao time para ver a ordem de ação.</p>
+              <p className="text-xs text-white/40">Adicione personagens ao time para ver a ordem de fila.</p>
             ) : (
               <>
                 <p className="mb-3 text-[11px] text-white/40">
                   Personagens do mesmo mundo/mitologia ganham bônus por time — atualmente:{' '}
                   {Array.from(new Set(activeTeamRoster.map((c) => c.mythology))).join(' · ')}
                 </p>
-                <h3 className="mb-2 font-display text-xs font-bold uppercase tracking-widest text-white/50">Ordem de ação</h3>
-                <div className="flex flex-col gap-2">
-                  {orderOfAction.map((c, i) => (
-                    <div key={c.templateId} className="rounded-lg border border-void-600 bg-void-900/40 p-2.5">
-                      <div className="mb-1 flex items-center gap-2">
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-void-800 font-mono text-[10px] text-white/60">
-                          {i + 1}
-                        </span>
-                        <span className="truncate text-xs font-bold text-white">{c.name}</span>
-                        {c.alwaysActsFirst && (
-                          <span className="shrink-0 rounded-full border border-signal-amber/30 bg-signal-amber/10 px-1.5 py-0.5 text-[9px] text-signal-amber">
-                            Sempre primeiro
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex flex-col gap-1 pl-7">
-                        {c.abilities.map((a, ai) => (
-                          <div key={ai} className="flex items-center gap-1.5 text-[10px] text-white/50">
-                            <span className="shrink-0 rounded-full border border-arcane-400/30 bg-arcane-400/10 px-1.5 py-0.5 font-bold uppercase tracking-wide text-arcane-300">
-                              {TRIGGER_LABEL[a.trigger]}
-                            </span>
-                            <span className="truncate">{a.description}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <p className="text-[11px] text-white/40">
+                  A ordem dos slots do time (à direita) é a ordem da fila de combate — o primeiro personagem do time é
+                  quem entra em combate primeiro. Arraste para reordenar.
+                </p>
               </>
             )}
           </div>

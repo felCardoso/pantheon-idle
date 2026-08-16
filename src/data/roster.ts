@@ -2,10 +2,10 @@ import { ALL_CHARACTER_IDS, characterIdsByMythology, loadCharactersByIds } from 
 import { xpProgress } from '../engine/core/leveling';
 import { Rng, type RngLike } from '../engine/core/rng';
 import { CHARACTER_INFO, type AbilityInfo, type CharacterInfo } from './characterInfo';
-import { DISPLAY_PORTRAIT_BY_TEMPLATE_ID, DISPLAY_RARITY_BY_TEMPLATE_ID, FALLBACK_ELEMENT, FALLBACK_FACTION, FALLBACK_RARITY } from './engineDisplay';
+import { DISPLAY_PORTRAIT_BY_TEMPLATE_ID, DISPLAY_RARITY_BY_TEMPLATE_ID, FALLBACK_FACTION, FALLBACK_RARITY } from './engineDisplay';
 import type { OwnedCharacter } from '../hooks/useOwnedCharacters';
 import type { AbilityTrigger, BaseStats } from '../engine/schema';
-import type { Element, Faction, Rarity } from '../types';
+import type { Faction, Rarity } from '../types';
 
 /** An ability entry with its real engine trigger resolved in — see toRosterCharacter's zip below. */
 export interface ResolvedAbilityInfo extends AbilityInfo {
@@ -16,7 +16,6 @@ export interface RosterCharacter extends Omit<CharacterInfo, 'abilities'> {
   templateId: string;
   name: string;
   faction: Faction;
-  element: Element;
   rarity: Rarity;
   level: number;
   /** Accumulated XP and in-level progress — see engine/core/leveling.ts. */
@@ -64,10 +63,6 @@ function toRosterCharacter(
     templateId: c.templateId,
     name: c.name,
     faction: c.faction ?? FALLBACK_FACTION,
-    // v2 has no elemental-affinity system (Combatant no longer carries one) —
-    // this field is a placeholder pending the Phase C visual-identity rework
-    // that drops it from RosterCharacter/the UI entirely.
-    element: FALLBACK_ELEMENT,
     // Owned characters pass their real pulled rarity; unowned/browsing views
     // fall back to the static per-template baseline (every character can be
     // found at Alpha — see DISPLAY_RARITY_BY_TEMPLATE_ID's own comment).

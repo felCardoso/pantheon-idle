@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { Icon } from '../common/Icon';
 import { PixelFigure } from './PixelFigure';
 import { StatusBadge } from './StatusBadge';
-import { ELEMENT_COLOR, RARITY_COLOR, NEGATIVE_STATUSES } from '../../data/theme';
+import { FACTION_COLOR, RARITY_COLOR, NEGATIVE_STATUSES } from '../../data/theme';
 import type { BattleUnit } from '../../types';
 import type { FloatingText } from '../../hooks/useBattleSimulation';
 
@@ -27,7 +27,7 @@ const FLOATER_PREFIX: Record<FloatingText['kind'], string> = {
 };
 
 export function UnitCard({ unit, delay = 0, floatingTexts = [] }: UnitCardProps) {
-  const elementColor = ELEMENT_COLOR[unit.element];
+  const factionColor = FACTION_COLOR[unit.faction];
   const rarityColor = RARITY_COLOR[unit.rarity];
   const isDead = unit.hp <= 0;
   const hpPct = Math.max(0, Math.min(100, (unit.hp / unit.maxHp) * 100));
@@ -42,7 +42,7 @@ export function UnitCard({ unit, delay = 0, floatingTexts = [] }: UnitCardProps)
       transition={{ type: 'spring', stiffness: 300, damping: 28 }}
       className={`flex flex-col items-center gap-1 transition-opacity duration-500 ${isDead ? 'opacity-35 grayscale' : 'animate-idle-bob'}`}
       style={{ animationDelay: `${delay}ms` }}
-      title={`${unit.name} · Nv.${unit.level} · ${unit.faction} · ${unit.element}${isDead ? ' · derrotado' : ''}`}
+      title={`${unit.name} · Nv.${unit.level} · ${unit.faction}${isDead ? ' · derrotado' : ''}`}
     >
       {/* negative status effects — above the character */}
       <div className="flex h-4 items-center gap-0.5 sm:h-5">
@@ -59,14 +59,14 @@ export function UnitCard({ unit, delay = 0, floatingTexts = [] }: UnitCardProps)
         className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg sm:h-16 sm:w-16 sm:rounded-xl"
         style={{
           background: `linear-gradient(150deg, ${rarityColor}22, #0a0a12)`,
-          border: `1.5px solid ${elementColor}aa`,
-          boxShadow: isDead ? 'none' : `0 0 14px -2px ${elementColor}88`,
+          border: `1.5px solid ${factionColor}aa`,
+          boxShadow: isDead ? 'none' : `0 0 14px -2px ${factionColor}88`,
         }}
       >
         {unit.portraitUrl ? (
           <img src={unit.portraitUrl} alt={unit.name} className="h-full w-full object-cover" />
         ) : (
-          <PixelFigure className="h-[85%] w-[85%]" style={{ color: elementColor }} />
+          <PixelFigure className="h-[85%] w-[85%]" style={{ color: factionColor }} />
         )}
         {isDead && (
           <span className="absolute inset-0 flex items-center justify-center rounded-lg bg-void-950/60 sm:rounded-xl">

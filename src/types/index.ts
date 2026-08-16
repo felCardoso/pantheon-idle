@@ -2,13 +2,11 @@ import type { StatusType } from '../engine/schema';
 
 export type Faction = 'Firewall' | 'Malware' | 'Crypto-Miner' | 'Exploit';
 
-export type Element = 'Vírus' | 'Brute Force' | 'Nanites' | 'Encryption' | 'Backdoor';
-
 export type Rarity = 'Alpha' | 'Beta' | 'Stable' | 'LTS' | 'Zero-Day';
 
 export interface ActiveStatus {
   type: StatusType;
-  /** Number of stacked instances (only >1 for stackable statuses like Sangramento). */
+  /** Number of stacked instances (only >1 for stackable statuses like Leak). */
   count: number;
 }
 
@@ -16,7 +14,6 @@ export interface BattleUnit {
   id: string;
   name: string;
   faction: Faction;
-  element: Element;
   rarity: Rarity;
   level: number;
   hp: number;

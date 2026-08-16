@@ -44,12 +44,12 @@ export function OnboardingScreen({ onSelect }: OnboardingScreenProps) {
               className="flex flex-col gap-3 rounded-2xl border border-code-500/25 bg-void-900/90 p-5 shadow-[0_0_60px_-15px_rgba(57,255,156,0.2)] backdrop-blur-md"
             >
               <div className="flex flex-col items-center gap-2 text-center">
-                <CharacterPortrait name={c.name} element={c.element} rarity={c.rarity} portraitUrl={c.portraitUrl} size={88} />
+                <CharacterPortrait name={c.name} faction={c.faction} rarity={c.rarity} portraitUrl={c.portraitUrl} size={88} />
                 <div>
                   <h2 className="font-display text-sm font-bold text-white">{c.name}</h2>
                   <p className="text-[10px] uppercase tracking-wide text-white/40">{c.mythology}</p>
                 </div>
-                <RosterChips faction={c.faction} element={c.element} rarity={c.rarity} />
+                <RosterChips faction={c.faction} rarity={c.rarity} />
               </div>
 
               <p className="min-h-10 text-xs italic leading-relaxed text-white/50">{c.lore}</p>

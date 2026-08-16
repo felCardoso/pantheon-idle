@@ -21,7 +21,6 @@ import {
   DISPLAY_PORTRAIT_BY_TEMPLATE_ID,
   DISPLAY_RARITY_BY_TEMPLATE_ID,
   ENEMY_LEVEL_BY_TEMPLATE_ID,
-  FALLBACK_ELEMENT,
   FALLBACK_FACTION,
   FALLBACK_RARITY,
   WORLD_DISPLAY_BY_ID,
@@ -302,9 +301,6 @@ function toBattleUnits(templates: Combatant[], replay: ReplayState, order: strin
       id: t.id,
       name: t.name,
       faction: t.faction ?? FALLBACK_FACTION,
-      // v2 has no elemental-affinity system (Combatant no longer carries one) —
-      // placeholder pending the Phase C visual-identity rework.
-      element: FALLBACK_ELEMENT,
       rarity: DISPLAY_RARITY_BY_TEMPLATE_ID[t.templateId] ?? FALLBACK_RARITY,
       // Allies carry a real level (derived from XP); enemies use a cosmetic per-templateId number.
       level: t.isAlly ? t.level : (ENEMY_LEVEL_BY_TEMPLATE_ID[t.templateId] ?? 1),

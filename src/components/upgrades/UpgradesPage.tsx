@@ -110,7 +110,7 @@ export function UpgradesPage({ ownedCharacters, progression, credits, onUpgradeA
                       active ? 'border-code-400 bg-code-500/10' : 'border-void-600 bg-void-800/40 hover:border-void-500'
                     }`}
                   >
-                    <CharacterPortrait name={c.name} element={c.element} rarity={c.rarity} portraitUrl={c.portraitUrl} size={44} />
+                    <CharacterPortrait name={c.name} faction={c.faction} rarity={c.rarity} portraitUrl={c.portraitUrl} size={44} />
                     <span className="max-w-[3.5rem] truncate text-[9px] text-white/60">{c.name}</span>
                   </button>
                 );
@@ -122,7 +122,7 @@ export function UpgradesPage({ ownedCharacters, progression, credits, onUpgradeA
                 <div className="flex items-center gap-3">
                   <CharacterPortrait
                     name={selectedCharacter.name}
-                    element={selectedCharacter.element}
+                    faction={selectedCharacter.faction}
                     rarity={selectedCharacter.rarity}
                     portraitUrl={selectedCharacter.portraitUrl}
                     size={56}
