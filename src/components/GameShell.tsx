@@ -18,6 +18,7 @@ import { Toast } from './common/Toast';
 import { Splash } from './common/Splash';
 import { Icon } from './common/Icon';
 import { PLAYER_STATE } from '../data/mock/player';
+import { pvpRankTierFor } from '../data/pvpRank';
 import { MENU_ITEMS } from '../data/mock/menu';
 import { CHAT_MESSAGES } from '../data/mock/chat';
 import { useBattleSimulation } from '../hooks/useBattleSimulation';
@@ -342,9 +343,19 @@ function GameShellReady({
     setToast(`Passiva melhorada para nível ${next}.`);
   }
   // Credits/XP/tokens are real (persisted in Supabase); name is the real username once loaded, falling back to the mock placeholder otherwise.
+  // rankTier/rankValue are computed from the real pvp_rating (src/data/pvpRank.ts) instead of PLAYER_STATE's mock values.
   const player = useMemo(
-    () => ({ ...PLAYER_STATE, name: username ?? PLAYER_STATE.name, credits: battle.credits, xp: battle.xp, tokens, bytes }),
-    [username, battle.credits, battle.xp, tokens, bytes],
+    () => ({
+      ...PLAYER_STATE,
+      name: username ?? PLAYER_STATE.name,
+      rankTier: pvpRankTierFor(pvp.rating).name,
+      rankValue: String(pvp.rating),
+      credits: battle.credits,
+      xp: battle.xp,
+      tokens,
+      bytes,
+    }),
+    [username, pvp.rating, battle.credits, battle.xp, tokens, bytes],
   );
 
   const hasMounted = useRef(false);
@@ -399,6 +410,7 @@ function GameShellReady({
         <div className="flex min-h-0 flex-1 flex-col pb-16 lg:pb-0">
           {activeMenuId === 'team' ? (
             <TeamPage
+              userId={userId}
               ownedCharacters={ownedCharacters}
               teams={teams}
               unlockedTeamSlots={unlockedTeamSlots}
@@ -548,6 +560,7 @@ function GameShellReady({
           rankValue={player.rankValue}
           clusterName={cluster.cluster?.name ?? null}
           pvpRating={pvp.rating}
+          pvpPeakRating={pvp.peakRating}
           pvpWins={pvp.wins}
           pvpLosses={pvp.losses}
           pvpDefenseTeam={pvp.defenseTeam}

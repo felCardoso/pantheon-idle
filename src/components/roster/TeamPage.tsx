@@ -3,6 +3,7 @@ import { CharacterPortrait } from './CharacterPortrait';
 import { CharacterDetailModal } from './CharacterDetailModal';
 import { Icon } from '../common/Icon';
 import { PvpAttackModal } from '../team/PvpAttackModal';
+import { PvpLeaderboardModal } from '../team/PvpLeaderboardModal';
 import { buildOwnedRoster, characterPower, type RosterCharacter } from '../../data/roster';
 import { CONSTANTS } from '../../engine/core/loader';
 import { RARITY_COLOR } from '../../data/theme';
@@ -15,6 +16,7 @@ import { selectedAbilityMapFrom, type UseCharacterProgressionResult } from '../.
 import type { Rarity } from '../../types';
 
 interface TeamPageProps {
+  userId: string;
   ownedCharacters: OwnedCharacter[];
   teams: UsePlayerTeamsResult;
   unlockedTeamSlots: number;
@@ -47,6 +49,7 @@ function nameWithoutCfg(name: string): string {
 }
 
 export function TeamPage({
+  userId,
   ownedCharacters,
   teams,
   unlockedTeamSlots,
@@ -66,6 +69,7 @@ export function TeamPage({
   const [renamingSlot, setRenamingSlot] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [attackModalOpen, setAttackModalOpen] = useState(false);
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   /** Set by clicking an empty team slot — the next selector-card click (or drop) fills that exact position instead of toggling add/remove. */
   const [pickingSlotIndex, setPickingSlotIndex] = useState<number | null>(null);
   const [detailCharacter, setDetailCharacter] = useState<RosterCharacter | null>(null);
@@ -366,6 +370,13 @@ export function TeamPage({
               <Icon name="crosshair" size={13} />
               Buscar oponentes
             </button>
+            <button
+              onClick={() => setLeaderboardOpen(true)}
+              className="flex shrink-0 items-center gap-1.5 rounded-lg border border-arcane-400/30 bg-arcane-900/30 px-3 py-2 font-display text-[11px] font-bold uppercase tracking-wide text-arcane-300 transition hover:border-arcane-400/60"
+            >
+              <Icon name="trophy" size={13} />
+              Ranking
+            </button>
           </div>
 
           {/* Synergy + order of action */}
@@ -499,6 +510,7 @@ export function TeamPage({
       </div>
 
       {attackModalOpen && <PvpAttackModal pvp={pvp} onRewardCredits={onRewardCredits} onToast={onToast} onClose={() => setAttackModalOpen(false)} />}
+      {leaderboardOpen && <PvpLeaderboardModal pvp={pvp} userId={userId} onClose={() => setLeaderboardOpen(false)} />}
       {detailCharacter && (
         <CharacterDetailModal
           character={detailCharacter}
