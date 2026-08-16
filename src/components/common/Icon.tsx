@@ -57,6 +57,7 @@ import {
   Binary,
   Unlock,
   ArrowUpCircle,
+  Trophy,
   type LucideProps,
 } from 'lucide-react';
 import type { FC } from 'react';
@@ -120,6 +121,7 @@ const REGISTRY: Record<string, FC<LucideProps>> = {
   binary: Binary,
   unlock: Unlock,
   'arrow-up-circle': ArrowUpCircle,
+  trophy: Trophy,
 };
 
 interface IconProps extends LucideProps {

@@ -28,6 +28,8 @@ interface ProfileModalProps {
   rankValue: string;
   clusterName: string | null;
   pvpRating: number;
+  /** Highest pvp_rating ever reached — never drops on a loss, unlike pvpRating. Shown as "Rank máximo" below. */
+  pvpPeakRating: number;
   pvpWins: number;
   pvpLosses: number;
   pvpDefenseTeam: OwnedCharacter[];
@@ -63,6 +65,7 @@ export function ProfileModal({
   rankValue,
   clusterName,
   pvpRating,
+  pvpPeakRating,
   pvpWins,
   pvpLosses,
   pvpDefenseTeam,
@@ -185,7 +188,7 @@ export function ProfileModal({
               {/* stat cards */}
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                 {[
-                  { label: 'Rank máximo', value: rankValue, icon: 'crown' },
+                  { label: 'Rank máximo', value: String(pvpPeakRating), icon: 'crown' },
                   { label: 'Vitórias PvP', value: String(pvpWins), icon: 'swords' },
                   { label: 'Derrotas', value: String(pvpLosses), icon: 'shield-off' },
                   { label: 'Fase atual', value: String(frontierFase), icon: 'map' },

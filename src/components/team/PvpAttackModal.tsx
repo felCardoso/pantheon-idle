@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Icon } from '../common/Icon';
+import { pvpRankTierFor } from '../../data/pvpRank';
 import type { PvpAttackResult, PvpOpponent, UsePvpResult } from '../../hooks/usePvp';
 
 interface PvpAttackModalProps {
@@ -75,7 +76,7 @@ export function PvpAttackModal({ pvp, onRewardCredits, onToast, onClose }: PvpAt
         <div className="mb-3 flex items-center justify-center gap-4 rounded-lg border border-arcane-400/25 bg-void-800/50 px-3 py-2">
           <div className="text-center">
             <p className="font-mono text-sm font-bold text-arcane-300">{pvp.rating}</p>
-            <p className="text-[9px] uppercase tracking-wide text-white/40">Rating</p>
+            <p className="text-[9px] uppercase tracking-wide text-white/40">{pvpRankTierFor(pvp.rating).name}</p>
           </div>
           <div className="h-6 w-px bg-void-600" />
           <div className="text-center">
@@ -122,7 +123,9 @@ export function PvpAttackModal({ pvp, onRewardCredits, onToast, onClose }: PvpAt
                     <Icon name="crosshair" size={16} className="text-signal-red" />
                     <div>
                       <p className="text-sm text-white">{o.username}</p>
-                      <p className="font-mono text-xs text-white/50">{o.rating} rating</p>
+                      <p className="font-mono text-xs text-white/50">
+                        {o.rating} · {pvpRankTierFor(o.rating).name}
+                      </p>
                     </div>
                   </div>
                   <button

@@ -16,6 +16,7 @@ export interface Database {
           vip_daily_bonus_claimed_at: string | null;
           bandwidth: number;
           pvp_rating: number;
+          pvp_peak_rating: number;
           pvp_wins: number;
           pvp_losses: number;
           unlocked_team_slots: number;
@@ -39,6 +40,7 @@ export interface Database {
           vip_daily_bonus_claimed_at?: string | null;
           bandwidth?: number;
           pvp_rating?: number;
+          pvp_peak_rating?: number;
           pvp_wins?: number;
           pvp_losses?: number;
           unlocked_team_slots?: number;
@@ -62,6 +64,7 @@ export interface Database {
           vip_daily_bonus_claimed_at?: string | null;
           bandwidth?: number;
           pvp_rating?: number;
+          pvp_peak_rating?: number;
           pvp_wins?: number;
           pvp_losses?: number;
           unlocked_team_slots?: number;
@@ -366,6 +369,36 @@ export interface Database {
           p_quantity: number;
         };
         Returns: void;
+      };
+      get_pvp_leaderboard: {
+        Args: {
+          p_limit: number;
+        };
+        Returns: {
+          rank: number;
+          user_id: string;
+          username: string;
+          pvp_rating: number;
+          pvp_peak_rating: number;
+          pvp_wins: number;
+          pvp_losses: number;
+        }[];
+      };
+      get_pvp_ratings: {
+        Args: {
+          p_user_ids: string[];
+        };
+        Returns: {
+          user_id: string;
+          pvp_rating: number;
+        }[];
+      };
+      get_my_pvp_rank: {
+        Args: Record<string, never>;
+        Returns: {
+          rank: number;
+          total: number;
+        }[];
       };
     };
   };
