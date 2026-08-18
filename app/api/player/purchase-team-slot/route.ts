@@ -22,11 +22,19 @@ export async function POST(req: Request) {
 
     const nextTokens = progress.tokens - TEAM_SLOT_COST_TOKENS;
     const nextSlots = progress.unlocked_team_slots + 1;
-    const { error: updateError } = await supabaseAdmin
+    // Compare-and-swap on both values just read: two concurrent purchases would otherwise each
+    // pass the checks above and unlock one slot apiece while only one payment lands.
+    const { data: charged, error: updateError } = await supabaseAdmin
       .from('player_progress')
       .update({ tokens: nextTokens, unlocked_team_slots: nextSlots })
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .eq('tokens', progress.tokens)
+      .eq('unlocked_team_slots', progress.unlocked_team_slots)
+      .select('user_id');
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+    if (!charged || charged.length === 0) {
+      return NextResponse.json({ error: 'Saldo alterado durante a compra — tente de novo.' }, { status: 409 });
+    }
 
     return NextResponse.json({ tokens: nextTokens, unlockedTeamSlots: nextSlots });
   });

@@ -20,9 +20,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Tokens insuficientes.' }, { status: 400 });
     }
 
+    // Compare-and-swap on the balance just read: two concurrent spends would otherwise both
+    // pass the check above and both write a total computed from the same starting balance,
+    // so one of the two amounts would simply vanish.
     const nextTokens = progress.tokens - amount;
-    const { error: updateError } = await supabaseAdmin.from('player_progress').update({ tokens: nextTokens }).eq('user_id', userId);
+    const { data: charged, error: updateError } = await supabaseAdmin
+      .from('player_progress')
+      .update({ tokens: nextTokens })
+      .eq('user_id', userId)
+      .eq('tokens', progress.tokens)
+      .select('user_id');
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+    if (!charged || charged.length === 0) {
+      return NextResponse.json({ error: 'Saldo alterado durante a operação — tente de novo.' }, { status: 409 });
+    }
 
     return NextResponse.json({ tokens: nextTokens });
   });

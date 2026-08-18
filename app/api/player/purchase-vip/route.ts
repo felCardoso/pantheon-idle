@@ -22,11 +22,18 @@ export async function POST(req: Request) {
     const base = isVipActive(progress.vip_expires_at) ? new Date(progress.vip_expires_at as string) : new Date();
     const nextExpiresAt = new Date(base.getTime() + VIP_DURATION_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
-    const { error: updateError } = await supabaseAdmin
+    // Compare-and-swap on the balance just read: two concurrent purchases would otherwise both
+    // pass the check above and both extend VIP while only one payment lands.
+    const { data: charged, error: updateError } = await supabaseAdmin
       .from('player_progress')
       .update({ tokens: nextTokens, vip_expires_at: nextExpiresAt })
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .eq('tokens', progress.tokens)
+      .select('user_id');
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+    if (!charged || charged.length === 0) {
+      return NextResponse.json({ error: 'Saldo alterado durante a compra — tente de novo.' }, { status: 409 });
+    }
 
     return NextResponse.json({ tokens: nextTokens, vipExpiresAt: nextExpiresAt });
   });
