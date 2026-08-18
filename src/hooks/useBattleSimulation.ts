@@ -1,22 +1,28 @@
 import { useCallback, useEffect, useReducer, useState } from 'react';
-import { loadCharactersByIds, loadWorldBoss, loadWorldComuns } from '../engine/core/loader';
-import { runBattle } from '../engine/core/battle';
-import { Rng } from '../engine/core/rng';
-import { applyReplayEntry, buildNameToId, createInitialReplayState, type ReplayState } from '../engine/core/replay';
 import {
+  applyReplayEntry,
+  buildNameToId,
+  createInitialReplayState,
   difficultyMultiplier,
   enemyCountRange,
   ESTAGIOS_PER_FASE,
   FASES_PER_WORLD,
   isBossStage,
+  loadCharactersByIds,
+  loadWorldBoss,
+  loadWorldComuns,
   localFaseNumber,
   resolveProgression,
+  Rng,
+  runBattle,
   teamSizeMultiplier,
   worldIdForFase,
   worldIndexForFase,
+  type BattleLogEntry,
+  type Combatant,
+  type ReplayState,
   type WorldPosition,
-} from '../engine/core/progression';
-import type { BattleLogEntry, Combatant } from '../engine/core/types';
+} from '../engine';
 import {
   DISPLAY_PORTRAIT_BY_TEMPLATE_ID,
   DISPLAY_RARITY_BY_TEMPLATE_ID,

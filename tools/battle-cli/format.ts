@@ -1,5 +1,4 @@
-import type { BattleLogEntry } from '../core/types';
-import type { StatusType } from '../schema';
+import type { BattleLogEntry, StatusType } from '../../src/engine';
 
 const STATUS_LABEL: Record<StatusType, string> = {
   leak: 'Leak',

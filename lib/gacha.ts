@@ -1,6 +1,6 @@
 import 'server-only';
 import { supabaseAdmin } from './supabase-admin';
-import { RARITY_RANK } from '../src/engine/schema';
+import { RARITY_RANK } from '../src/engine';
 import type { Rarity } from '../src/types';
 
 export type AcquireOutcome = 'new' | 'upgraded' | 'duplicate';

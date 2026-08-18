@@ -3,7 +3,7 @@ import { Icon } from '../common/Icon';
 import { CharacterPortrait } from '../roster/CharacterPortrait';
 import { RosterChips } from '../roster/RosterChips';
 import { pickStarterOptions, type RosterCharacter } from '../../data/roster';
-import { Rng } from '../../engine/core/rng';
+import { Rng } from '../../engine';
 
 interface OnboardingScreenProps {
   onSelect: (characterId: string) => void;

@@ -1,7 +1,7 @@
 import { UnitCard } from './UnitCard';
 import { Icon } from '../common/Icon';
 import { WORLD_BACKGROUND_BY_ID } from '../../data/engineDisplay';
-import { localFaseNumber } from '../../engine/core/progression';
+import { localFaseNumber } from '../../engine';
 import type { BattleUnit, StageInfo } from '../../types';
 import type { AbilityCastEvent, FloatingText, Reward } from '../../hooks/useBattleSimulation';
 

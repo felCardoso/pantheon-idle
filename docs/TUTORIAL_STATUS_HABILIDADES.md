@@ -14,6 +14,8 @@ O motor vive em `src/engine/` e é dividido em duas camadas:
 
 ```
 src/engine/
+├── index.ts                 ← A API PÚBLICA (o único import permitido à view)
+│
 ├── data/                    ← CONTEÚDO (JSON)
 │   ├── index.ts             ← manifesto: a única lista do que existe
 │   ├── characters/*.json    ← personagens jogáveis
@@ -32,6 +34,8 @@ src/engine/
     ├── magnitude.ts         ← QUÃO FORTE o efeito é
     ├── effects.ts           ← O QUE o efeito faz
     └── context.ts           ← contratos compartilhados (quebra ciclo de import)
+
+tools/battle-cli/            ← view de terminal, FORA do engine
 ```
 
 ### Como uma habilidade é executada
@@ -47,6 +51,35 @@ battle.ts (tick)
 ```
 
 Cada módulo é uma **tabela de lookup**, não um `switch`. Adicionar uma variante é acrescentar uma entrada; o TypeScript acusa erro de compilação se você declarar o tipo e esquecer de registrar o comportamento (e vice-versa).
+
+### A fronteira engine ↔ view
+
+O motor é **puro e agnóstico de framework**: não importa nada fora de si mesmo, não toca em `window`/`process.env`, e não conhece cor, ícone, portrait ou texto de UI. É isso que permite o mesmo código rodar no navegador (PvE), em Deno (Edge Function de PvP) e no terminal (`tools/battle-cli`) sem adaptador.
+
+**A view importa sempre de `src/engine` (a API pública), nunca de um caminho interno:**
+
+```ts
+// ✅ correto
+import { runBattle, loadCharactersByIds, type Combatant } from '../engine';
+
+// ❌ recusado pelo lint
+import { runBattle } from '../engine/core/battle';
+import { STATUS_REGISTRY } from '../engine/core/statusRegistry';
+```
+
+`src/engine/index.ts` declara o que é público. Tudo em `core/**` e `data/**` é interno — o interpretador de habilidades, o gerenciador de status e o pipeline de dano não são API, são *como* a simulação funciona.
+
+**Para animar a batalha**, a view não inspeciona `Combatant` durante o combate. O fluxo é: `runBattle()` devolve o log completo → `createInitialReplayState()` + `applyReplayEntry()` transformam esse log em snapshots (`ReplayState`) que a UI percorre no ritmo do relógio real. Cada entrada carrega `at` (segundos), e `ReplayState` expõe `allyVanguardId`/`enemyVanguardId` para a UI saber quem animar.
+
+Estas regras são verificadas automaticamente por `npm run lint` (`scripts/check-engine-boundary.mjs`):
+
+| Regra | O que impede |
+| :--- | :--- |
+| `engine-is-hermetic` | engine importar de fora de `src/engine` |
+| `no-bare-imports` | engine importar `react`, `next` ou qualquer pacote |
+| `no-host-globals` | `window`, `localStorage`, `process.env` no engine |
+| `no-presentation` | cor hex, `className`, `portraitUrl` no engine |
+| `no-deep-imports` | a view furar a API pública |
 
 > **Por que `context.ts` existe:** um efeito de dano pode matar o alvo, o que precisa disparar `onDeath` — ou seja, `effects.ts` precisaria chamar `abilityEngine.ts`, que já importa `effects.ts`. Em vez de um ciclo, o `abilityEngine` injeta a si mesmo como um `EffectRuntime`. Efeito colateral útil: dá para testar um handler isolado passando um runtime falso.
 
@@ -116,8 +149,9 @@ export const WORLD_CONTENT: Record<WorldId, WorldContent> = {
 ### Passo 3 — Conferir
 
 ```bash
-npx tsc --noEmit && npx vitest run
-npx tsx src/engine/cli/runBattle.ts   # batalha real no terminal
+npm run lint     # tipos + fronteira engine/view + cópia do PvP
+npm test         # 144 testes
+npm run battle   # batalha real no terminal
 ```
 
 ---
@@ -279,9 +313,9 @@ Se o status precisar de exibição na UI, adicione também o ícone e a cor em `
 Antes de abrir PR:
 
 ```bash
-npx tsc --noEmit          # tipos
-npx vitest run            # 143 testes
-npx tsx src/engine/cli/runBattle.ts   # sanidade: a batalha ainda resolve?
+npm run lint     # tipos + fronteira engine/view + cópia do PvP em dia
+npm test         # 144 testes
+npm run battle   # sanidade: a batalha ainda resolve?
 ```
 
 Armadilhas comuns:

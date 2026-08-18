@@ -1,7 +1,5 @@
-import { loadJurupariAllies, loadJurupariBoss, loadJurupariComuns } from '../core/loader';
-import { runBattle } from '../core/battle';
+import { loadJurupariAllies, loadJurupariBoss, loadJurupariComuns, runBattle, type Combatant } from '../../src/engine';
 import { formatLogEntry } from './format';
-import type { Combatant } from '../core/types';
 
 function parseArgs(argv: string[]) {
   const useBoss = argv.includes('--boss');

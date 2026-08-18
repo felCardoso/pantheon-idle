@@ -1,4 +1,4 @@
-import type { StatusType } from '../engine/schema';
+import type { StatusType } from '../engine';
 
 export type Faction = 'Firewall' | 'Malware' | 'Crypto-Miner' | 'Exploit';
 

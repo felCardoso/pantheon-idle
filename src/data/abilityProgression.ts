@@ -1,4 +1,4 @@
-import { PASSIVE_UNLOCK_RARITY } from '../engine/schema';
+import { PASSIVE_UNLOCK_RARITY } from '../engine';
 import type { Rarity } from '../types';
 
 /**

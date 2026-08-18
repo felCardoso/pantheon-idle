@@ -1,5 +1,5 @@
 import type { Faction, Rarity } from '../types';
-import type { StatusType } from '../engine/schema';
+import type { StatusType } from '../engine';
 
 /** Ascending tier: Alpha < Beta < Stable < LTS < Zero-Day (docs/personagens.md). */
 export const RARITY_COLOR: Record<Rarity, string> = {

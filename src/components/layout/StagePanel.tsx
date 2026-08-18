@@ -1,5 +1,5 @@
 import { Icon } from '../common/Icon';
-import { comparePositions, isBossStage, localFaseNumber } from '../../engine/core/progression';
+import { comparePositions, isBossStage, localFaseNumber } from '../../engine';
 import type { StageInfo } from '../../types';
 
 interface StagePanelProps {

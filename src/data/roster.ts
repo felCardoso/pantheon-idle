@@ -1,11 +1,20 @@
-import { ALL_CHARACTER_IDS, activeOptionsFor, characterIdsByMythology, loadCharactersByIds, passiveAbilityFor } from '../engine/core/loader';
-import { xpProgress } from '../engine/core/leveling';
-import { Rng, type RngLike } from '../engine/core/rng';
+import {
+  ALL_CHARACTER_IDS,
+  activeOptionsFor,
+  characterIdsByMythology,
+  loadCharactersByIds,
+  passiveAbilityFor,
+  RARITY_RANK,
+  Rng,
+  xpProgress,
+  type AbilityDefinition,
+  type AbilityTrigger,
+  type BaseStats,
+  type RngLike,
+} from '../engine';
 import { CHARACTER_INFO, type AbilityFlavor, type CharacterInfo } from './characterInfo';
 import { DISPLAY_PORTRAIT_BY_TEMPLATE_ID, DISPLAY_RARITY_BY_TEMPLATE_ID, FALLBACK_FACTION, FALLBACK_RARITY } from './engineDisplay';
 import type { OwnedCharacter } from '../hooks/useOwnedCharacters';
-import { RARITY_RANK } from '../engine/schema';
-import type { AbilityDefinition, AbilityTrigger, BaseStats } from '../engine/schema';
 import type { Faction, Rarity } from '../types';
 
 /** One equippable/display ability entry — the id is what `onSelectAbility` calls back with. */
