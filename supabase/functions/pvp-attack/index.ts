@@ -36,10 +36,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Forward the caller's own JWT rather than using the service-role key,
-    // so auth.uid() inside RLS/resolve_pvp_attack still resolves to the real
-    // attacker and every read below stays inside their existing permissions
-    // — no RLS or migration changes needed for this function to work.
+    // Reads forward the caller's own JWT rather than using the service-role key,
+    // so auth.uid() inside RLS still resolves to the real attacker and every
+    // read below stays inside their existing permissions. The single privileged
+    // write (resolve_pvp_attack) uses a separate service-role client further
+    // down — see the comment there for why.
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -138,7 +139,16 @@ Deno.serve(async (req) => {
     const defenderDelta = -attackerDelta;
     const newRating = Math.max(0, attackerRating + attackerDelta);
 
-    const { error: rpcError } = await supabase.rpc('resolve_pvp_attack', {
+    // Committing the outcome is the one privileged step: it writes to another
+    // player's rating. It goes through the service-role key rather than the
+    // caller's JWT so that resolve_pvp_attack can be revoked from `authenticated`
+    // entirely (migration 0020) — otherwise any logged-in player could call the
+    // RPC directly from the browser and hand themselves whatever rating they
+    // liked, which would make computing the battle here pointless. Every read
+    // above still uses the caller's own JWT, so RLS is unchanged.
+    const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const { error: rpcError } = await admin.rpc('resolve_pvp_attack', {
+      p_attacker_id: user.id,
       p_defender_id: defenderId,
       p_winner: won ? 'attacker' : 'defender',
       p_log: result.log,
