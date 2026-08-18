@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { getUserFromRequest, UnauthorizedError } from '../../../../lib/auth-helpers';
 import { supabaseAdmin } from '../../../../lib/supabase-admin';
@@ -61,7 +62,10 @@ export async function POST(req: Request) {
   const pulls: { characterId: string; rarity: Rarity }[] = [];
 
   for (let i = 0; i < count; i++) {
-    const rng = new Rng((Date.now() + i) >>> 0);
+    // Seeded from the CSPRNG rather than Date.now(): this is a paid pull, so the outcome
+    // shouldn't be a pure function of a clock an attacker can reason about, and two players
+    // rolling in the same millisecond shouldn't receive identical results.
+    const rng = new Rng(randomInt(0, 2 ** 32));
     const { characterId, rarity, guaranteedNext } =
       tier === 'banner'
         ? pullBannerCharacter(rng, bannerCharacterId!, guaranteed)
