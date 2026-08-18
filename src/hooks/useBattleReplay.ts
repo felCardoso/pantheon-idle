@@ -1,4 +1,4 @@
-import { useEffect, useReducer } from 'react';
+import { useEffect, useReducer, useState } from 'react';
 import { applyReplayEntry, type BattleLogEntry, type Combatant, type ReplayState } from '../engine';
 import { DISPLAY_PORTRAIT_BY_TEMPLATE_ID } from '../data/engineDisplay';
 import { describeAbilityEffect } from '../data/abilityDescriptions';
@@ -150,14 +150,30 @@ interface ReplayPlaybackState {
 
 type Action = { type: 'reset'; log: BattleLogEntry[]; allies: Combatant[]; enemies: Combatant[]; nameToId: Record<string, string> } | { type: 'tick' } | { type: 'pruneFloaters' } | { type: 'pruneAbilities' } | { type: 'pruneAttackAnims' };
 
-function buildInitial(log: BattleLogEntry[], allies: Combatant[], enemies: Combatant[], nameToId: Record<string, string>): ReplayPlaybackState {
+/**
+ * A brand-new battle's starting state — used both by the reducer's 'reset' action (for ticks
+ * still in flight) and synchronously in the hook body itself (see useBattleReplay's resetKey
+ * handling) so a battle transition never renders one battle's allies/enemies against another
+ * battle's replay.allyOrder/enemyOrder, which — since they're unit ids — would otherwise throw
+ * trying to look up a unit that doesn't exist in the new roster.
+ */
+function buildFreshState(log: BattleLogEntry[], allies: Combatant[], enemies: Combatant[], nameToId: Record<string, string>): ReplayPlaybackState {
+  const units: ReplayState['units'] = {};
+  for (const u of [...allies, ...enemies]) units[u.id] = { id: u.id, hp: u.maxHp, maxHp: u.maxHp, shield: 0, statuses: {} };
   return {
     log,
     allies,
     enemies,
     allyIds: new Set(allies.map((u) => u.id)),
     nameToId,
-    replay: { now: 0, units: {}, allyOrder: [], enemyOrder: [], allyVanguardId: null, enemyVanguardId: null },
+    replay: {
+      now: 0,
+      units,
+      allyOrder: allies.map((u) => u.id),
+      enemyOrder: enemies.map((u) => u.id),
+      allyVanguardId: allies[0]?.id ?? null,
+      enemyVanguardId: enemies[0]?.id ?? null,
+    },
     index: 0,
     abilityLogFeed: [],
     floaters: [],
@@ -190,22 +206,7 @@ function withActiveAbility(list: AbilityCastEvent[], next: AbilityCastEvent): Ab
 
 function reducer(state: ReplayPlaybackState, action: Action): ReplayPlaybackState {
   if (action.type === 'reset') {
-    // Import-time-safe: applyReplayEntry needs a real ReplayState, which itself needs the
-    // allies/enemies arrays — build it inline rather than reaching for the engine's
-    // createInitialReplayState just to avoid a second import ceremony here.
-    const units: ReplayState['units'] = {};
-    for (const u of [...action.allies, ...action.enemies]) units[u.id] = { id: u.id, hp: u.maxHp, maxHp: u.maxHp, shield: 0, statuses: {} };
-    return {
-      ...buildInitial(action.log, action.allies, action.enemies, action.nameToId),
-      replay: {
-        now: 0,
-        units,
-        allyOrder: action.allies.map((u) => u.id),
-        enemyOrder: action.enemies.map((u) => u.id),
-        allyVanguardId: action.allies[0]?.id ?? null,
-        enemyVanguardId: action.enemies[0]?.id ?? null,
-      },
-    };
+    return buildFreshState(action.log, action.allies, action.enemies, action.nameToId);
   }
 
   if (action.type === 'pruneFloaters') {
@@ -355,14 +356,23 @@ export interface BattleReplay {
 
 export function useBattleReplay(options: UseBattleReplayOptions): BattleReplay {
   const { log, allies, enemies, nameToId, resetKey, playing, tickMs = 500, onBattleEnd } = options;
-  const [state, dispatch] = useReducer(reducer, undefined, () => buildInitial(log, allies, enemies, nameToId));
+  const [reducerState, dispatch] = useReducer(reducer, undefined, () => buildFreshState(log, allies, enemies, nameToId));
 
-  useEffect(() => {
+  // A new battle's allies/enemies must never be rendered against the PREVIOUS battle's
+  // replay.allyOrder/enemyOrder (unit ids from the old roster) — that's a dangling-id crash
+  // waiting to happen (toBattleUnits looks each order id up in the new roster and finds
+  // nothing). dispatching the reset in an effect is one render too late for that: this render
+  // would still pair new allies/enemies with reducerState's stale replay. Track resetKey and,
+  // the moment it changes, compute this render's state synchronously (React's documented
+  // pattern for "resetting state when a prop changes") — the dispatch below still runs so the
+  // reducer itself catches up before the next tick.
+  const [trackedResetKey, setTrackedResetKey] = useState(resetKey);
+  let state = reducerState;
+  if (resetKey !== trackedResetKey) {
+    setTrackedResetKey(resetKey);
+    state = buildFreshState(log, allies, enemies, nameToId);
     dispatch({ type: 'reset', log, allies, enemies, nameToId });
-    // Only a genuinely new battle (resetKey) should restart playback — log/allies/enemies are
-    // captured fresh into state either way, so they don't need to be dependencies themselves.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resetKey]);
+  }
 
   useEffect(() => {
     if (!playing || state.finished) return;
