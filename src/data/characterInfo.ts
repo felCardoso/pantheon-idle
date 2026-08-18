@@ -5,7 +5,7 @@
  * character's `activeOptions`/`passiveAbilityId` in
  * src/engine/data/characters.json) rather than by position, so it survives
  * a character gaining more activeOptions later without needing to be
- * reordered — see docs/combate-v2-ability-authoring.md for the authoring
+ * reordered — see docs/TUTORIAL_STATUS_HABILIDADES.md for the authoring
  * convention. An id with no entry here falls back to the ability's own
  * `name` field and a generic description (roster.ts's toRosterCharacter).
  *

@@ -40,7 +40,7 @@ export interface RosterCharacter extends Omit<CharacterInfo, 'abilityFlavor' | '
   portraitUrl?: string;
   /** Real combat stats: same-mythology synergy bonus (by team size) and level scaling already folded in. */
   stats: BaseStats;
-  /** Every candidate active ability the player can equip (docs/combate.md §5) — today always 0 or 1 per character until more are hand-authored (see docs/combate-v2-ability-authoring.md). */
+  /** Every candidate active ability the player can equip (docs/combate.md §5) — today always 0 or 1 per character until more are hand-authored (see docs/TUTORIAL_STATUS_HABILIDADES.md). */
   activeOptions: ResolvedAbilityInfo[];
   /** The character's LTS+ passive, or null if not authored yet (no character has one today). */
   passive: ResolvedAbilityInfo | null;
@@ -60,7 +60,7 @@ function toResolvedAbility(def: AbilityDefinition, flavor?: AbilityFlavor): Reso
     id: def.id,
     name: flavor?.name ?? def.name,
     kind: def.scope === 'passive' ? 'Passiva' : 'Ativa',
-    description: flavor?.description ?? 'Sem descrição — ver docs/combate-v2-ability-authoring.md.',
+    description: flavor?.description ?? 'Sem descrição — ver docs/TUTORIAL_STATUS_HABILIDADES.md.',
     trigger: def.trigger,
   };
 }
