@@ -94,3 +94,46 @@ revoke all on function public.resolve_pvp_attack(uuid, uuid, text, jsonb, intege
 revoke all on function public.resolve_pvp_attack(uuid, uuid, text, jsonb, integer, integer) from anon;
 revoke all on function public.resolve_pvp_attack(uuid, uuid, text, jsonb, integer, integer) from authenticated;
 grant execute on function public.resolve_pvp_attack(uuid, uuid, text, jsonb, integer, integer) to service_role;
+
+-- Migration 0011 also let clients insert their own pvp_battles rows. Nothing in
+-- the app ever did: the only writer is resolve_pvp_attack, which is `security
+-- definer` and so bypasses RLS regardless. All the policy actually provided was
+-- a way for any player to fabricate battle-history rows naming themselves as
+-- attacker against any defender — rows that defender can then see, since the
+-- select policy shows both participants. Drop the unused write surface.
+drop policy if exists "Attackers can record a battle they just resolved" on public.pvp_battles;
+
+-- ---------------------------------------------------------------------------
+-- pvp_defense_teams: close the bypass around the hardened write path.
+--
+-- app/api/pvp/defense-team deliberately re-reads xp/rarity from
+-- player_characters instead of trusting the request body, so a forged snapshot
+-- can't hand a defense team fabricated stats. But migration 0011 also granted
+-- clients direct insert/update on the table, so that hardening was optional:
+-- the browser could skip the route and upsert the row itself with any xp,
+-- rarity, character, or team size it wanted —
+--
+--   supabase.from('pvp_defense_teams').upsert({ user_id: me, characters: [...] })
+--
+-- — producing an unbeatable defense of arbitrarily many max-stat units. Revoke
+-- the direct write; the API route uses the service-role key and so is unaffected.
+drop policy if exists "Players can set their own defense team" on public.pvp_defense_teams;
+drop policy if exists "Players can update their own defense team" on public.pvp_defense_teams;
+
+-- Trim any oversized snapshot already stored before enforcing the cap, so the
+-- constraint can be added validated rather than left NOT VALID.
+update public.pvp_defense_teams
+set characters = (
+  select coalesce(jsonb_agg(elem), '[]'::jsonb)
+  from (
+    select elem from jsonb_array_elements(characters) with ordinality as t(elem, ord)
+    order by ord limit 5
+  ) trimmed
+)
+where jsonb_array_length(characters) > 5;
+
+-- Matches player_teams' own constraint and docs/gdd.md section 5 ("times de até 5").
+alter table public.pvp_defense_teams
+  drop constraint if exists pvp_defense_teams_max_members;
+alter table public.pvp_defense_teams
+  add constraint pvp_defense_teams_max_members check (jsonb_array_length(characters) <= 5);

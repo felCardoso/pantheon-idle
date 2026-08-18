@@ -11,6 +11,8 @@ import { loadCharactersByIds, type OwnedCharacterEntry } from '../_shared/engine
 import { runBattle } from '../_shared/engine/core/battle.ts';
 
 const K_FACTOR = 32;
+/** docs/gdd.md section 5: "times de até 5". Mirrors src/hooks/usePlayerTeams.ts's MAX_TEAM_MEMBERS. */
+const MAX_TEAM_MEMBERS = 5;
 const REWARD_CREDITS_WIN = 30;
 const REWARD_CREDITS_LOSS = 5;
 
@@ -83,7 +85,7 @@ Deno.serve(async (req) => {
     ] = await Promise.all([
       supabase.from('player_characters').select('character_id, xp, rarity').eq('user_id', user.id),
       supabase.from('character_ability_progress').select('character_id, selected_ability_id').eq('user_id', user.id),
-      supabase.from('player_progress').select('pvp_rating').eq('user_id', user.id).maybeSingle(),
+      supabase.from('player_progress').select('pvp_rating, pvp_team_slot').eq('user_id', user.id).maybeSingle(),
       supabase.from('pvp_defense_teams').select('characters').eq('user_id', defenderId).maybeSingle(),
       supabase.from('player_progress').select('pvp_rating').eq('user_id', defenderId).maybeSingle(),
     ]);
@@ -98,12 +100,34 @@ Deno.serve(async (req) => {
     const attackerSelectedAbilityByCharacterId = Object.fromEntries(
       (attackerAbilityProgress ?? []).filter((p) => p.selected_ability_id).map((p) => [p.character_id, p.selected_ability_id as string]),
     );
-    const attackerEntries: OwnedCharacterEntry[] = (attackerChars ?? []).map((c) => ({
-      id: c.character_id,
-      xp: c.xp,
-      rarity: c.rarity,
-      selectedAbilityId: attackerSelectedAbilityByCharacterId[c.character_id],
-    }));
+    // Attack with the squad the player selected for PvP, not their whole collection.
+    // Reading every player_characters row meant someone who owned 16 characters
+    // attacked with all 16 against a defense capped at 5 (docs/gdd.md section 5:
+    // "times de até 5"), which both broke the format and made the PvP team choice on
+    // the Team page meaningless for offense. Fall back to the first few owned only
+    // when no team row exists yet, so a brand-new player can still attack.
+    const attackerTeamSlot = attackerProgress?.pvp_team_slot ?? 1;
+    const { data: attackerTeamRow } = await supabase
+      .from('player_teams')
+      .select('characters')
+      .eq('user_id', user.id)
+      .eq('slot', attackerTeamSlot)
+      .maybeSingle();
+
+    const ownedById = new Map((attackerChars ?? []).map((c) => [c.character_id, c]));
+    const teamIds = (attackerTeamRow?.characters as unknown as string[] | null) ?? [];
+    const selectedIds = teamIds.filter((id) => ownedById.has(id));
+    const attackerIds = (selectedIds.length > 0 ? selectedIds : (attackerChars ?? []).map((c) => c.character_id)).slice(0, MAX_TEAM_MEMBERS);
+
+    const attackerEntries: OwnedCharacterEntry[] = attackerIds.map((id) => {
+      const c = ownedById.get(id)!;
+      return {
+        id: c.character_id,
+        xp: c.xp,
+        rarity: c.rarity,
+        selectedAbilityId: attackerSelectedAbilityByCharacterId[c.character_id],
+      };
+    });
     if (attackerEntries.length === 0) {
       return new Response(JSON.stringify({ error: 'No characters to attack with' }), {
         status: 400,
@@ -119,7 +143,9 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    const defenderEntries: OwnedCharacterEntry[] = defenderSnapshot.map((c) => ({
+    // Capped at read time as well as by pvp_defense_teams' own constraint (migration
+    // 0020), since rows written before that constraint existed can still be oversized.
+    const defenderEntries: OwnedCharacterEntry[] = defenderSnapshot.slice(0, MAX_TEAM_MEMBERS).map((c) => ({
       id: c.characterId,
       xp: c.xp,
       rarity: c.rarity as OwnedCharacterEntry['rarity'],
