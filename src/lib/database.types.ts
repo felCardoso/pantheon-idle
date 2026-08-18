@@ -25,6 +25,7 @@ export interface Database {
           bytes: number;
           banner_pity: number;
           banner_guaranteed: boolean;
+          last_claim_at: string;
           updated_at: string;
         };
         Insert: {
@@ -49,6 +50,7 @@ export interface Database {
           bytes?: number;
           banner_pity?: number;
           banner_guaranteed?: boolean;
+          last_claim_at?: string;
           updated_at?: string;
         };
         Update: {
@@ -73,6 +75,7 @@ export interface Database {
           bytes?: number;
           banner_pity?: number;
           banner_guaranteed?: boolean;
+          last_claim_at?: string;
           updated_at?: string;
         };
         Relationships: [];

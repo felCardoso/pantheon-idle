@@ -4,6 +4,7 @@ import { CharacterPortrait } from '../roster/CharacterPortrait';
 import { RosterChips } from '../roster/RosterChips';
 import { buildCompendium, currentShowcaseWeek, pickWeeklyShowcase } from '../../data/roster';
 import { FALLBACK_FACTION, FALLBACK_RARITY } from '../../data/engineDisplay';
+import { postApi } from '../../lib/apiClient';
 import type { AcquireOutcome } from '../../hooks/useOwnedCharacters';
 import type { Rarity } from '../../types';
 import {
@@ -27,12 +28,21 @@ interface ShopPageProps {
   onClaimStarterBoost: () => void;
   onAcquireCharacter: (characterId: string, rarity: Rarity) => Promise<AcquireOutcome>;
   onAdjustCredits: (delta: number) => void;
+  /** Reconciles battle.credits/xp with an /api/idle/claim response — see useBattleSimulation.ts's setWallet. */
+  onSetWallet: (credits: number, xp: number) => void;
   onToast: (message: string) => void;
   vipActive: boolean;
   vipExpiresAt: string | null;
   onPurchaseVip: () => Promise<boolean>;
   onClaimDailyVipBonus: () => Promise<boolean>;
   inCluster: boolean;
+}
+
+interface IdleClaimResponse {
+  grantedCredits: number;
+  grantedXp: number;
+  credits: number;
+  xp: number;
 }
 
 export function ShopPage({
@@ -42,6 +52,7 @@ export function ShopPage({
   onClaimStarterBoost,
   onAcquireCharacter,
   onAdjustCredits,
+  onSetWallet,
   onToast,
   vipActive,
   vipExpiresAt,
@@ -50,6 +61,21 @@ export function ShopPage({
   inCluster,
 }: ShopPageProps) {
   const [purchasingVip, setPurchasingVip] = useState(false);
+  const [claimingIdle, setClaimingIdle] = useState(false);
+
+  async function handleClaimIdle() {
+    if (claimingIdle) return;
+    setClaimingIdle(true);
+    try {
+      const response = await postApi<IdleClaimResponse>('/api/idle/claim');
+      onSetWallet(response.credits, response.xp);
+      onToast(response.grantedCredits > 0 ? `+${response.grantedCredits} créditos / +${response.grantedXp} XP (offline)` : 'Nada para resgatar ainda.');
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : 'Falha ao resgatar recursos idle.');
+    } finally {
+      setClaimingIdle(false);
+    }
+  }
 
   async function handlePurchaseVip() {
     if (purchasingVip) return;
@@ -141,6 +167,30 @@ export function ShopPage({
               chegar.
               {inCluster && ` Bônus de Créditos/XP do Cluster (+${Math.round(CLUSTER_CREDIT_XP_BONUS_PERCENT * 100)}%) é cumulativo com este.`}
             </p>
+          </div>
+        </section>
+
+        {/* Idle/offline income */}
+        <section>
+          <h2 className="mb-2 font-display text-xs font-bold uppercase tracking-widest text-white/50">Recursos Idle</h2>
+          <div className="flex flex-col items-start gap-3 rounded-xl border border-code-500/25 bg-void-800/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-code-500/30 bg-code-500/10">
+                <Icon name="gauge" size={22} className="text-code-400" />
+              </div>
+              <div>
+                <p className="font-display text-sm font-bold text-white">Créditos/XP acumulados offline</p>
+                <p className="text-xs text-white/50">Resgate a qualquer momento — o valor cresce enquanto você está fora.</p>
+              </div>
+            </div>
+            <button
+              onClick={handleClaimIdle}
+              disabled={claimingIdle}
+              className="flex shrink-0 items-center gap-1.5 rounded-lg bg-code-500 px-4 py-2 font-display text-xs font-bold uppercase tracking-wide text-void-950 transition hover:bg-code-400 disabled:opacity-50"
+            >
+              {claimingIdle && <Icon name="loader" size={13} className="animate-spin" />}
+              Resgatar
+            </button>
           </div>
         </section>
 

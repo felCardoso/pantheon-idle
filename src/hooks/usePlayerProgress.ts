@@ -73,15 +73,11 @@ export interface UsePlayerProgressResult {
   spendTokens: (amount: number) => Promise<boolean>;
   /** Adjusts the Bytes balance by delta (positive or negative), persists, and returns whether it succeeded (fails only if a negative delta would go below 0). */
   adjustBytes: (delta: number) => Promise<boolean>;
-  /** Banner Semanal hard pity counter — 1 per banner pull, see BANNER_PITY_MAX. */
+  /** Banner Semanal hard pity counter — 1 per banner pull. Written server-side only (see
+   * app/api/gacha/roll and app/api/gacha/claim-pity); syncFromGachaResponse mirrors it here. */
   bannerPity: number;
-  /** Adds `count` to the pity counter (one per banner pull resolved). */
-  incrementBannerPity: (count: number) => void;
-  /** Resets the pity counter to 0 — call after claiming the guaranteed character. */
-  claimBannerPity: () => void;
-  /** The banner's "50/50" carry-over — true once the player has lost a 50/50 and the next Zero-Day pulled on the banner is guaranteed to be the spotlighted character. */
+  /** The banner's "50/50" carry-over — true once the player has lost a 50/50 and the next Zero-Day pulled on the banner is guaranteed to be the spotlighted character. Same server-only write rule as bannerPity. */
   bannerGuaranteed: boolean;
-  setBannerGuaranteed: (value: boolean) => void;
   setTeamVisibility: (value: TeamVisibility) => Promise<void>;
   /** Spends VIP_COST_TOKENS for VIP_DURATION_DAYS of Root Access, stacking onto any remaining time if already active. Returns whether it succeeded (fails if tokens are short). */
   purchaseVip: () => Promise<boolean>;
@@ -91,6 +87,12 @@ export interface UsePlayerProgressResult {
   purchaseTeamSlot: () => Promise<boolean>;
   setPveTeamSlot: (slot: number) => Promise<void>;
   setPvpTeamSlot: (slot: number) => Promise<void>;
+  /**
+   * Overwrites tokens/bannerPity/bannerGuaranteed with server-authoritative values from an
+   * /api/gacha/** response, without writing to Supabase — the API route already persisted
+   * them, this just syncs local UI state to match. See src/lib/apiClient.ts's callers.
+   */
+  syncFromGachaResponse: (next: { tokens: number; bannerPity: number; bannerGuaranteed: boolean }) => void;
 }
 
 function isVipActive(vipExpiresAt: string | null): boolean {
@@ -257,44 +259,6 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
     [userId, bytes],
   );
 
-  const incrementBannerPity = useCallback(
-    (count: number) => {
-      if (!userId || count <= 0) return;
-      setBannerPity((prev) => {
-        const next = prev + count;
-        supabase
-          .from('player_progress')
-          .update({ banner_pity: next })
-          .eq('user_id', userId)
-          .then(({ error: updateError }) => setError(updateError ? updateError.message : null));
-        return next;
-      });
-    },
-    [userId],
-  );
-
-  const claimBannerPity = useCallback(() => {
-    if (!userId) return;
-    setBannerPity(0);
-    supabase
-      .from('player_progress')
-      .update({ banner_pity: 0 })
-      .eq('user_id', userId)
-      .then(({ error: updateError }) => setError(updateError ? updateError.message : null));
-  }, [userId]);
-
-  const setBannerGuaranteed = useCallback(
-    (value: boolean) => {
-      if (!userId) return;
-      setBannerGuaranteedState(value);
-      supabase
-        .from('player_progress')
-        .update({ banner_guaranteed: value })
-        .eq('user_id', userId)
-        .then(({ error: updateError }) => setError(updateError ? updateError.message : null));
-    },
-    [userId],
-  );
 
   const setTeamVisibility = useCallback(
     async (value: TeamVisibility) => {
@@ -372,6 +336,12 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
     [userId],
   );
 
+  const syncFromGachaResponse = useCallback((next: { tokens: number; bannerPity: number; bannerGuaranteed: boolean }) => {
+    setTokens(next.tokens);
+    setBannerPity(next.bannerPity);
+    setBannerGuaranteedState(next.bannerGuaranteed);
+  }, []);
+
   return {
     progress,
     starterBoostClaimed,
@@ -382,10 +352,7 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
     bandwidth,
     bytes,
     bannerPity,
-    incrementBannerPity,
-    claimBannerPity,
     bannerGuaranteed,
-    setBannerGuaranteed,
     unlockedTeamSlots,
     pveTeamSlot,
     pvpTeamSlot,
@@ -401,5 +368,6 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
     purchaseTeamSlot,
     setPveTeamSlot,
     setPvpTeamSlot,
+    syncFromGachaResponse,
   };
 }

@@ -63,10 +63,6 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
     pveTeamSlot,
     pvpTeamSlot,
     bannerPity,
-    incrementBannerPity,
-    claimBannerPity,
-    bannerGuaranteed,
-    setBannerGuaranteed,
     loading: progressLoading,
     saveProgress,
     claimStarterBoost,
@@ -78,6 +74,7 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
     purchaseTeamSlot,
     setPveTeamSlot,
     setPvpTeamSlot,
+    syncFromGachaResponse,
   } = usePlayerProgress(userId);
   const { ownedCharacters, fragments, loading: ownedLoading, claimStarter, addXp, acquireCharacter, sellFragment, refreshFragments } =
     useOwnedCharacters(userId);
@@ -146,10 +143,7 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
       bytes={bytes}
       adjustBytes={adjustBytes}
       bannerPity={bannerPity}
-      incrementBannerPity={incrementBannerPity}
-      claimBannerPity={claimBannerPity}
-      bannerGuaranteed={bannerGuaranteed}
-      setBannerGuaranteed={setBannerGuaranteed}
+      syncFromGachaResponse={syncFromGachaResponse}
       characterProgression={characterProgression}
       teamVisibility={teamVisibility}
       setTeamVisibility={setTeamVisibility}
@@ -199,10 +193,7 @@ interface GameShellReadyProps {
   bytes: number;
   adjustBytes: (delta: number) => Promise<boolean>;
   bannerPity: number;
-  incrementBannerPity: (count: number) => void;
-  claimBannerPity: () => void;
-  bannerGuaranteed: boolean;
-  setBannerGuaranteed: (value: boolean) => void;
+  syncFromGachaResponse: (next: { tokens: number; bannerPity: number; bannerGuaranteed: boolean }) => void;
   characterProgression: ReturnType<typeof useCharacterProgression>;
   teamVisibility: TeamVisibility;
   setTeamVisibility: (value: TeamVisibility) => void;
@@ -253,10 +244,7 @@ function GameShellReady({
   bytes,
   adjustBytes,
   bannerPity,
-  incrementBannerPity,
-  claimBannerPity,
-  bannerGuaranteed,
-  setBannerGuaranteed,
+  syncFromGachaResponse,
   characterProgression,
   teamVisibility,
   setTeamVisibility,
@@ -444,6 +432,7 @@ function GameShellReady({
               onClaimStarterBoost={claimStarterBoost}
               onAcquireCharacter={acquireCharacter}
               onAdjustCredits={battle.adjustCredits}
+              onSetWallet={battle.setWallet}
               onToast={setToast}
               vipActive={vipActive}
               vipExpiresAt={vipExpiresAt}
@@ -455,16 +444,12 @@ function GameShellReady({
             <GachaPage
               credits={battle.credits}
               tokens={tokens}
+              xp={battle.xp}
               ownedCharacters={ownedCharacters}
-              onAcquireCharacter={acquireCharacter}
-              onAdjustCredits={battle.adjustCredits}
-              onSpendTokens={spendTokens}
               onToast={setToast}
               bannerPity={bannerPity}
-              onIncrementBannerPity={incrementBannerPity}
-              onClaimBannerPity={claimBannerPity}
-              bannerGuaranteed={bannerGuaranteed}
-              onSetBannerGuaranteed={setBannerGuaranteed}
+              onSetWallet={battle.setWallet}
+              onSyncGachaState={syncFromGachaResponse}
             />
           ) : activeMenuId === 'guild' ? (
             <ClusterPage userId={userId} cluster={cluster} bandwidth={0} onToast={setToast} />
