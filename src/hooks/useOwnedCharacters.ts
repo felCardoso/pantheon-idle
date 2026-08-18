@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { RARITY_RANK } from '../data/roster';
+import { postApi } from '../lib/apiClient';
 import type { Rarity } from '../types';
 
 export interface OwnedCharacter {
@@ -31,22 +31,13 @@ export interface UseOwnedCharactersResult {
   claimStarter: (characterId: string) => Promise<void>;
   /** Grants the same XP amount to every currently-owned character — the whole owned roster fights together, so everyone who fought earns it. */
   addXp: (amount: number) => void;
-  /**
-   * A gacha pull landed on characterId at the given rarity: grants ownership
-   * if it's new ('new'), raises the owned card to that rarity and resets its
-   * XP-level to 0 if it's a strictly higher rarity than what's owned
-   * ('upgraded'), or becomes +1 fragment at the pulled rarity otherwise
-   * ('duplicate'). Ability/passive levels (character_ability_progress) are
-   * never touched here — they're shared across every rarity copy.
-   */
-  acquireCharacter: (characterId: string, rarity: Rarity) => Promise<AcquireOutcome>;
-  /** Consumes 1 fragment of characterId at the given rarity — the caller is responsible for granting the credit/byte refund. */
-  sellFragment: (characterId: string, rarity: Rarity) => Promise<void>;
+  /** Sells 1 fragment of characterId at the given rarity for Bytes via /api/characters/sell-fragment
+   * — returns the grant + new Bytes total (for the caller's usePlayerProgress.setBytesFromServer),
+   * or null if it failed (nothing to sell). */
+  sellFragment: (characterId: string, rarity: Rarity) => Promise<{ grantedBytes: number; bytes: number } | null>;
   /** Re-queries character_fragments — call after a Mercado de Diagramas publish/cancel/purchase, since those mutate this row server-side via RPC. */
   refreshFragments: () => Promise<void>;
 }
-
-const STARTER_RARITY: Rarity = 'Alpha';
 
 function fragmentKey(characterId: string, rarity: Rarity): string {
   return `${characterId}:${rarity}`;
@@ -59,13 +50,8 @@ export function useOwnedCharacters(userId: string | undefined): UseOwnedCharacte
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Mirrors of the state above, written synchronously wherever the state is written. React
-  // state updates aren't visible to the very next synchronous-ish call in the same tick (no
-  // render has happened yet), which matters here because acquireCharacter can be called
-  // back-to-back for a batch of gacha pulls (see GachaPage's 10x option) — two pulls landing on
-  // the same already-owned character/rarity in one batch would both read the same stale count
-  // from state and silently drop an increment. Reading/writing through these refs instead keeps
-  // every call correct regardless of render timing.
+  // Mirrors of the state above, written synchronously wherever the state is written — see
+  // addXp's own comment for why (battle-driven, unrelated to the routes below, kept as-is).
   const ownedRef = useRef<OwnedCharacter[]>([]);
   const fragmentsRef = useRef<Map<string, FragmentStack>>(new Map());
 
@@ -128,17 +114,22 @@ export function useOwnedCharacters(userId: string | undefined): UseOwnedCharacte
   const claimStarter = useCallback(
     async (characterId: string) => {
       if (!userId) return;
-      const owned = [{ characterId, xp: 0, rarity: STARTER_RARITY }];
-      ownedRef.current = owned;
-      setOwnedCharacters(owned);
-      const { error: insertError } = await supabase
-        .from('player_characters')
-        .insert({ user_id: userId, character_id: characterId, rarity: STARTER_RARITY });
-      setError(insertError ? insertError.message : null);
+      try {
+        const response = await postApi<{ characterId: string; rarity: Rarity }>('/api/characters/claim-starter', { characterId });
+        const owned = [{ characterId: response.characterId, xp: 0, rarity: response.rarity }];
+        ownedRef.current = owned;
+        setOwnedCharacters(owned);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to claim starter character');
+      }
     },
     [userId],
   );
 
+  // Battle-driven (every owned character levels up from battle rewards) — not migrated yet,
+  // same reasoning as usePlayerProgress.ts's saveProgress: it means moving battle resolution
+  // itself server-side, out of scope for this pass.
   const addXp = useCallback(
     (amount: number) => {
       if (!userId || amount <= 0 || ownedRef.current.length === 0) return;
@@ -156,66 +147,28 @@ export function useOwnedCharacters(userId: string | undefined): UseOwnedCharacte
     [userId],
   );
 
-  const acquireCharacter = useCallback(
-    async (characterId: string, rarity: Rarity): Promise<AcquireOutcome> => {
-      if (!userId) return 'duplicate';
-
-      const existing = ownedRef.current.find((c) => c.characterId === characterId);
-
-      if (!existing) {
-        const next = [...ownedRef.current, { characterId, xp: 0, rarity }];
-        ownedRef.current = next;
-        setOwnedCharacters(next);
-        const { error: insertError } = await supabase
-          .from('player_characters')
-          .insert({ user_id: userId, character_id: characterId, rarity });
-        setError(insertError ? insertError.message : null);
-        return 'new';
-      }
-
-      if (RARITY_RANK[rarity] > RARITY_RANK[existing.rarity]) {
-        const next = ownedRef.current.map((c) => (c.characterId === characterId ? { ...c, rarity, xp: 0 } : c));
-        ownedRef.current = next;
-        setOwnedCharacters(next);
-        const { error: updateError } = await supabase
-          .from('player_characters')
-          .update({ rarity, xp: 0 })
-          .eq('user_id', userId)
-          .eq('character_id', characterId);
-        setError(updateError ? updateError.message : null);
-        return 'upgraded';
-      }
-
-      const key = fragmentKey(characterId, rarity);
-      const nextCount = (fragmentsRef.current.get(key)?.count ?? 0) + 1;
-      const nextMap = new Map(fragmentsRef.current);
-      nextMap.set(key, { characterId, rarity, count: nextCount });
-      syncFragments(nextMap);
-      const { error: upsertError } = await supabase
-        .from('character_fragments')
-        .upsert({ user_id: userId, character_id: characterId, rarity, count: nextCount }, { onConflict: 'user_id,character_id,rarity' });
-      setError(upsertError ? upsertError.message : null);
-      return 'duplicate';
-    },
-    [userId],
-  );
-
   const sellFragment = useCallback(
-    async (characterId: string, rarity: Rarity) => {
-      if (!userId) return;
+    async (characterId: string, rarity: Rarity): Promise<{ grantedBytes: number; bytes: number } | null> => {
+      if (!userId) return null;
       const key = fragmentKey(characterId, rarity);
       const current = fragmentsRef.current.get(key)?.count ?? 0;
-      if (current <= 0) return;
+      if (current <= 0) return null;
 
-      const nextCount = current - 1;
-      const nextMap = new Map(fragmentsRef.current);
-      if (nextCount <= 0) nextMap.delete(key);
-      else nextMap.set(key, { characterId, rarity, count: nextCount });
-      syncFragments(nextMap);
-      const { error: upsertError } = await supabase
-        .from('character_fragments')
-        .upsert({ user_id: userId, character_id: characterId, rarity, count: nextCount }, { onConflict: 'user_id,character_id,rarity' });
-      setError(upsertError ? upsertError.message : null);
+      try {
+        const response = await postApi<{ grantedBytes: number; bytes: number; remainingCount: number }>('/api/characters/sell-fragment', {
+          characterId,
+          rarity,
+        });
+        const nextMap = new Map(fragmentsRef.current);
+        if (response.remainingCount <= 0) nextMap.delete(key);
+        else nextMap.set(key, { characterId, rarity, count: response.remainingCount });
+        syncFragments(nextMap);
+        setError(null);
+        return { grantedBytes: response.grantedBytes, bytes: response.bytes };
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to sell fragment');
+        return null;
+      }
     },
     [userId],
   );
@@ -236,5 +189,5 @@ export function useOwnedCharacters(userId: string | undefined): UseOwnedCharacte
     syncFragments(next);
   }, [userId]);
 
-  return { ownedCharacters, fragments, loading, error, claimStarter, addXp, acquireCharacter, sellFragment, refreshFragments };
+  return { ownedCharacters, fragments, loading, error, claimStarter, addXp, sellFragment, refreshFragments };
 }

@@ -3,11 +3,9 @@ import { getUserFromRequest, UnauthorizedError } from '../../../../lib/auth-help
 import { supabaseAdmin } from '../../../../lib/supabase-admin';
 import { applyAcquire, loadOwnershipState } from '../../../../lib/gacha';
 import { currentShowcaseWeek, pickWeeklyBannerCharacter } from '../../../../src/data/roster';
+import { BANNER_PITY_MAX } from '../../../../src/data/playerEconomy';
 import type { Rarity } from '../../../../src/types';
 
-// Mirrors usePlayerProgress.ts's BANNER_PITY_MAX — the hard-pity threshold for the "Extrair
-// Executável Garantido" claim (docs/gdd.md section 10).
-const BANNER_PITY_MAX = 150;
 const BANNER_CLAIM_RARITY: Rarity = 'Zero-Day';
 
 export async function POST(req: Request) {

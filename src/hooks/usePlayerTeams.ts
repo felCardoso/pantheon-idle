@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { postApi } from '../lib/apiClient';
 
 export interface TeamSlot {
   slot: number;
@@ -73,49 +74,34 @@ export function usePlayerTeams(userId: string | undefined): UsePlayerTeamsResult
     };
   }, [userId]);
 
-  const persistTeam = useCallback(
-    async (slot: number, name: string, characterIds: string[]) => {
-      if (!userId) return;
-      const { error: upsertError } = await supabase
-        .from('player_teams')
-        .upsert({ user_id: userId, slot, name, characters: characterIds, updated_at: new Date().toISOString() }, { onConflict: 'user_id,slot' });
-      if (upsertError) setError(upsertError.message);
-    },
-    [userId],
-  );
-
   const renameTeam = useCallback(
     async (slot: number, name: string) => {
       const trimmed = name.trim();
       if (!userId || !trimmed) return;
-      let charactersToPersist: string[] = [];
-      setTeams((prev) =>
-        prev.map((t) => {
-          if (t.slot !== slot) return t;
-          charactersToPersist = t.characterIds;
-          return { ...t, name: trimmed };
-        }),
-      );
-      await persistTeam(slot, trimmed, charactersToPersist);
+      setTeams((prev) => prev.map((t) => (t.slot === slot ? { ...t, name: trimmed } : t)));
+      try {
+        await postApi('/api/teams/save', { slot, name: trimmed });
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to rename team');
+      }
     },
-    [userId, persistTeam],
+    [userId],
   );
 
   const setTeamCharacters = useCallback(
     async (slot: number, characterIds: string[]) => {
       if (!userId) return;
       const clamped = characterIds.slice(0, MAX_TEAM_MEMBERS);
-      let name = `Time${slot}.cfg`;
-      setTeams((prev) =>
-        prev.map((t) => {
-          if (t.slot !== slot) return t;
-          name = t.name;
-          return { ...t, characterIds: clamped };
-        }),
-      );
-      await persistTeam(slot, name, clamped);
+      setTeams((prev) => prev.map((t) => (t.slot === slot ? { ...t, characterIds: clamped } : t)));
+      try {
+        await postApi('/api/teams/save', { slot, characterIds: clamped });
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to save team');
+      }
     },
-    [userId, persistTeam],
+    [userId],
   );
 
   const initializeAllTeams = useCallback(
@@ -127,15 +113,12 @@ export function usePlayerTeams(userId: string | undefined): UsePlayerTeamsResult
         characterIds: [starterCharacterId],
       }));
       setTeams(next);
-      const rows = next.map((t) => ({
-        user_id: userId,
-        slot: t.slot,
-        name: t.name,
-        characters: t.characterIds,
-        updated_at: new Date().toISOString(),
-      }));
-      const { error: upsertError } = await supabase.from('player_teams').upsert(rows, { onConflict: 'user_id,slot' });
-      if (upsertError) setError(upsertError.message);
+      try {
+        await postApi('/api/teams/initialize', { starterCharacterId });
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to initialize teams');
+      }
     },
     [userId],
   );
@@ -143,20 +126,24 @@ export function usePlayerTeams(userId: string | undefined): UsePlayerTeamsResult
   const autoAddToTeam1 = useCallback(
     async (characterId: string) => {
       if (!userId) return;
-      let nextCharacters: string[] | null = null;
-      let name = 'Time1.cfg';
+      let willAdd = false;
       setTeams((prev) =>
         prev.map((t) => {
           if (t.slot !== 1) return t;
-          name = t.name;
           if (t.characterIds.includes(characterId) || t.characterIds.length >= MAX_TEAM_MEMBERS) return t;
-          nextCharacters = [...t.characterIds, characterId];
-          return { ...t, characterIds: nextCharacters };
+          willAdd = true;
+          return { ...t, characterIds: [...t.characterIds, characterId] };
         }),
       );
-      if (nextCharacters) await persistTeam(1, name, nextCharacters);
+      if (!willAdd) return;
+      try {
+        await postApi('/api/teams/auto-add', { characterId });
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to auto-add character');
+      }
     },
-    [userId, persistTeam],
+    [userId],
   );
 
   return { teams, loading, error, renameTeam, setTeamCharacters, initializeAllTeams, autoAddToTeam1 };

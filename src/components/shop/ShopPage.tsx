@@ -5,31 +5,30 @@ import { RosterChips } from '../roster/RosterChips';
 import { buildCompendium, currentShowcaseWeek, pickWeeklyShowcase } from '../../data/roster';
 import { FALLBACK_FACTION, FALLBACK_RARITY } from '../../data/engineDisplay';
 import { postApi } from '../../lib/apiClient';
-import type { AcquireOutcome } from '../../hooks/useOwnedCharacters';
-import type { Rarity } from '../../types';
 import {
   CLUSTER_CREDIT_XP_BONUS_PERCENT,
+  SHOWCASE_CHARACTER_PRICE_CREDITS,
+  SHOWCASE_FREE_SLOTS,
+  STARTER_BOOST_CREDITS,
   VIP_COST_TOKENS,
   VIP_CREDIT_XP_BONUS_PERCENT,
   VIP_DAILY_BONUS_TOKENS,
   VIP_DURATION_DAYS,
-} from '../../hooks/usePlayerProgress';
-
-// First-pass numbers, easy to retune later.
-const STARTER_BOOST_CREDITS = 1000;
-const SHOWCASE_CHARACTER_PRICE_CREDITS = 2000;
-/** Slot 0 is open to everyone; slots 1-2 require an active Root Access subscription. */
-const SHOWCASE_FREE_SLOTS = 1;
+} from '../../data/playerEconomy';
+import type { AcquireOutcome } from '../../hooks/useOwnedCharacters';
+import type { Rarity } from '../../types';
 
 interface ShopPageProps {
   credits: number;
+  xp: number;
   tokens: number;
   starterBoostClaimed: boolean;
-  onClaimStarterBoost: () => void;
-  onAcquireCharacter: (characterId: string, rarity: Rarity) => Promise<AcquireOutcome>;
-  onAdjustCredits: (delta: number) => void;
-  /** Reconciles battle.credits/xp with an /api/idle/claim response — see useBattleSimulation.ts's setWallet. */
+  /** Claims the one-time starter boost — the route grants the credits itself, returned here for onSetWallet. */
+  onClaimStarterBoost: () => Promise<number | null>;
+  /** Reconciles battle.credits/xp with an authoritative response — see useBattleSimulation.ts's setWallet. */
   onSetWallet: (credits: number, xp: number) => void;
+  /** Called after a showcase purchase resolves 'new' — adds the character to Time1 if it has room. */
+  onNewCharacter: (characterId: string) => void;
   onToast: (message: string) => void;
   vipActive: boolean;
   vipExpiresAt: string | null;
@@ -45,14 +44,19 @@ interface IdleClaimResponse {
   xp: number;
 }
 
+interface AcquireShowcaseResponse {
+  result: { characterId: string; rarity: Rarity; outcome: AcquireOutcome };
+  credits: number;
+}
+
 export function ShopPage({
   credits,
+  xp,
   tokens,
   starterBoostClaimed,
   onClaimStarterBoost,
-  onAcquireCharacter,
-  onAdjustCredits,
   onSetWallet,
+  onNewCharacter,
   onToast,
   vipActive,
   vipExpiresAt,
@@ -95,10 +99,14 @@ export function ShopPage({
   const showcaseIds = useMemo(() => pickWeeklyShowcase(currentShowcaseWeek()), []);
   const [buyingShowcaseId, setBuyingShowcaseId] = useState<string | null>(null);
 
-  function handleClaimStarterBoost() {
+  async function handleClaimStarterBoost() {
     if (starterBoostClaimed) return;
-    onClaimStarterBoost();
-    onAdjustCredits(STARTER_BOOST_CREDITS);
+    const nextCredits = await onClaimStarterBoost();
+    if (nextCredits === null) {
+      onToast('Não foi possível resgatar o bônus.');
+      return;
+    }
+    onSetWallet(nextCredits, xp);
     onToast(`+${STARTER_BOOST_CREDITS} créditos resgatados!`);
   }
 
@@ -107,10 +115,16 @@ export function ShopPage({
     if (slotIndex >= SHOWCASE_FREE_SLOTS && !vipActive) return;
     if (credits < SHOWCASE_CHARACTER_PRICE_CREDITS) return;
     setBuyingShowcaseId(characterId);
-    onAdjustCredits(-SHOWCASE_CHARACTER_PRICE_CREDITS);
-    const outcome = await onAcquireCharacter(characterId, FALLBACK_RARITY);
-    setBuyingShowcaseId(null);
-    onToast(outcome === 'new' ? 'Novo personagem desbloqueado!' : 'Já possuído — convertido em +1 diagrama.');
+    try {
+      const response = await postApi<AcquireShowcaseResponse>('/api/characters/acquire-showcase', { characterId });
+      onSetWallet(response.credits, xp);
+      if (response.result.outcome === 'new') onNewCharacter(characterId);
+      onToast(response.result.outcome === 'new' ? 'Novo personagem desbloqueado!' : 'Já possuído — convertido em +1 diagrama.');
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : 'Não foi possível comprar.');
+    } finally {
+      setBuyingShowcaseId(null);
+    }
   }
 
   return (

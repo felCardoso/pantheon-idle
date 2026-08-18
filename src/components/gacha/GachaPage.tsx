@@ -43,6 +43,8 @@ interface GachaPageProps {
   onSetWallet: (credits: number, xp: number) => void;
   /** Reconciles tokens/bannerPity/bannerGuaranteed with an /api/gacha/** route's authoritative response — see usePlayerProgress.ts's syncFromGachaResponse. */
   onSyncGachaState: (next: { tokens: number; bannerPity: number; bannerGuaranteed: boolean }) => void;
+  /** Called once per pull that resolved 'new' — adds the character to Time1 if it has room. */
+  onNewCharacter: (characterId: string) => void;
 }
 
 interface PullResult {
@@ -66,6 +68,7 @@ export function GachaPage({
   bannerPity,
   onSetWallet,
   onSyncGachaState,
+  onNewCharacter,
 }: GachaPageProps) {
   const [pulling, setPulling] = useState(false);
   const [reelItems, setReelItems] = useState<RosterCharacter[] | null>(null);
@@ -100,6 +103,9 @@ export function GachaPage({
 
     onSetWallet(response.credits, xp);
     onSyncGachaState({ tokens: response.tokens, bannerPity: response.bannerPity, bannerGuaranteed: response.bannerGuaranteed });
+    for (const r of response.results) {
+      if (r.outcome === 'new') onNewCharacter(r.characterId);
+    }
 
     const results = response.results;
     const flourishWinnerId = [...results].sort((a, b) => RARITY_RANK[b.rarity] - RARITY_RANK[a.rarity])[0].characterId;

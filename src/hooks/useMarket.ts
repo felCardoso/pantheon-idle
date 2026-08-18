@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { postApi } from '../lib/apiClient';
 import type { Rarity } from '../types';
 
 export interface DiagramListing {
@@ -24,8 +25,9 @@ export interface UseMarketResult {
   publishListing: (characterId: string, rarity: Rarity, quantity: number, priceCredits: number) => Promise<boolean>;
   /** Cancels one of the caller's own listings, refunding the diagrams. Returns whether it succeeded. */
   cancelListing: (listingId: string) => Promise<boolean>;
-  /** Buys `quantity` from a listing (requires Root Access + affordability). Returns whether it succeeded. */
-  purchaseListing: (listingId: string, quantity: number) => Promise<boolean>;
+  /** Buys `quantity` from a listing (requires Root Access + affordability). Returns the buyer's
+   * new credits total (for the caller's battle.setWallet) or null if it failed. */
+  purchaseListing: (listingId: string, quantity: number) => Promise<number | null>;
 }
 
 async function usernamesFor(userIds: string[]): Promise<Record<string, string>> {
@@ -90,18 +92,14 @@ export function useMarket(userId: string | undefined): UseMarketResult {
   const publishListing = useCallback(
     async (characterId: string, rarity: Rarity, quantity: number, priceCredits: number): Promise<boolean> => {
       if (!userId) return false;
-      const { error: rpcError } = await supabase.rpc('publish_diagram_listing', {
-        p_character_id: characterId,
-        p_quantity: quantity,
-        p_price_credits: priceCredits,
-        p_rarity: rarity,
-      });
-      if (rpcError) {
-        setError(rpcError.message);
+      try {
+        await postApi('/api/market/publish', { characterId, rarity, quantity, priceCredits });
+        await refresh();
+        return true;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to publish listing');
         return false;
       }
-      await refresh();
-      return true;
     },
     [userId, refresh],
   );
@@ -109,27 +107,29 @@ export function useMarket(userId: string | undefined): UseMarketResult {
   const cancelListing = useCallback(
     async (listingId: string): Promise<boolean> => {
       if (!userId) return false;
-      const { error: rpcError } = await supabase.rpc('cancel_diagram_listing', { p_listing_id: listingId });
-      if (rpcError) {
-        setError(rpcError.message);
+      try {
+        await postApi('/api/market/cancel', { listingId });
+        await refresh();
+        return true;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to cancel listing');
         return false;
       }
-      await refresh();
-      return true;
     },
     [userId, refresh],
   );
 
   const purchaseListing = useCallback(
-    async (listingId: string, quantity: number): Promise<boolean> => {
-      if (!userId) return false;
-      const { error: rpcError } = await supabase.rpc('purchase_diagram_listing', { p_listing_id: listingId, p_quantity: quantity });
-      if (rpcError) {
-        setError(rpcError.message);
-        return false;
+    async (listingId: string, quantity: number): Promise<number | null> => {
+      if (!userId) return null;
+      try {
+        const response = await postApi<{ credits: number | null }>('/api/market/purchase', { listingId, quantity });
+        await refresh();
+        return response.credits;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to purchase listing');
+        return null;
       }
-      await refresh();
-      return true;
     },
     [userId, refresh],
   );

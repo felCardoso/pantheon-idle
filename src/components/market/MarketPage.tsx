@@ -3,6 +3,7 @@ import { Icon } from '../common/Icon';
 import { CharacterPortrait } from '../roster/CharacterPortrait';
 import { buildCompendium, diagramName } from '../../data/roster';
 import { FALLBACK_FACTION } from '../../data/engineDisplay';
+import { FRAGMENT_CONVERSION_BYTES_BY_RARITY } from '../../data/playerEconomy';
 import type { UseMarketResult } from '../../hooks/useMarket';
 import type { FragmentStack } from '../../hooks/useOwnedCharacters';
 import type { Rarity } from '../../types';
@@ -12,23 +13,16 @@ interface MarketPageProps {
   fragments: FragmentStack[];
   vipActive: boolean;
   credits: number;
+  xp: number;
   bytes: number;
-  onAdjustCredits: (delta: number) => void;
-  onAdjustBytes: (delta: number) => Promise<boolean>;
-  onSellFragment: (characterId: string, rarity: Rarity) => void;
+  /** Reconciles battle.credits/xp with an authoritative response — see useBattleSimulation.ts's setWallet. */
+  onSetWallet: (credits: number, xp: number) => void;
+  onSellFragment: (characterId: string, rarity: Rarity) => Promise<{ grantedBytes: number; bytes: number } | null>;
   onRefreshFragments: () => Promise<void>;
   onToast: (message: string) => void;
 }
 
 const MIN_PRICE_CREDITS = 50;
-/** First-pass numbers, easy to retune later — rarer diagrams convert into more Bytes. */
-const FRAGMENT_CONVERSION_BYTES_BY_RARITY: Record<Rarity, number> = {
-  Alpha: 5,
-  Beta: 10,
-  Stable: 25,
-  LTS: 50,
-  'Zero-Day': 100,
-};
 
 type MarketTab = 'inventory' | 'offers' | 'market';
 
@@ -48,9 +42,9 @@ export function MarketPage({
   fragments,
   vipActive,
   credits,
+  xp,
   bytes,
-  onAdjustCredits,
-  onAdjustBytes,
+  onSetWallet,
   onSellFragment,
   onRefreshFragments,
   onToast,
@@ -75,12 +69,11 @@ export function MarketPage({
   async function handleConvertFragment(characterId: string, rarity: Rarity) {
     const key = stackKey(characterId, rarity);
     if (convertingId) return;
-    const rate = FRAGMENT_CONVERSION_BYTES_BY_RARITY[rarity];
     setConvertingId(key);
-    onSellFragment(characterId, rarity);
-    await onAdjustBytes(rate);
+    const result = await onSellFragment(characterId, rarity);
     setConvertingId(null);
-    onToast(`+${rate} bytes pela conversão do diagrama.`);
+    if (result) onToast(`+${result.grantedBytes} bytes pela conversão do diagrama.`);
+    else onToast('Não foi possível converter o diagrama.');
   }
 
   async function handlePublish() {
@@ -113,12 +106,10 @@ export function MarketPage({
     const total = unitPrice * quantity;
     if (!vipActive || credits < total) return;
     setBusyListingId(listingId);
-    const ok = await market.purchaseListing(listingId, quantity);
+    const nextCredits = await market.purchaseListing(listingId, quantity);
     setBusyListingId(null);
-    if (ok) {
-      // The RPC already moved credits server-side — mirror the deduction into the client's
-      // running total too, so the next unrelated saveProgress doesn't overwrite it with a stale value.
-      onAdjustCredits(-total);
+    if (nextCredits !== null) {
+      onSetWallet(nextCredits, xp);
       await onRefreshFragments();
       onToast(`Comprado! -${total} créditos.`);
     } else {
