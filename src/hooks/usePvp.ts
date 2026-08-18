@@ -22,6 +22,27 @@ export interface PvpAttackResult {
   defenders: Combatant[];
 }
 
+/**
+ * An attack can fail for reasons the player can act on (no defense team saved) and for reasons
+ * only an operator can (the Edge Function isn't deployed to the project yet, so the browser only
+ * ever sees an opaque CORS failure on a 404 preflight). Returning the reason instead of a bare
+ * null keeps the UI from blaming the opponent's defense team for every possible failure.
+ */
+export type PvpAttackOutcome = { ok: true; result: PvpAttackResult } | { ok: false; message: string };
+
+/**
+ * `supabase.functions.invoke` surfaces a missing function as a generic network/CORS error, because
+ * a 404 from the functions gateway carries no CORS headers for the browser to accept. Nothing in
+ * the response distinguishes it, so match on the shape of the failure and name the likely cause.
+ */
+function attackErrorMessage(error: { message?: string } | null): string {
+  const raw = error?.message ?? '';
+  if (/failed to (fetch|send)|networkerror|load failed/i.test(raw)) {
+    return 'Não foi possível falar com o servidor de PvP. A function `pvp-attack` pode não estar publicada no projeto Supabase (supabase functions deploy pvp-attack).';
+  }
+  return raw || 'O ataque falhou.';
+}
+
 /** One row of the global PvP leaderboard (supabase/migrations/0018_pvp_ranking.sql's get_pvp_leaderboard). */
 export interface PvpLeaderboardEntry {
   rank: number;
@@ -60,7 +81,7 @@ export interface UsePvpResult {
    * attacker's roster itself from `player_characters`; nothing about the
    * attacker's team is sent from the client.
    */
-  attack: (opponent: PvpOpponent) => Promise<PvpAttackResult | null>;
+  attack: (opponent: PvpOpponent) => Promise<PvpAttackOutcome>;
   /** Top `limit` (default 50, capped at 200 server-side) players by rating — supabase/migrations/0018_pvp_ranking.sql's get_pvp_leaderboard, security definer since player_progress's RLS only lets a client read its own row. */
   fetchLeaderboard: (limit?: number) => Promise<PvpLeaderboardEntry[]>;
   /** The caller's own position + total ranked player count — useful when they're not in the leaderboard's top-N slice. */
@@ -162,15 +183,16 @@ export function usePvp(userId: string | undefined): UsePvpResult {
   }, [userId, rating]);
 
   const attack = useCallback(
-    async (opponent: PvpOpponent): Promise<PvpAttackResult | null> => {
-      if (!userId) return null;
+    async (opponent: PvpOpponent): Promise<PvpAttackOutcome> => {
+      if (!userId) return { ok: false, message: 'Sessão expirada — entre novamente para atacar.' };
 
       const { data, error: invokeError } = await supabase.functions.invoke<PvpAttackResult>('pvp-attack', {
         body: { defenderId: opponent.userId },
       });
       if (invokeError || !data) {
-        setError(invokeError?.message ?? 'Attack failed');
-        return null;
+        const message = attackErrorMessage(invokeError);
+        setError(message);
+        return { ok: false, message };
       }
 
       setRating(data.newRating);
@@ -178,7 +200,7 @@ export function usePvp(userId: string | undefined): UsePvpResult {
       if (data.won) setWins((w) => w + 1);
       else setLosses((l) => l + 1);
 
-      return data;
+      return { ok: true, result: data };
     },
     [userId],
   );
