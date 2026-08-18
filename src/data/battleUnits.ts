@@ -29,6 +29,7 @@ function toActiveStatuses(statuses: ReplayState['units'][string]['statuses']): A
  */
 export function toBattleUnits(templates: Combatant[], replay: ReplayState, order: string[], isAllySide: boolean): BattleUnit[] {
   const byId = new Map(templates.map((t) => [t.id, t]));
+  const vanguardId = isAllySide ? replay.allyVanguardId : replay.enemyVanguardId;
   return order.map((id) => {
     const t = byId.get(id)!;
     const snapshot = replay.units[t.id];
@@ -46,6 +47,7 @@ export function toBattleUnits(templates: Combatant[], replay: ReplayState, order
       shield: snapshot?.shield ?? 0,
       statuses: snapshot ? toActiveStatuses(snapshot.statuses) : [],
       isAlly: isAllySide,
+      isVanguard: t.id === vanguardId,
       portraitUrl: DISPLAY_PORTRAIT_BY_TEMPLATE_ID[t.templateId],
     };
   });

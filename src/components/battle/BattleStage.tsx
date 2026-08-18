@@ -1,4 +1,5 @@
-import { UnitCard } from './UnitCard';
+import { TeamFormation } from './TeamFormation';
+import { BattleDivider } from './BattleDivider';
 import { AbilityCastOverlay } from './AbilityCastOverlay';
 import { Icon } from '../common/Icon';
 import { WORLD_BACKGROUND_BY_ID } from '../../data/engineDisplay';
@@ -123,38 +124,11 @@ export function BattleStage({
         </div>
       </div>
 
-      {/* formation */}
-      <div className="absolute inset-x-0 bottom-6 z-10 flex items-end justify-center gap-2 overflow-x-auto px-2 sm:bottom-10 sm:gap-10 sm:px-3 md:gap-16">
-        <div className="flex items-end gap-1.5 sm:gap-4">
-          {allies.map((unit, i) => (
-            <UnitCard
-              key={unit.id}
-              unit={unit}
-              delay={i * 220}
-              floatingTexts={floatersFor(unit.id)}
-              attack={attackFor(unit.id)}
-              impactFlash={impactFor(unit.id)}
-            />
-          ))}
-        </div>
-
-        <div className="mb-4 hidden shrink-0 flex-col items-center gap-1 opacity-70 sm:flex">
-          <Icon name="swords" size={18} className="text-signal-red" />
-          <span className="font-display text-[10px] font-bold uppercase tracking-widest text-white/40">vs</span>
-        </div>
-
-        <div className="flex items-end gap-1.5 sm:gap-4">
-          {enemies.map((unit, i) => (
-            <UnitCard
-              key={unit.id}
-              unit={unit}
-              delay={i * 220 + 110}
-              floatingTexts={floatersFor(unit.id)}
-              attack={attackFor(unit.id)}
-              impactFlash={impactFor(unit.id)}
-            />
-          ))}
-        </div>
+      {/* formation — enemies above / right, allies below / left (see TeamFormation) */}
+      <div className="absolute inset-x-0 bottom-0 top-16 z-10 flex flex-col-reverse items-center justify-center gap-1 px-2 pb-4 sm:px-4 sm:pb-6 md:flex-row md:gap-3">
+        <TeamFormation units={allies} isAllySide floatersFor={floatersFor} attackFor={attackFor} impactFor={impactFor} />
+        <BattleDivider />
+        <TeamFormation units={enemies} isAllySide={false} floatersFor={floatersFor} attackFor={attackFor} impactFor={impactFor} />
       </div>
 
       <AbilityCastOverlay activeAbilities={activeAbilities} />

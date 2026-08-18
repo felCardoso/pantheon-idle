@@ -21,6 +21,8 @@ export interface BattleUnit {
   shield: number;
   statuses: ActiveStatus[];
   isAlly: boolean;
+  /** The one unit of its side currently at the front — rendered large and apart from the bench. */
+  isVanguard: boolean;
   /** Pixel-art card image. When unset, UnitCard renders a placeholder silhouette. */
   portraitUrl?: string;
 }
