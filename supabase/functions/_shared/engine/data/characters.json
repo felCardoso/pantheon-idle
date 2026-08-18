@@ -1,0 +1,303 @@
+[
+  {
+    "id": "jurupari",
+    "name": "Jurupari.exe",
+    "faction": "Malware",
+    "rarity": "Alpha",
+    "mythology": "Folclore Brasileiro",
+    "stars": 0,
+    "baseStats": {
+      "hp": 800,
+      "atk": 80,
+      "def": 0,
+      "vel": 0,
+      "esq": 0,
+      "ice": 0
+    },
+    "statusDurationBonus": 1,
+    "activeOptions": []
+  },
+  {
+    "id": "curupira",
+    "name": "Curupira.exe",
+    "faction": "Firewall",
+    "rarity": "Alpha",
+    "mythology": "Folclore Brasileiro",
+    "stars": 0,
+    "baseStats": {
+      "hp": 800,
+      "atk": 80,
+      "def": 0,
+      "vel": 0,
+      "esq": 0,
+      "ice": 0
+    },
+    "activeOptions": [
+      "curupira-lentidao-counter"
+    ]
+  },
+  {
+    "id": "caipora",
+    "name": "Caipora.exe",
+    "faction": "Crypto-Miner",
+    "rarity": "Alpha",
+    "mythology": "Folclore Brasileiro",
+    "stars": 0,
+    "baseStats": {
+      "hp": 800,
+      "atk": 80,
+      "def": 0,
+      "vel": 0,
+      "esq": 0,
+      "ice": 0
+    },
+    "activeOptions": [
+      "caipora-enfraquecimento"
+    ]
+  },
+  {
+    "id": "saci",
+    "name": "Saci.exe",
+    "faction": "Exploit",
+    "rarity": "Alpha",
+    "mythology": "Folclore Brasileiro",
+    "stars": 0,
+    "baseStats": {
+      "hp": 800,
+      "atk": 80,
+      "def": 0,
+      "vel": 0,
+      "esq": 0,
+      "ice": 0
+    },
+    "activeOptions": []
+  },
+  {
+    "id": "odin",
+    "name": "Odin.exe",
+    "faction": "Firewall",
+    "rarity": "Alpha",
+    "mythology": "Mitologia Nórdica",
+    "stars": 0,
+    "baseStats": {
+      "hp": 800,
+      "atk": 80,
+      "def": 0,
+      "vel": 0,
+      "esq": 0,
+      "ice": 0
+    },
+    "activeOptions": [
+      "odin-shield-team"
+    ]
+  },
+  {
+    "id": "freya",
+    "name": "Freya.exe",
+    "faction": "Crypto-Miner",
+    "rarity": "Alpha",
+    "mythology": "Mitologia Nórdica",
+    "stars": 0,
+    "baseStats": {
+      "hp": 800,
+      "atk": 80,
+      "def": 0,
+      "vel": 0,
+      "esq": 0,
+      "ice": 0
+    },
+    "activeOptions": [
+      "freya-regen-team"
+    ]
+  },
+  {
+    "id": "thor",
+    "name": "Thor.exe",
+    "faction": "Malware",
+    "rarity": "Alpha",
+    "mythology": "Mitologia Nórdica",
+    "stars": 0,
+    "baseStats": {
+      "hp": 800,
+      "atk": 80,
+      "def": 0,
+      "vel": 0,
+      "esq": 0,
+      "ice": 0
+    },
+    "activeOptions": [
+      "thor-sangramento"
+    ]
+  },
+  {
+    "id": "ratatoskr",
+    "name": "Ratatoskr.exe",
+    "faction": "Exploit",
+    "rarity": "Alpha",
+    "mythology": "Mitologia Nórdica",
+    "stars": 0,
+    "baseStats": {
+      "hp": 800,
+      "atk": 80,
+      "def": 0,
+      "vel": 0,
+      "esq": 0,
+      "ice": 0
+    },
+    "activeOptions": [
+      "ratatoskr-marcado"
+    ]
+  },
+  {
+    "id": "zeus",
+    "name": "Zeus.exe",
+    "faction": "Malware",
+    "rarity": "Alpha",
+    "mythology": "Mitologia Grega",
+    "stars": 0,
+    "baseStats": {
+      "hp": 800,
+      "atk": 80,
+      "def": 0,
+      "vel": 0,
+      "esq": 0,
+      "ice": 0
+    },
+    "activeOptions": [
+      "zeus-atordoamento-team"
+    ]
+  },
+  {
+    "id": "hades",
+    "name": "Hades.exe",
+    "faction": "Firewall",
+    "rarity": "Alpha",
+    "mythology": "Mitologia Grega",
+    "stars": 0,
+    "baseStats": {
+      "hp": 800,
+      "atk": 80,
+      "def": 0,
+      "vel": 0,
+      "esq": 0,
+      "ice": 0
+    },
+    "activeOptions": [
+      "hades-self-shield"
+    ]
+  },
+  {
+    "id": "atena",
+    "name": "Atena.exe",
+    "faction": "Crypto-Miner",
+    "rarity": "Alpha",
+    "mythology": "Mitologia Grega",
+    "stars": 0,
+    "baseStats": {
+      "hp": 800,
+      "atk": 80,
+      "def": 0,
+      "vel": 0,
+      "esq": 0,
+      "ice": 0
+    },
+    "activeOptions": [
+      "atena-corrosao"
+    ]
+  },
+  {
+    "id": "satiro",
+    "name": "Sátiro.exe",
+    "faction": "Exploit",
+    "rarity": "Alpha",
+    "mythology": "Mitologia Grega",
+    "stars": 0,
+    "baseStats": {
+      "hp": 800,
+      "atk": 80,
+      "def": 0,
+      "vel": 0,
+      "esq": 0,
+      "ice": 0
+    },
+    "activeOptions": [
+      "satiro-veneno"
+    ]
+  },
+  {
+    "id": "medusa",
+    "name": "Medusa.exe",
+    "faction": "Crypto-Miner",
+    "rarity": "Alpha",
+    "mythology": "Mitologia Grega",
+    "stars": 0,
+    "baseStats": {
+      "hp": 800,
+      "atk": 80,
+      "def": 0,
+      "vel": 0,
+      "esq": 0,
+      "ice": 0
+    },
+    "activeOptions": [
+      "medusa-petrificar"
+    ]
+  },
+  {
+    "id": "hercules",
+    "name": "Hércules.exe",
+    "faction": "Firewall",
+    "rarity": "Alpha",
+    "mythology": "Mitologia Grega",
+    "stars": 0,
+    "baseStats": {
+      "hp": 800,
+      "atk": 80,
+      "def": 0,
+      "vel": 0,
+      "esq": 0,
+      "ice": 0
+    },
+    "activeOptions": [
+      "hercules-impacto"
+    ]
+  },
+  {
+    "id": "minotauro",
+    "name": "Minotauro.exe",
+    "faction": "Firewall",
+    "rarity": "Alpha",
+    "mythology": "Mitologia Grega",
+    "stars": 0,
+    "baseStats": {
+      "hp": 800,
+      "atk": 80,
+      "def": 0,
+      "vel": 0,
+      "esq": 0,
+      "ice": 0
+    },
+    "activeOptions": [
+      "minotauro-provocar"
+    ]
+  },
+  {
+    "id": "amaterasu",
+    "name": "Amaterasu.exe",
+    "faction": "Firewall",
+    "rarity": "Alpha",
+    "mythology": "Mitologia Japonesa",
+    "stars": 0,
+    "baseStats": {
+      "hp": 800,
+      "atk": 80,
+      "def": 0,
+      "vel": 0,
+      "esq": 0,
+      "ice": 0
+    },
+    "activeOptions": [
+      "amaterasu-regen-team"
+    ]
+  }
+]

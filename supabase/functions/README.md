@@ -13,6 +13,10 @@ supabase link --project-ref <project-ref>
 npm run deploy:functions
 ```
 
+**Apply pending migrations before deploying.** `pvp-attack` calls
+`resolve_pvp_attack`, whose signature changed in migration 0020; the deployed
+function and the database schema have to move together.
+
 `deploy:functions` regenerates `_shared/engine/` from `src/engine/` first (see
 `scripts/sync-pvp-engine.mjs`), so a deploy can never ship a stale copy of the combat engine.
 

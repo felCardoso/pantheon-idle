@@ -8,15 +8,29 @@ import { supabaseAdmin } from '../../../../lib/supabase-admin';
  * verbatim, so a forged snapshot could hand a defense team fabricated stats. Now the client
  * only names *which* owned characters and ability choices to use; xp/rarity are always
  * re-read from player_characters here, never taken from the request body.
+ *
+ * That hardening only holds because migration 0020 revoked the client's direct
+ * insert/update on pvp_defense_teams — otherwise the browser could simply skip this
+ * route and upsert the row itself. This route writes with the service-role key, which
+ * bypasses RLS, so it is the only remaining writer.
  */
+const MAX_DEFENSE_TEAM_MEMBERS = 5;
+
 export async function POST(req: Request) {
   return withUser(req, async (userId) => {
     const body = await readJson(req);
-    const characterIds = body.characterIds;
+    const rawCharacterIds = body.characterIds;
     const selectedAbilityByCharacterId = (body.selectedAbilityByCharacterId ?? {}) as Record<string, unknown>;
-    if (!Array.isArray(characterIds) || !characterIds.every((id) => typeof id === 'string')) {
+    if (!Array.isArray(rawCharacterIds) || !rawCharacterIds.every((id) => typeof id === 'string')) {
       return NextResponse.json({ error: 'characterIds must be an array of strings' }, { status: 400 });
     }
+    if (rawCharacterIds.length > MAX_DEFENSE_TEAM_MEMBERS) {
+      return NextResponse.json({ error: `A defense team holds at most ${MAX_DEFENSE_TEAM_MEMBERS} characters.` }, { status: 400 });
+    }
+    // The same id twice would snapshot the character twice and field it as two
+    // separate units — the ownership check below passes either way, since it only
+    // asks whether the id is owned, not how many times it appears.
+    const characterIds = [...new Set(rawCharacterIds)];
 
     const { data: owned, error: ownedError } = await supabaseAdmin
       .from('player_characters')

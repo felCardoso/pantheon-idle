@@ -214,6 +214,11 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
   // Battle-driven (fase/estagio/credits/xp from useBattleSimulation) — not migrated yet, since
   // that means moving battle resolution itself server-side, a much larger change than the rest
   // of this pass. See the conversation notes on this hook's callers.
+  //
+  // These four are the ONLY columns of player_progress a client may write: migration 0021
+  // narrowed the grant to them by column, so tokens, vip_expires_at, pvp_rating, last_claim_at
+  // and the rest are server-only. Adding a column here will fail at runtime with a permission
+  // error — route the write through an API endpoint (app/api/player/*) instead.
   const saveProgress = useCallback(
     async (next: PlayerProgress) => {
       if (!userId) return;

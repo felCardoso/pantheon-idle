@@ -3,7 +3,7 @@ import type { AbilityDefinition, CombatantData, Rarity } from '../schema';
 import type { Combatant } from './types';
 import { levelForXp, levelMultiplier } from './leveling';
 import type { WorldId } from './progression';
-import { CONSTANTS, WORLD_CONTENT } from '../data';
+import { ALL_ABILITIES, ALL_CHARACTER_DATA, CONSTANTS, WORLD_ENEMIES } from '../data';
 
 // Re-exported so existing engine/UI call sites keep importing it from here.
 export { CONSTANTS };
@@ -16,7 +16,10 @@ export { CONSTANTS };
  * mythology has ally characters yet (Duat/Orun have none so far; see
  * docs/personagens.md for the planned full 24-character roster).
  */
-const ALL_CHARACTERS: CombatantData[] = Object.values(WORLD_CONTENT).flatMap((w) => w.characters);
+const ALL_CHARACTERS: CombatantData[] = ALL_CHARACTER_DATA;
+
+/** Jurupari.iso's mythology, as spelled in characters.json — see loadJurupariAllies. */
+const JURUPARI_MYTHOLOGY = 'Folclore Brasileiro';
 
 const CHARACTER_REGISTRY: Record<string, CombatantData> = Object.fromEntries(ALL_CHARACTERS.map((c) => [c.id, c]));
 
@@ -37,11 +40,7 @@ export function characterIdsByMythology(): { mythology: string; ids: string[] }[
   return order.map((mythology) => ({ mythology, ids: groups.get(mythology)! }));
 }
 
-const ABILITY_REGISTRY: Record<string, AbilityDefinition> = Object.fromEntries(
-  Object.values(WORLD_CONTENT)
-    .flatMap((w) => w.abilities)
-    .map((a) => [a.id, a]),
-);
+const ABILITY_REGISTRY: Record<string, AbilityDefinition> = Object.fromEntries(ALL_ABILITIES.map((a) => [a.id, a]));
 
 function resolveAbilities(ids: string[]): AbilityDefinition[] {
   return ids.map((id) => {
@@ -223,7 +222,11 @@ export function loadCharactersByIds(entries: OwnedCharacterEntry[]): Combatant[]
 
 /** The original 4-character Jurupari.iso roster at level 0, still used by the CLI demo and existing tests. */
 export function loadJurupariAllies(): Combatant[] {
-  return loadCharactersByIds(WORLD_CONTENT.jurupari.characters.map((c) => ({ id: c.id, xp: 0 })));
+  // Characters are one flat list now, so this selects by the mythology field rather than by which
+  // file a character happened to live in — the same grouping key characterIdsByMythology uses.
+  return loadCharactersByIds(
+    ALL_CHARACTERS.filter((c) => c.mythology === JURUPARI_MYTHOLOGY).map((c) => ({ id: c.id, xp: 0 })),
+  );
 }
 
 interface WorldEnemyData {
@@ -244,9 +247,7 @@ interface WorldEnemyData {
  * collision in one battle, the same reasoning that renamed Jurupari.iso's
  * "Caipora.sh"/"Curupira.sh" trash mobs once those became real allies.
  */
-const ENEMY_REGISTRY = Object.fromEntries(
-  Object.entries(WORLD_CONTENT).map(([world, content]) => [world, content.enemies as WorldEnemyData]),
-) as Record<WorldId, WorldEnemyData>;
+const ENEMY_REGISTRY = WORLD_ENEMIES as Record<WorldId, WorldEnemyData>;
 
 /**
  * Builds a wave of `count` comuns enemies for the given world, cycling

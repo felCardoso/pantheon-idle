@@ -341,8 +341,14 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      /**
+       * Not callable from the browser: revoked from `authenticated` and granted only to
+       * service_role (migration 0020), since it writes another player's rating. The
+       * pvp-attack Edge Function is the only caller. Kept in these types for reference.
+       */
       resolve_pvp_attack: {
         Args: {
+          p_attacker_id: string;
           p_defender_id: string;
           p_winner: string;
           p_log: unknown;
