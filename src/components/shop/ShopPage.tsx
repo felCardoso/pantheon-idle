@@ -4,29 +4,31 @@ import { CharacterPortrait } from '../roster/CharacterPortrait';
 import { RosterChips } from '../roster/RosterChips';
 import { buildCompendium, currentShowcaseWeek, pickWeeklyShowcase } from '../../data/roster';
 import { FALLBACK_FACTION, FALLBACK_RARITY } from '../../data/engineDisplay';
-import type { AcquireOutcome } from '../../hooks/useOwnedCharacters';
-import type { Rarity } from '../../types';
+import { postApi } from '../../lib/apiClient';
 import {
   CLUSTER_CREDIT_XP_BONUS_PERCENT,
+  SHOWCASE_CHARACTER_PRICE_CREDITS,
+  SHOWCASE_FREE_SLOTS,
+  STARTER_BOOST_CREDITS,
   VIP_COST_TOKENS,
   VIP_CREDIT_XP_BONUS_PERCENT,
   VIP_DAILY_BONUS_TOKENS,
   VIP_DURATION_DAYS,
-} from '../../hooks/usePlayerProgress';
-
-// First-pass numbers, easy to retune later.
-const STARTER_BOOST_CREDITS = 1000;
-const SHOWCASE_CHARACTER_PRICE_CREDITS = 2000;
-/** Slot 0 is open to everyone; slots 1-2 require an active Root Access subscription. */
-const SHOWCASE_FREE_SLOTS = 1;
+} from '../../data/playerEconomy';
+import type { AcquireOutcome } from '../../hooks/useOwnedCharacters';
+import type { Rarity } from '../../types';
 
 interface ShopPageProps {
   credits: number;
+  xp: number;
   tokens: number;
   starterBoostClaimed: boolean;
-  onClaimStarterBoost: () => void;
-  onAcquireCharacter: (characterId: string, rarity: Rarity) => Promise<AcquireOutcome>;
-  onAdjustCredits: (delta: number) => void;
+  /** Claims the one-time starter boost — the route grants the credits itself, returned here for onSetWallet. */
+  onClaimStarterBoost: () => Promise<number | null>;
+  /** Reconciles battle.credits/xp with an authoritative response — see useBattleSimulation.ts's setWallet. */
+  onSetWallet: (credits: number, xp: number) => void;
+  /** Called after a showcase purchase resolves 'new' — adds the character to Time1 if it has room. */
+  onNewCharacter: (characterId: string) => void;
   onToast: (message: string) => void;
   vipActive: boolean;
   vipExpiresAt: string | null;
@@ -35,13 +37,26 @@ interface ShopPageProps {
   inCluster: boolean;
 }
 
+interface IdleClaimResponse {
+  grantedCredits: number;
+  grantedXp: number;
+  credits: number;
+  xp: number;
+}
+
+interface AcquireShowcaseResponse {
+  result: { characterId: string; rarity: Rarity; outcome: AcquireOutcome };
+  credits: number;
+}
+
 export function ShopPage({
   credits,
+  xp,
   tokens,
   starterBoostClaimed,
   onClaimStarterBoost,
-  onAcquireCharacter,
-  onAdjustCredits,
+  onSetWallet,
+  onNewCharacter,
   onToast,
   vipActive,
   vipExpiresAt,
@@ -50,6 +65,21 @@ export function ShopPage({
   inCluster,
 }: ShopPageProps) {
   const [purchasingVip, setPurchasingVip] = useState(false);
+  const [claimingIdle, setClaimingIdle] = useState(false);
+
+  async function handleClaimIdle() {
+    if (claimingIdle) return;
+    setClaimingIdle(true);
+    try {
+      const response = await postApi<IdleClaimResponse>('/api/idle/claim');
+      onSetWallet(response.credits, response.xp);
+      onToast(response.grantedCredits > 0 ? `+${response.grantedCredits} créditos / +${response.grantedXp} XP (offline)` : 'Nada para resgatar ainda.');
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : 'Falha ao resgatar recursos idle.');
+    } finally {
+      setClaimingIdle(false);
+    }
+  }
 
   async function handlePurchaseVip() {
     if (purchasingVip) return;
@@ -69,10 +99,14 @@ export function ShopPage({
   const showcaseIds = useMemo(() => pickWeeklyShowcase(currentShowcaseWeek()), []);
   const [buyingShowcaseId, setBuyingShowcaseId] = useState<string | null>(null);
 
-  function handleClaimStarterBoost() {
+  async function handleClaimStarterBoost() {
     if (starterBoostClaimed) return;
-    onClaimStarterBoost();
-    onAdjustCredits(STARTER_BOOST_CREDITS);
+    const nextCredits = await onClaimStarterBoost();
+    if (nextCredits === null) {
+      onToast('Não foi possível resgatar o bônus.');
+      return;
+    }
+    onSetWallet(nextCredits, xp);
     onToast(`+${STARTER_BOOST_CREDITS} créditos resgatados!`);
   }
 
@@ -81,10 +115,16 @@ export function ShopPage({
     if (slotIndex >= SHOWCASE_FREE_SLOTS && !vipActive) return;
     if (credits < SHOWCASE_CHARACTER_PRICE_CREDITS) return;
     setBuyingShowcaseId(characterId);
-    onAdjustCredits(-SHOWCASE_CHARACTER_PRICE_CREDITS);
-    const outcome = await onAcquireCharacter(characterId, FALLBACK_RARITY);
-    setBuyingShowcaseId(null);
-    onToast(outcome === 'new' ? 'Novo personagem desbloqueado!' : 'Já possuído — convertido em +1 diagrama.');
+    try {
+      const response = await postApi<AcquireShowcaseResponse>('/api/characters/acquire-showcase', { characterId });
+      onSetWallet(response.credits, xp);
+      if (response.result.outcome === 'new') onNewCharacter(characterId);
+      onToast(response.result.outcome === 'new' ? 'Novo personagem desbloqueado!' : 'Já possuído — convertido em +1 diagrama.');
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : 'Não foi possível comprar.');
+    } finally {
+      setBuyingShowcaseId(null);
+    }
   }
 
   return (
@@ -141,6 +181,30 @@ export function ShopPage({
               chegar.
               {inCluster && ` Bônus de Créditos/XP do Cluster (+${Math.round(CLUSTER_CREDIT_XP_BONUS_PERCENT * 100)}%) é cumulativo com este.`}
             </p>
+          </div>
+        </section>
+
+        {/* Idle/offline income */}
+        <section>
+          <h2 className="mb-2 font-display text-xs font-bold uppercase tracking-widest text-white/50">Recursos Idle</h2>
+          <div className="flex flex-col items-start gap-3 rounded-xl border border-code-500/25 bg-void-800/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-code-500/30 bg-code-500/10">
+                <Icon name="gauge" size={22} className="text-code-400" />
+              </div>
+              <div>
+                <p className="font-display text-sm font-bold text-white">Créditos/XP acumulados offline</p>
+                <p className="text-xs text-white/50">Resgate a qualquer momento — o valor cresce enquanto você está fora.</p>
+              </div>
+            </div>
+            <button
+              onClick={handleClaimIdle}
+              disabled={claimingIdle}
+              className="flex shrink-0 items-center gap-1.5 rounded-lg bg-code-500 px-4 py-2 font-display text-xs font-bold uppercase tracking-wide text-void-950 transition hover:bg-code-400 disabled:opacity-50"
+            >
+              {claimingIdle && <Icon name="loader" size={13} className="animate-spin" />}
+              Resgatar
+            </button>
           </div>
         </section>
 

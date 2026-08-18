@@ -1,11 +1,6 @@
 node_modules
-dist
-dist-ssr
+.next
+next-env.d.ts
 *.local
 .DS_Store
 *.tsbuildinfo
-
-# backend (FastAPI)
-backend/.venv
-backend/**/__pycache__
-backend/.env

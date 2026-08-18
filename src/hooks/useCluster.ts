@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { postApi } from '../lib/apiClient';
 
 export type ClusterRole = 'leader' | 'officer' | 'node';
 
@@ -185,20 +186,13 @@ export function useCluster(userId: string | undefined): UseClusterResult {
       const trimmed = name.trim();
       if (trimmed.length < 3) return { ok: false, error: 'nome precisa ter pelo menos 3 caracteres' };
 
-      const { data: created, error: insertError } = await supabase
-        .from('clusters')
-        .insert({ name: trimmed, tag: tag?.trim() || null, created_by: userId })
-        .select('id')
-        .single();
-      if (insertError || !created) {
-        return { ok: false, error: insertError?.message.includes('duplicate') ? 'esse nome já está em uso.' : insertError?.message };
+      try {
+        await postApi('/api/cluster', { name: trimmed, tag });
+        await loadOwnCluster(userId);
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'Failed to create Cluster' };
       }
-
-      const { error: memberError } = await supabase.from('cluster_members').insert({ cluster_id: created.id, user_id: userId, role: 'leader' });
-      if (memberError) return { ok: false, error: 'já cluster criado, mas não foi possível entrar automaticamente — tente entrar manualmente.' };
-
-      await loadOwnCluster(userId);
-      return { ok: true };
     },
     [userId, loadOwnCluster],
   );
@@ -206,40 +200,42 @@ export function useCluster(userId: string | undefined): UseClusterResult {
   const joinCluster = useCallback(
     async (clusterId: string): Promise<ActionResult> => {
       if (!userId) return { ok: false, error: 'not signed in' };
-      const { error: insertError } = await supabase.from('cluster_members').insert({ cluster_id: clusterId, user_id: userId, role: 'node' });
-      if (insertError) return { ok: false, error: 'você já está em um Cluster — saia do atual antes de entrar em outro.' };
-      await loadOwnCluster(userId);
-      return { ok: true };
+      try {
+        await postApi('/api/cluster/join', { clusterId });
+        await loadOwnCluster(userId);
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'Failed to join Cluster' };
+      }
     },
     [userId, loadOwnCluster],
   );
 
   const leaveCluster = useCallback(async () => {
     if (!userId || !clusterIdRef.current) return;
-    const clusterId = clusterIdRef.current;
-
-    // Leaving as the sole leader with other members still around would
-    // orphan the Cluster — hand leadership to the longest-standing officer
-    // (or member) first.
-    if (role === 'leader') {
-      const successor = members.find((m) => m.userId !== userId && m.role === 'officer') ?? members.find((m) => m.userId !== userId);
-      if (successor) {
-        await supabase.from('cluster_members').update({ role: 'leader' }).eq('cluster_id', clusterId).eq('user_id', successor.userId);
-      }
+    try {
+      await postApi('/api/cluster/leave');
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to leave Cluster');
+      return;
     }
-
-    await supabase.from('cluster_members').delete().eq('cluster_id', clusterId).eq('user_id', userId);
     setCluster(null);
     setRole(null);
     setMembers([]);
     setMessages([]);
     clusterIdRef.current = null;
-  }, [userId, role, members]);
+  }, [userId]);
 
   const kickMember = useCallback(
     async (targetUserId: string) => {
       if (!clusterIdRef.current) return;
-      await supabase.from('cluster_members').delete().eq('cluster_id', clusterIdRef.current).eq('user_id', targetUserId);
+      try {
+        await postApi('/api/cluster/kick', { targetUserId });
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to remove member');
+      }
       if (userId) await loadOwnCluster(userId);
     },
     [userId, loadOwnCluster],
@@ -248,7 +244,12 @@ export function useCluster(userId: string | undefined): UseClusterResult {
   const setMemberRole = useCallback(
     async (targetUserId: string, newRole: ClusterRole) => {
       if (!clusterIdRef.current) return;
-      await supabase.from('cluster_members').update({ role: newRole }).eq('cluster_id', clusterIdRef.current).eq('user_id', targetUserId);
+      try {
+        await postApi('/api/cluster/role', { targetUserId, role: newRole });
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to change role');
+      }
       if (userId) await loadOwnCluster(userId);
     },
     [userId, loadOwnCluster],
@@ -257,7 +258,12 @@ export function useCluster(userId: string | undefined): UseClusterResult {
   const sendMessage = useCallback(
     async (text: string) => {
       if (!userId || !clusterIdRef.current || !text.trim()) return;
-      await supabase.from('cluster_messages').insert({ cluster_id: clusterIdRef.current, user_id: userId, text: text.trim() });
+      try {
+        await postApi('/api/cluster/message', { text: text.trim() });
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to send message');
+      }
       await loadMessages(clusterIdRef.current);
     },
     [userId, loadMessages],

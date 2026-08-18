@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { postApi } from '../lib/apiClient';
 
 export interface CharacterAbilityProgress {
   characterId: string;
@@ -9,15 +10,23 @@ export interface CharacterAbilityProgress {
   selectedAbilityId: string | null;
 }
 
+interface UpgradeResponse {
+  abilityLevel: number;
+  passiveLevel: number;
+  credits: number;
+}
+
 export interface UseCharacterProgressionResult {
   /** Keyed by characterId — characters with no row yet default to ability level 1 / passive level 0 / no explicit selection when read (see abilityLevelFor/passiveLevelFor helpers used by callers). */
   progression: Record<string, CharacterAbilityProgress>;
   loading: boolean;
   error: string | null;
-  /** Persists a new ability level for characterId — the caller has already validated the rarity gate and deducted Créditos. */
-  setAbilityLevel: (characterId: string, level: number) => Promise<void>;
-  /** Persists a new passive level for characterId — same caller-validated contract as setAbilityLevel. */
-  setPassiveLevel: (characterId: string, level: number) => Promise<void>;
+  /** Upgrades characterId's ability level by exactly one step via /api/characters/ability — the
+   * server validates the rarity gate and deducts credits itself; returns the new credits total
+   * (for the caller's battle.setWallet) or null if it failed (max level, can't afford, etc). */
+  upgradeAbility: (characterId: string) => Promise<number | null>;
+  /** Same contract as upgradeAbility, for the passive track. */
+  upgradePassive: (characterId: string) => Promise<number | null>;
   /** Persists which of the character's activeOptions is equipped — no rarity/cost gate, unlike the two above (docs/combate.md §5: swapping actives is free). */
   setSelectedAbility: (characterId: string, abilityId: string) => Promise<void>;
 }
@@ -82,53 +91,27 @@ export function useCharacterProgression(userId: string | undefined): UseCharacte
     };
   }, [userId]);
 
-  const setAbilityLevel = useCallback(
-    async (characterId: string, level: number) => {
-      if (!userId) return;
-      const current = progressionRef.current[characterId] ?? { characterId, abilityLevel: 1, passiveLevel: 0, selectedAbilityId: null };
-      const next = { ...progressionRef.current, [characterId]: { ...current, abilityLevel: level } };
-      progressionRef.current = next;
-      setProgression(next);
-      const { error: upsertError } = await supabase
-        .from('character_ability_progress')
-        .upsert(
-          {
-            user_id: userId,
-            character_id: characterId,
-            ability_level: level,
-            passive_level: current.passiveLevel,
-            selected_ability_id: current.selectedAbilityId,
-          },
-          { onConflict: 'user_id,character_id' },
-        );
-      setError(upsertError ? upsertError.message : null);
+  const upgrade = useCallback(
+    async (characterId: string, kind: 'ability' | 'passive'): Promise<number | null> => {
+      if (!userId) return null;
+      try {
+        const response = await postApi<UpgradeResponse>('/api/characters/ability', { characterId, kind });
+        const current = progressionRef.current[characterId] ?? { characterId, abilityLevel: 1, passiveLevel: 0, selectedAbilityId: null };
+        const next = { ...progressionRef.current, [characterId]: { ...current, abilityLevel: response.abilityLevel, passiveLevel: response.passiveLevel } };
+        progressionRef.current = next;
+        setProgression(next);
+        setError(null);
+        return response.credits;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to upgrade');
+        return null;
+      }
     },
     [userId],
   );
 
-  const setPassiveLevel = useCallback(
-    async (characterId: string, level: number) => {
-      if (!userId) return;
-      const current = progressionRef.current[characterId] ?? { characterId, abilityLevel: 1, passiveLevel: 0, selectedAbilityId: null };
-      const next = { ...progressionRef.current, [characterId]: { ...current, passiveLevel: level } };
-      progressionRef.current = next;
-      setProgression(next);
-      const { error: upsertError } = await supabase
-        .from('character_ability_progress')
-        .upsert(
-          {
-            user_id: userId,
-            character_id: characterId,
-            ability_level: current.abilityLevel,
-            passive_level: level,
-            selected_ability_id: current.selectedAbilityId,
-          },
-          { onConflict: 'user_id,character_id' },
-        );
-      setError(upsertError ? upsertError.message : null);
-    },
-    [userId],
-  );
+  const upgradeAbility = useCallback((characterId: string) => upgrade(characterId, 'ability'), [upgrade]);
+  const upgradePassive = useCallback((characterId: string) => upgrade(characterId, 'passive'), [upgrade]);
 
   const setSelectedAbility = useCallback(
     async (characterId: string, abilityId: string) => {
@@ -137,22 +120,15 @@ export function useCharacterProgression(userId: string | undefined): UseCharacte
       const next = { ...progressionRef.current, [characterId]: { ...current, selectedAbilityId: abilityId } };
       progressionRef.current = next;
       setProgression(next);
-      const { error: upsertError } = await supabase
-        .from('character_ability_progress')
-        .upsert(
-          {
-            user_id: userId,
-            character_id: characterId,
-            ability_level: current.abilityLevel,
-            passive_level: current.passiveLevel,
-            selected_ability_id: abilityId,
-          },
-          { onConflict: 'user_id,character_id' },
-        );
-      setError(upsertError ? upsertError.message : null);
+      try {
+        await postApi('/api/characters/selected-ability', { characterId, abilityId });
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to set selected ability');
+      }
     },
     [userId],
   );
 
-  return { progression, loading, error, setAbilityLevel, setPassiveLevel, setSelectedAbility };
+  return { progression, loading, error, upgradeAbility, upgradePassive, setSelectedAbility };
 }

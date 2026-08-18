@@ -136,7 +136,8 @@ type Action =
   | { type: 'tick' }
   | { type: 'pruneFloaters' }
   | { type: 'pruneActiveAbility' }
-  | { type: 'adjustCredits'; delta: number };
+  | { type: 'adjustCredits'; delta: number }
+  | { type: 'setWallet'; credits: number; xp: number };
 
 let chatIdCounter = 0;
 let floaterIdCounter = 0;
@@ -287,6 +288,10 @@ function reducer(state: PlaybackState, action: Action): PlaybackState {
     return { ...state, totalCredits: Math.max(0, state.totalCredits + action.delta) };
   }
 
+  if (action.type === 'setWallet') {
+    return { ...state, totalCredits: action.credits, totalXp: action.xp };
+  }
+
   if (state.finished || state.index >= state.session.log.length) {
     return state.finished ? state : { ...state, finished: true };
   }
@@ -413,6 +418,9 @@ export interface BattleSimulation {
   recoveryWinsRemaining: number | null;
   /** Spends (negative) or grants (positive) credits outside of battle rewards — the Loja's purchase/sale/claim primitive. Clamped at 0. */
   adjustCredits: (delta: number) => void;
+  /** Overwrites credits/xp with server-authoritative values (an /api/** route's response) rather than
+   * applying a delta — used to reconcile after an authoritative write instead of computing one locally. */
+  setWallet: (credits: number, xp: number) => void;
   /** The player's real saved position (mini-map dots before this are completed) — distinct from `stage` while replaying an earlier estágio or mid-retreat. */
   frontierFase: number;
   frontierEstagio: number;
@@ -575,6 +583,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
   );
 
   const adjustCredits = useCallback((delta: number) => dispatch({ type: 'adjustCredits', delta }), []);
+  const setWallet = useCallback((credits: number, xp: number) => dispatch({ type: 'setWallet', credits, xp }), []);
 
   const stageWorldId = worldIdForFase(state.session.fase);
   const stageWorldDisplay = WORLD_DISPLAY_BY_ID[stageWorldId];
@@ -610,6 +619,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     setRetreatOnLoss,
     recoveryWinsRemaining: state.recoveryWinsRemaining,
     adjustCredits,
+    setWallet,
     frontierFase: state.frontier.fase,
     frontierEstagio: state.frontier.estagio,
     playStage,

@@ -1,10 +1,10 @@
 import type { WikiPageMeta } from '../types';
 
-import panteaoDigital from '../content/wiki/panteao-digital.md?raw';
-import mundoJurupari from '../content/wiki/mundo-jurupari.md?raw';
-import personagensJurupari from '../content/wiki/personagens-jurupari.md?raw';
-import elementosCombate from '../content/wiki/elementos-combate.md?raw';
-import itensProgressao from '../content/wiki/itens-progressao.md?raw';
+import panteaoDigital from '../content/wiki/panteao-digital.md';
+import mundoJurupari from '../content/wiki/mundo-jurupari.md';
+import personagensJurupari from '../content/wiki/personagens-jurupari.md';
+import elementosCombate from '../content/wiki/elementos-combate.md';
+import itensProgressao from '../content/wiki/itens-progressao.md';
 
 export const WIKI_PAGES: WikiPageMeta[] = [
   {

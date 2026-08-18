@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { postApi } from '../lib/apiClient';
 
 export interface UpdateUsernameResult {
   ok: boolean;
@@ -64,27 +65,13 @@ export function useProfile(userId: string | undefined): UseProfileResult {
   const updateUsername = useCallback(
     async (newUsername: string): Promise<UpdateUsernameResult> => {
       if (!userId) return { ok: false, error: 'Não foi possível identificar sua conta.' };
-      const trimmed = newUsername.trim();
-      if (!/^[a-zA-Z0-9_]{3,20}$/.test(trimmed)) {
-        return { ok: false, error: '3–20 caracteres: letras, números e underscore.' };
+      try {
+        const response = await postApi<{ username: string }>('/api/profile/username', { username: newUsername });
+        setUsername(response.username);
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'Não foi possível atualizar o nome de usuário.' };
       }
-
-      const { data: existing, error: checkError } = await supabase
-        .from('profiles')
-        .select('user_id')
-        .ilike('username', trimmed)
-        .neq('user_id', userId)
-        .maybeSingle();
-      if (checkError) return { ok: false, error: checkError.message };
-      if (existing) return { ok: false, error: 'Esse nome de usuário já está em uso.' };
-
-      const { error: updateError } = await supabase.from('profiles').update({ username: trimmed }).eq('user_id', userId);
-      // The unique index is the real race-condition backstop — a concurrent signup/rename
-      // between the check above and this update surfaces here as a constraint violation.
-      if (updateError) return { ok: false, error: 'Esse nome de usuário já está em uso.' };
-
-      setUsername(trimmed);
-      return { ok: true };
     },
     [userId],
   );
@@ -92,11 +79,17 @@ export function useProfile(userId: string | undefined): UseProfileResult {
   const updateAvatar = useCallback(
     async (characterId: string) => {
       if (!userId) return;
+      const previous = avatarCharacterId;
       setAvatarCharacterId(characterId);
-      const { error: updateError } = await supabase.from('profiles').update({ avatar_character_id: characterId }).eq('user_id', userId);
-      setError(updateError ? updateError.message : null);
+      try {
+        await postApi('/api/profile/avatar', { characterId });
+        setError(null);
+      } catch (err) {
+        setAvatarCharacterId(previous);
+        setError(err instanceof Error ? err.message : 'Failed to update avatar');
+      }
     },
-    [userId],
+    [userId, avatarCharacterId],
   );
 
   return { username, avatarCharacterId, loading, error, updateUsername, updateAvatar };

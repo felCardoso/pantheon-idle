@@ -1,5 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { postApi } from '../lib/apiClient';
+import {
+  VIP_COST_TOKENS,
+  VIP_DURATION_DAYS,
+  VIP_CREDIT_XP_BONUS_PERCENT,
+  VIP_DAILY_BONUS_TOKENS,
+  CLUSTER_CREDIT_XP_BONUS_PERCENT,
+  BANNER_PITY_MAX,
+  TEAM_SLOT_COST_TOKENS,
+  MIN_TEAM_SLOTS,
+  MAX_TEAM_SLOTS,
+} from '../data/playerEconomy';
 
 export interface PlayerProgress {
   fase: number;
@@ -14,33 +26,20 @@ const DEFAULT_PROGRESS: PlayerProgress = { fase: 1, estagio: 1, credits: 0, xp: 
 const DEFAULT_TOKENS = 300;
 const DEFAULT_TEAM_VISIBILITY: TeamVisibility = 'pve';
 
-/**
- * Root Access (VIP) — docs/monetizacao-guilda.md section 1. No real payment
- * processor is wired up yet, so the only purchase path today is spending
- * Tokens here — a placeholder for the "cobrada em dinheiro real" recurring
- * billing the docs describe. `VIP_CREDIT_XP_BONUS_PERCENT` is applied to
- * battle rewards in useBattleSimulation.ts.
- */
-export const VIP_COST_TOKENS = 500;
-export const VIP_DURATION_DAYS = 30;
-export const VIP_CREDIT_XP_BONUS_PERCENT = 0.15;
-export const VIP_DAILY_BONUS_TOKENS = 50;
-
-/** The Cluster's own passive bonus (docs section 2) — separate constant since it stacks with, not replaces, Root Access's. */
-export const CLUSTER_CREDIT_XP_BONUS_PERCENT = 0.25;
-
-/** Banner Semanal hard pity (docs/gdd.md section 10) — guaranteed claim of the spotlighted character every this-many banner pulls. */
-export const BANNER_PITY_MAX = 150;
-
-/**
- * Team-slot loadouts ("`.cfg`", docs/gdd.md line 92): 2 slots free, +3
- * purchasable for TEAM_SLOT_COST_TOKENS each, or all 5 while Root Access is
- * active (see effectiveUnlockedTeamSlots in usePlayerTeams.ts's caller —
- * VIP access must lapse the instant VIP does, so it's never persisted here).
- */
-export const TEAM_SLOT_COST_TOKENS = 250;
-export const MIN_TEAM_SLOTS = 2;
-export const MAX_TEAM_SLOTS = 5;
+// Re-exported for existing call sites (ShopPage.tsx, GachaPage.tsx) — the values themselves
+// now live in src/data/playerEconomy.ts so app/api/player/** and app/api/gacha/** routes can
+// import them too without pulling in this hook's browser-only supabase client.
+export {
+  VIP_COST_TOKENS,
+  VIP_DURATION_DAYS,
+  VIP_CREDIT_XP_BONUS_PERCENT,
+  VIP_DAILY_BONUS_TOKENS,
+  CLUSTER_CREDIT_XP_BONUS_PERCENT,
+  BANNER_PITY_MAX,
+  TEAM_SLOT_COST_TOKENS,
+  MIN_TEAM_SLOTS,
+  MAX_TEAM_SLOTS,
+};
 
 export interface UsePlayerProgressResult {
   /** null while loading; falls back to DEFAULT_PROGRESS if the row/table isn't there yet. */
@@ -67,21 +66,17 @@ export interface UsePlayerProgressResult {
   /** Non-null if the last load/save hit an error (e.g. the migration hasn't been run yet) — play continues, just unsaved. */
   error: string | null;
   saveProgress: (next: PlayerProgress) => Promise<void>;
-  /** Marks the starter boost as claimed — the caller is responsible for actually granting the credits (see useBattleSimulation's adjustCredits). */
-  claimStarterBoost: () => Promise<void>;
-  /** Deducts tokens if affordable, persists, and returns whether it succeeded. */
+  /** Claims the one-time starter credit boost via /api/player/claim-starter-boost, which grants
+   * the credits itself — returns the new credits total (for the caller's battle.setWallet) or
+   * null if it failed/was already claimed. */
+  claimStarterBoost: () => Promise<number | null>;
+  /** Deducts tokens if affordable via /api/player/spend-tokens, and returns whether it succeeded. */
   spendTokens: (amount: number) => Promise<boolean>;
-  /** Adjusts the Bytes balance by delta (positive or negative), persists, and returns whether it succeeded (fails only if a negative delta would go below 0). */
-  adjustBytes: (delta: number) => Promise<boolean>;
-  /** Banner Semanal hard pity counter — 1 per banner pull, see BANNER_PITY_MAX. */
+  /** Banner Semanal hard pity counter — 1 per banner pull. Written server-side only (see
+   * app/api/gacha/roll and app/api/gacha/claim-pity); syncFromGachaResponse mirrors it here. */
   bannerPity: number;
-  /** Adds `count` to the pity counter (one per banner pull resolved). */
-  incrementBannerPity: (count: number) => void;
-  /** Resets the pity counter to 0 — call after claiming the guaranteed character. */
-  claimBannerPity: () => void;
-  /** The banner's "50/50" carry-over — true once the player has lost a 50/50 and the next Zero-Day pulled on the banner is guaranteed to be the spotlighted character. */
+  /** The banner's "50/50" carry-over — true once the player has lost a 50/50 and the next Zero-Day pulled on the banner is guaranteed to be the spotlighted character. Same server-only write rule as bannerPity. */
   bannerGuaranteed: boolean;
-  setBannerGuaranteed: (value: boolean) => void;
   setTeamVisibility: (value: TeamVisibility) => Promise<void>;
   /** Spends VIP_COST_TOKENS for VIP_DURATION_DAYS of Root Access, stacking onto any remaining time if already active. Returns whether it succeeded (fails if tokens are short). */
   purchaseVip: () => Promise<boolean>;
@@ -91,15 +86,19 @@ export interface UsePlayerProgressResult {
   purchaseTeamSlot: () => Promise<boolean>;
   setPveTeamSlot: (slot: number) => Promise<void>;
   setPvpTeamSlot: (slot: number) => Promise<void>;
+  /**
+   * Overwrites tokens/bannerPity/bannerGuaranteed with server-authoritative values from an
+   * /api/gacha/** response, without writing to Supabase — the API route already persisted
+   * them, this just syncs local UI state to match. See src/lib/apiClient.ts's callers.
+   */
+  syncFromGachaResponse: (next: { tokens: number; bannerPity: number; bannerGuaranteed: boolean }) => void;
+  /** Same idea as syncFromGachaResponse, for /api/characters/sell-fragment's byte grant — see
+   * useOwnedCharacters.ts's sellFragment. */
+  setBytesFromServer: (bytes: number) => void;
 }
 
 function isVipActive(vipExpiresAt: string | null): boolean {
   return !!vipExpiresAt && new Date(vipExpiresAt).getTime() > Date.now();
-}
-
-function isSameUtcDay(a: string, b: Date): boolean {
-  const d = new Date(a);
-  return d.getUTCFullYear() === b.getUTCFullYear() && d.getUTCMonth() === b.getUTCMonth() && d.getUTCDate() === b.getUTCDate();
 }
 
 /** Loads (creating on first login) and persists a player's world position + wallet in `player_progress`. */
@@ -109,7 +108,6 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
   const [tokens, setTokens] = useState(0);
   const [teamVisibility, setTeamVisibilityState] = useState<TeamVisibility>(DEFAULT_TEAM_VISIBILITY);
   const [vipExpiresAt, setVipExpiresAt] = useState<string | null>(null);
-  const [vipDailyBonusClaimedAt, setVipDailyBonusClaimedAt] = useState<string | null>(null);
   const [bandwidth, setBandwidth] = useState(0);
   const [bytes, setBytes] = useState(0);
   const [bannerPity, setBannerPity] = useState(0);
@@ -127,7 +125,6 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
       setTokens(0);
       setTeamVisibilityState(DEFAULT_TEAM_VISIBILITY);
       setVipExpiresAt(null);
-      setVipDailyBonusClaimedAt(null);
       setBandwidth(0);
       setBytes(0);
       setBannerPity(0);
@@ -147,7 +144,7 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
       const { data, error: selectError } = await supabase
         .from('player_progress')
         .select(
-          'fase, estagio, credits, xp, starter_boost_claimed, tokens, team_visibility, vip_expires_at, vip_daily_bonus_claimed_at, bandwidth, unlocked_team_slots, pve_team_slot, pvp_team_slot, bytes, banner_pity, banner_guaranteed',
+          'fase, estagio, credits, xp, starter_boost_claimed, tokens, team_visibility, vip_expires_at, bandwidth, unlocked_team_slots, pve_team_slot, pvp_team_slot, bytes, banner_pity, banner_guaranteed',
         )
         .eq('user_id', userId)
         .maybeSingle();
@@ -161,7 +158,6 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
         setTokens(DEFAULT_TOKENS);
         setTeamVisibilityState(DEFAULT_TEAM_VISIBILITY);
         setVipExpiresAt(null);
-        setVipDailyBonusClaimedAt(null);
         setBandwidth(0);
         setBytes(0);
         setBannerPity(0);
@@ -179,7 +175,6 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
         setTokens(data.tokens);
         setTeamVisibilityState((data.team_visibility as TeamVisibility) ?? DEFAULT_TEAM_VISIBILITY);
         setVipExpiresAt(data.vip_expires_at);
-        setVipDailyBonusClaimedAt(data.vip_daily_bonus_claimed_at);
         setBandwidth(data.bandwidth);
         setBytes(data.bytes);
         setBannerPity(data.banner_pity);
@@ -188,9 +183,10 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
         setPveTeamSlotState(data.pve_team_slot);
         setPvpTeamSlotState(data.pvp_team_slot);
       } else {
-        const { error: insertError } = await supabase
-          .from('player_progress')
-          .insert({ user_id: userId, ...DEFAULT_PROGRESS });
+        // First login: an empty, hardcoded-default row the RLS policy already restricts to
+        // auth.uid() = user_id — nothing attacker-controlled here, unlike every other write
+        // in this hook, so it's fine to leave as a direct client insert.
+        const { error: insertError } = await supabase.from('player_progress').insert({ user_id: userId, ...DEFAULT_PROGRESS });
         if (!cancelled && insertError) setError(insertError.message);
         if (!cancelled) {
           setProgress(DEFAULT_PROGRESS);
@@ -198,7 +194,6 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
           setTokens(DEFAULT_TOKENS);
           setTeamVisibilityState(DEFAULT_TEAM_VISIBILITY);
           setVipExpiresAt(null);
-          setVipDailyBonusClaimedAt(null);
           setBandwidth(0);
           setBytes(0);
           setBannerPity(0);
@@ -216,6 +211,9 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
     };
   }, [userId]);
 
+  // Battle-driven (fase/estagio/credits/xp from useBattleSimulation) — not migrated yet, since
+  // that means moving battle resolution itself server-side, a much larger change than the rest
+  // of this pass. See the conversation notes on this hook's callers.
   const saveProgress = useCallback(
     async (next: PlayerProgress) => {
       if (!userId) return;
@@ -226,138 +224,100 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
     [userId],
   );
 
-  const claimStarterBoost = useCallback(async () => {
-    if (!userId || starterBoostClaimed) return;
-    setStarterBoostClaimed(true);
-    const { error: updateError } = await supabase.from('player_progress').update({ starter_boost_claimed: true }).eq('user_id', userId);
-    setError(updateError ? updateError.message : null);
+  const claimStarterBoost = useCallback(async (): Promise<number | null> => {
+    if (!userId || starterBoostClaimed) return null;
+    try {
+      const response = await postApi<{ credits: number }>('/api/player/claim-starter-boost');
+      setStarterBoostClaimed(true);
+      setError(null);
+      return response.credits;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to claim starter boost');
+      return null;
+    }
   }, [userId, starterBoostClaimed]);
 
   const spendTokens = useCallback(
     async (amount: number): Promise<boolean> => {
       if (!userId || amount <= 0 || tokens < amount) return false;
-      const next = tokens - amount;
-      setTokens(next);
-      const { error: updateError } = await supabase.from('player_progress').update({ tokens: next }).eq('user_id', userId);
-      setError(updateError ? updateError.message : null);
-      return true;
+      try {
+        const response = await postApi<{ tokens: number }>('/api/player/spend-tokens', { amount });
+        setTokens(response.tokens);
+        setError(null);
+        return true;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to spend tokens');
+        return false;
+      }
     },
     [userId, tokens],
-  );
-
-  const adjustBytes = useCallback(
-    async (delta: number): Promise<boolean> => {
-      if (!userId || bytes + delta < 0) return false;
-      const next = bytes + delta;
-      setBytes(next);
-      const { error: updateError } = await supabase.from('player_progress').update({ bytes: next }).eq('user_id', userId);
-      setError(updateError ? updateError.message : null);
-      return true;
-    },
-    [userId, bytes],
-  );
-
-  const incrementBannerPity = useCallback(
-    (count: number) => {
-      if (!userId || count <= 0) return;
-      setBannerPity((prev) => {
-        const next = prev + count;
-        supabase
-          .from('player_progress')
-          .update({ banner_pity: next })
-          .eq('user_id', userId)
-          .then(({ error: updateError }) => setError(updateError ? updateError.message : null));
-        return next;
-      });
-    },
-    [userId],
-  );
-
-  const claimBannerPity = useCallback(() => {
-    if (!userId) return;
-    setBannerPity(0);
-    supabase
-      .from('player_progress')
-      .update({ banner_pity: 0 })
-      .eq('user_id', userId)
-      .then(({ error: updateError }) => setError(updateError ? updateError.message : null));
-  }, [userId]);
-
-  const setBannerGuaranteed = useCallback(
-    (value: boolean) => {
-      if (!userId) return;
-      setBannerGuaranteedState(value);
-      supabase
-        .from('player_progress')
-        .update({ banner_guaranteed: value })
-        .eq('user_id', userId)
-        .then(({ error: updateError }) => setError(updateError ? updateError.message : null));
-    },
-    [userId],
   );
 
   const setTeamVisibility = useCallback(
     async (value: TeamVisibility) => {
       if (!userId) return;
       setTeamVisibilityState(value);
-      const { error: updateError } = await supabase.from('player_progress').update({ team_visibility: value }).eq('user_id', userId);
-      setError(updateError ? updateError.message : null);
+      try {
+        await postApi('/api/player/set-team-visibility', { value });
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to set team visibility');
+      }
     },
     [userId],
   );
 
   const purchaseVip = useCallback(async (): Promise<boolean> => {
     if (!userId || tokens < VIP_COST_TOKENS) return false;
-    const nextTokens = tokens - VIP_COST_TOKENS;
-    // Stacks onto remaining time if already active, rather than resetting the clock.
-    const base = isVipActive(vipExpiresAt) ? new Date(vipExpiresAt as string) : new Date();
-    const nextExpiresAt = new Date(base.getTime() + VIP_DURATION_DAYS * 24 * 60 * 60 * 1000).toISOString();
-    setTokens(nextTokens);
-    setVipExpiresAt(nextExpiresAt);
-    const { error: updateError } = await supabase
-      .from('player_progress')
-      .update({ tokens: nextTokens, vip_expires_at: nextExpiresAt })
-      .eq('user_id', userId);
-    setError(updateError ? updateError.message : null);
-    return true;
-  }, [userId, tokens, vipExpiresAt]);
+    try {
+      const response = await postApi<{ tokens: number; vipExpiresAt: string }>('/api/player/purchase-vip');
+      setTokens(response.tokens);
+      setVipExpiresAt(response.vipExpiresAt);
+      setError(null);
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to purchase VIP');
+      return false;
+    }
+  }, [userId, tokens]);
 
   const claimDailyVipBonus = useCallback(async (): Promise<boolean> => {
     if (!userId || !isVipActive(vipExpiresAt)) return false;
-    const now = new Date();
-    if (vipDailyBonusClaimedAt && isSameUtcDay(vipDailyBonusClaimedAt, now)) return false;
-    const nextTokens = tokens + VIP_DAILY_BONUS_TOKENS;
-    const nowIso = now.toISOString();
-    setTokens(nextTokens);
-    setVipDailyBonusClaimedAt(nowIso);
-    const { error: updateError } = await supabase
-      .from('player_progress')
-      .update({ tokens: nextTokens, vip_daily_bonus_claimed_at: nowIso })
-      .eq('user_id', userId);
-    setError(updateError ? updateError.message : null);
-    return true;
-  }, [userId, tokens, vipExpiresAt, vipDailyBonusClaimedAt]);
+    try {
+      const response = await postApi<{ tokens: number }>('/api/player/claim-daily-vip-bonus');
+      setTokens(response.tokens);
+      setError(null);
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to claim daily bonus');
+      return false;
+    }
+  }, [userId, vipExpiresAt]);
 
   const purchaseTeamSlot = useCallback(async (): Promise<boolean> => {
     if (!userId || unlockedTeamSlots >= MAX_TEAM_SLOTS || tokens < TEAM_SLOT_COST_TOKENS) return false;
-    const nextTokens = tokens - TEAM_SLOT_COST_TOKENS;
-    const nextSlots = unlockedTeamSlots + 1;
-    setTokens(nextTokens);
-    setUnlockedTeamSlots(nextSlots);
-    const { error: updateError } = await supabase
-      .from('player_progress')
-      .update({ tokens: nextTokens, unlocked_team_slots: nextSlots })
-      .eq('user_id', userId);
-    setError(updateError ? updateError.message : null);
-    return true;
+    try {
+      const response = await postApi<{ tokens: number; unlockedTeamSlots: number }>('/api/player/purchase-team-slot');
+      setTokens(response.tokens);
+      setUnlockedTeamSlots(response.unlockedTeamSlots);
+      setError(null);
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to purchase team slot');
+      return false;
+    }
   }, [userId, tokens, unlockedTeamSlots]);
 
   const setPveTeamSlot = useCallback(
     async (slot: number) => {
       if (!userId) return;
       setPveTeamSlotState(slot);
-      const { error: updateError } = await supabase.from('player_progress').update({ pve_team_slot: slot }).eq('user_id', userId);
-      setError(updateError ? updateError.message : null);
+      try {
+        await postApi('/api/player/set-team-slot', { type: 'pve', slot });
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to set PvE team slot');
+      }
     },
     [userId],
   );
@@ -366,11 +326,25 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
     async (slot: number) => {
       if (!userId) return;
       setPvpTeamSlotState(slot);
-      const { error: updateError } = await supabase.from('player_progress').update({ pvp_team_slot: slot }).eq('user_id', userId);
-      setError(updateError ? updateError.message : null);
+      try {
+        await postApi('/api/player/set-team-slot', { type: 'pvp', slot });
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to set PvP team slot');
+      }
     },
     [userId],
   );
+
+  const syncFromGachaResponse = useCallback((next: { tokens: number; bannerPity: number; bannerGuaranteed: boolean }) => {
+    setTokens(next.tokens);
+    setBannerPity(next.bannerPity);
+    setBannerGuaranteedState(next.bannerGuaranteed);
+  }, []);
+
+  const setBytesFromServer = useCallback((next: number) => {
+    setBytes(next);
+  }, []);
 
   return {
     progress,
@@ -382,10 +356,7 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
     bandwidth,
     bytes,
     bannerPity,
-    incrementBannerPity,
-    claimBannerPity,
     bannerGuaranteed,
-    setBannerGuaranteed,
     unlockedTeamSlots,
     pveTeamSlot,
     pvpTeamSlot,
@@ -394,12 +365,13 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
     saveProgress,
     claimStarterBoost,
     spendTokens,
-    adjustBytes,
     setTeamVisibility,
     purchaseVip,
     claimDailyVipBonus,
     purchaseTeamSlot,
     setPveTeamSlot,
     setPvpTeamSlot,
+    syncFromGachaResponse,
+    setBytesFromServer,
   };
 }

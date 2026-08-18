@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { postApi } from '../lib/apiClient';
 import type { OwnedCharacter } from './useOwnedCharacters';
 import type { Rarity } from '../types';
 
@@ -121,16 +122,14 @@ export function usePvp(userId: string | undefined): UsePvpResult {
     async (characters: OwnedCharacter[], selectedAbilityByCharacterId: Record<string, string> = {}) => {
       if (!userId) return;
       setDefenseTeamState(characters);
-      const snapshot: DefenseSnapshotCharacter[] = characters.map((c) => ({
-        characterId: c.characterId,
-        xp: c.xp,
-        rarity: c.rarity,
-        selectedAbilityId: selectedAbilityByCharacterId[c.characterId],
-      }));
-      const { error: upsertError } = await supabase
-        .from('pvp_defense_teams')
-        .upsert({ user_id: userId, characters: snapshot, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
-      if (upsertError) setError(upsertError.message);
+      try {
+        // xp/rarity aren't sent — /api/pvp/defense-team re-reads them from player_characters
+        // itself, so a forged snapshot can't hand a defense team fabricated stats.
+        await postApi('/api/pvp/defense-team', { characterIds: characters.map((c) => c.characterId), selectedAbilityByCharacterId });
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to save defense team');
+      }
     },
     [userId],
   );

@@ -28,21 +28,13 @@ import {
   VIP_CREDIT_XP_BONUS_PERCENT,
   type TeamVisibility,
 } from '../hooks/usePlayerProgress';
-import { useOwnedCharacters, type AcquireOutcome, type FragmentStack, type OwnedCharacter } from '../hooks/useOwnedCharacters';
+import { useOwnedCharacters, type FragmentStack, type OwnedCharacter } from '../hooks/useOwnedCharacters';
 import { usePlayerTeams } from '../hooks/usePlayerTeams';
 import { useProfile, type UpdateUsernameResult } from '../hooks/useProfile';
 import { useCluster } from '../hooks/useCluster';
 import { usePvp } from '../hooks/usePvp';
 import { useMarket } from '../hooks/useMarket';
 import { selectedAbilityMapFrom, useCharacterProgression } from '../hooks/useCharacterProgression';
-import {
-  ABILITY_MAX_LEVEL_BY_RARITY,
-  ABILITY_UPGRADE_COST_CREDITS,
-  PASSIVE_MAX_LEVEL_BY_RARITY,
-  PASSIVE_UNLOCK_RARITY,
-  PASSIVE_UPGRADE_COST_CREDITS,
-} from '../data/abilityProgression';
-import { RARITY_RANK } from '../data/roster';
 import type { ChatMessage, MenuItem, Rarity } from '../types';
 
 interface GameShellProps {
@@ -63,24 +55,20 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
     pveTeamSlot,
     pvpTeamSlot,
     bannerPity,
-    incrementBannerPity,
-    claimBannerPity,
-    bannerGuaranteed,
-    setBannerGuaranteed,
     loading: progressLoading,
     saveProgress,
     claimStarterBoost,
     spendTokens,
-    adjustBytes,
+    setBytesFromServer,
     setTeamVisibility,
     purchaseVip,
     claimDailyVipBonus,
     purchaseTeamSlot,
     setPveTeamSlot,
     setPvpTeamSlot,
+    syncFromGachaResponse,
   } = usePlayerProgress(userId);
-  const { ownedCharacters, fragments, loading: ownedLoading, claimStarter, addXp, acquireCharacter, sellFragment, refreshFragments } =
-    useOwnedCharacters(userId);
+  const { ownedCharacters, fragments, loading: ownedLoading, claimStarter, addXp, sellFragment, refreshFragments } = useOwnedCharacters(userId);
   const { username, avatarCharacterId, loading: profileLoading, updateUsername, updateAvatar } = useProfile(userId);
   const cluster = useCluster(userId);
   const pvp = usePvp(userId);
@@ -104,12 +92,6 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
   }
 
   const bonusMultiplier = 1 + (vipActive ? VIP_CREDIT_XP_BONUS_PERCENT : 0) + (cluster.cluster ? CLUSTER_CREDIT_XP_BONUS_PERCENT : 0);
-
-  async function handleAcquireCharacter(characterId: string, rarity: Rarity): Promise<AcquireOutcome> {
-    const outcome = await acquireCharacter(characterId, rarity);
-    if (outcome === 'new') await teams.autoAddToTeam1(characterId);
-    return outcome;
-  }
 
   const pveTeam = teams.teams.find((t) => t.slot === pveTeamSlot);
   const pveOwnedIds = new Set(pveTeam?.characterIds ?? []);
@@ -135,7 +117,6 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
       pveCharacters={pveCharacters}
       fragments={fragments}
       addXp={addXp}
-      acquireCharacter={handleAcquireCharacter}
       sellFragment={sellFragment}
       refreshFragments={refreshFragments}
       saveProgress={saveProgress}
@@ -144,12 +125,9 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
       tokens={tokens}
       spendTokens={spendTokens}
       bytes={bytes}
-      adjustBytes={adjustBytes}
+      setBytesFromServer={setBytesFromServer}
       bannerPity={bannerPity}
-      incrementBannerPity={incrementBannerPity}
-      claimBannerPity={claimBannerPity}
-      bannerGuaranteed={bannerGuaranteed}
-      setBannerGuaranteed={setBannerGuaranteed}
+      syncFromGachaResponse={syncFromGachaResponse}
       characterProgression={characterProgression}
       teamVisibility={teamVisibility}
       setTeamVisibility={setTeamVisibility}
@@ -188,21 +166,17 @@ interface GameShellReadyProps {
   pveCharacters: OwnedCharacter[];
   fragments: FragmentStack[];
   addXp: (amount: number) => void;
-  acquireCharacter: (characterId: string, rarity: Rarity) => Promise<AcquireOutcome>;
-  sellFragment: (characterId: string, rarity: Rarity) => void;
+  sellFragment: (characterId: string, rarity: Rarity) => Promise<{ grantedBytes: number; bytes: number } | null>;
   refreshFragments: () => Promise<void>;
   saveProgress: (next: { fase: number; estagio: number; credits: number; xp: number }) => void;
   starterBoostClaimed: boolean;
-  claimStarterBoost: () => void;
+  claimStarterBoost: () => Promise<number | null>;
   tokens: number;
   spendTokens: (amount: number) => Promise<boolean>;
   bytes: number;
-  adjustBytes: (delta: number) => Promise<boolean>;
+  setBytesFromServer: (bytes: number) => void;
   bannerPity: number;
-  incrementBannerPity: (count: number) => void;
-  claimBannerPity: () => void;
-  bannerGuaranteed: boolean;
-  setBannerGuaranteed: (value: boolean) => void;
+  syncFromGachaResponse: (next: { tokens: number; bannerPity: number; bannerGuaranteed: boolean }) => void;
   characterProgression: ReturnType<typeof useCharacterProgression>;
   teamVisibility: TeamVisibility;
   setTeamVisibility: (value: TeamVisibility) => void;
@@ -242,7 +216,6 @@ function GameShellReady({
   pveCharacters,
   fragments,
   addXp,
-  acquireCharacter,
   sellFragment,
   refreshFragments,
   saveProgress,
@@ -251,12 +224,9 @@ function GameShellReady({
   tokens,
   spendTokens,
   bytes,
-  adjustBytes,
+  setBytesFromServer,
   bannerPity,
-  incrementBannerPity,
-  claimBannerPity,
-  bannerGuaranteed,
-  setBannerGuaranteed,
+  syncFromGachaResponse,
   characterProgression,
   teamVisibility,
   setTeamVisibility,
@@ -309,38 +279,30 @@ function GameShellReady({
   );
   const chatMessages = useMemo(() => [...CHAT_MESSAGES, ...battle.logFeed], [battle.logFeed]);
 
-  function handleUpgradeAbility(characterId: string) {
-    const rarity = ownedCharacters.find((c) => c.characterId === characterId)?.rarity;
-    if (!rarity) return;
-    const current = characterProgression.progression[characterId]?.abilityLevel ?? 1;
-    const max = ABILITY_MAX_LEVEL_BY_RARITY[rarity];
-    if (current >= max) return;
-    const next = current + 1;
-    const cost = ABILITY_UPGRADE_COST_CREDITS[next] ?? 0;
-    if (battle.credits < cost) {
-      setToast('Créditos insuficientes.');
+  async function handleUpgradeAbility(characterId: string) {
+    const nextCredits = await characterProgression.upgradeAbility(characterId);
+    if (nextCredits === null) {
+      setToast(characterProgression.error ?? 'Não foi possível melhorar a habilidade.');
       return;
     }
-    battle.adjustCredits(-cost);
-    characterProgression.setAbilityLevel(characterId, next);
-    setToast(`Habilidade melhorada para nível ${next}.`);
+    battle.setWallet(nextCredits, battle.xp);
+    setToast('Habilidade melhorada!');
   }
 
-  function handleUpgradePassive(characterId: string) {
-    const rarity = ownedCharacters.find((c) => c.characterId === characterId)?.rarity;
-    if (!rarity || RARITY_RANK[rarity] < RARITY_RANK[PASSIVE_UNLOCK_RARITY]) return;
-    const current = characterProgression.progression[characterId]?.passiveLevel ?? 0;
-    const max = PASSIVE_MAX_LEVEL_BY_RARITY[rarity];
-    if (current >= max) return;
-    const next = current + 1;
-    const cost = PASSIVE_UPGRADE_COST_CREDITS[next] ?? 0;
-    if (battle.credits < cost) {
-      setToast('Créditos insuficientes.');
+  async function handleUpgradePassive(characterId: string) {
+    const nextCredits = await characterProgression.upgradePassive(characterId);
+    if (nextCredits === null) {
+      setToast(characterProgression.error ?? 'Não foi possível melhorar a passiva.');
       return;
     }
-    battle.adjustCredits(-cost);
-    characterProgression.setPassiveLevel(characterId, next);
-    setToast(`Passiva melhorada para nível ${next}.`);
+    battle.setWallet(nextCredits, battle.xp);
+    setToast('Passiva melhorada!');
+  }
+
+  async function handleSellFragment(characterId: string, rarity: Rarity) {
+    const result = await sellFragment(characterId, rarity);
+    if (result) setBytesFromServer(result.bytes);
+    return result;
   }
   // Credits/XP/tokens are real (persisted in Supabase); name is the real username once loaded, falling back to the mock placeholder otherwise.
   // rankTier/rankValue are computed from the real pvp_rating (src/data/pvpRank.ts) instead of PLAYER_STATE's mock values.
@@ -439,11 +401,12 @@ function GameShellReady({
           ) : activeMenuId === 'shop' ? (
             <ShopPage
               credits={battle.credits}
+              xp={battle.xp}
               tokens={tokens}
               starterBoostClaimed={starterBoostClaimed}
               onClaimStarterBoost={claimStarterBoost}
-              onAcquireCharacter={acquireCharacter}
-              onAdjustCredits={battle.adjustCredits}
+              onSetWallet={battle.setWallet}
+              onNewCharacter={teams.autoAddToTeam1}
               onToast={setToast}
               vipActive={vipActive}
               vipExpiresAt={vipExpiresAt}
@@ -455,16 +418,13 @@ function GameShellReady({
             <GachaPage
               credits={battle.credits}
               tokens={tokens}
+              xp={battle.xp}
               ownedCharacters={ownedCharacters}
-              onAcquireCharacter={acquireCharacter}
-              onAdjustCredits={battle.adjustCredits}
-              onSpendTokens={spendTokens}
               onToast={setToast}
               bannerPity={bannerPity}
-              onIncrementBannerPity={incrementBannerPity}
-              onClaimBannerPity={claimBannerPity}
-              bannerGuaranteed={bannerGuaranteed}
-              onSetBannerGuaranteed={setBannerGuaranteed}
+              onSetWallet={battle.setWallet}
+              onSyncGachaState={syncFromGachaResponse}
+              onNewCharacter={teams.autoAddToTeam1}
             />
           ) : activeMenuId === 'guild' ? (
             <ClusterPage userId={userId} cluster={cluster} bandwidth={0} onToast={setToast} />
@@ -474,10 +434,10 @@ function GameShellReady({
               fragments={fragments}
               vipActive={vipActive}
               credits={battle.credits}
+              xp={battle.xp}
               bytes={bytes}
-              onAdjustCredits={battle.adjustCredits}
-              onAdjustBytes={adjustBytes}
-              onSellFragment={sellFragment}
+              onSetWallet={battle.setWallet}
+              onSellFragment={handleSellFragment}
               onRefreshFragments={refreshFragments}
               onToast={setToast}
             />
