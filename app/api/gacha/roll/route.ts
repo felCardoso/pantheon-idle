@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getUserFromRequest, UnauthorizedError } from '../../../../lib/auth-helpers';
 import { supabaseAdmin } from '../../../../lib/supabase-admin';
 import { applyAcquire, loadOwnershipState } from '../../../../lib/gacha';
-import { Rng } from '../../../../src/engine/core/rng';
+import { Rng } from '../../../../src/engine';
 import { currentShowcaseWeek, pickWeeklyBannerCharacter, pullBannerCharacter, pullGachaCharacterWithRarity } from '../../../../src/data/roster';
 import type { Rarity } from '../../../../src/types';
 import { BUNDLE_SIZE, bundlePrice, unitPriceFor } from '../../../../src/data/gachaPricing';

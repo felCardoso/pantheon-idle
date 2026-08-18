@@ -13,15 +13,14 @@ describe('loadJurupariAllies', () => {
     // DEF/INI/ESQ/ICE are ability-granted only (schema.ts) — 0 for every ally today, untouched by
     // synergy or level scaling.
     expect(jurupari.base.def).toBe(0);
-    expect(jurupari.base.ini).toBe(0);
+    expect(jurupari.base.vel).toBe(0);
     expect(jurupari.base.esq).toBe(0);
     expect(jurupari.base.ice).toBe(0);
   });
 
-  it('gives Jurupari.exe its +1 round status duration passive and Saci.exe its always-first passive', () => {
+  it('gives Jurupari.exe its +1s status duration passive', () => {
     const allies = loadJurupariAllies();
     expect(allies.find((a) => a.name === 'Jurupari.exe')!.statusDurationBonus).toBe(1);
-    expect(allies.find((a) => a.name === 'Saci.exe')!.alwaysActsFirst).toBe(true);
   });
 });
 
@@ -88,34 +87,38 @@ describe('loadCharactersByIds', () => {
       { id: 'minotauro', xp: 0 },
     ]);
     expect(medusa.name).toBe('Medusa.exe');
-    expect(medusa.abilities.map((a) => a.id)).toEqual(['medusa-petrificar']);
+    expect(medusa.activeAbilities.map((a) => a.id)).toEqual(['medusa-petrificar']);
     expect(hercules.name).toBe('Hércules.exe');
-    expect(hercules.abilities.map((a) => a.id)).toEqual(['hercules-impacto']);
+    expect(hercules.activeAbilities.map((a) => a.id)).toEqual(['hercules-impacto']);
     expect(minotauro.name).toBe('Minotauro.exe');
-    expect(minotauro.abilities.map((a) => a.id)).toEqual(['minotauro-provocar']);
+    expect(minotauro.activeAbilities.map((a) => a.id)).toEqual(['minotauro-provocar']);
   });
 
   it('resolves Amaterasu.exe (Mitologia Japonesa) to only her first candidate active ability', () => {
     const [amaterasu] = loadCharactersByIds([{ id: 'amaterasu', xp: 0 }]);
     expect(amaterasu.name).toBe('Amaterasu.exe');
-    expect(amaterasu.abilities.map((a) => a.id)).toEqual(['amaterasu-regen-team']);
+    expect(amaterasu.activeAbilities.map((a) => a.id)).toEqual(['amaterasu-regen-team']);
   });
 
   it('equips selectedAbilityId when it names an id actually in activeOptions', () => {
     const [medusa] = loadCharactersByIds([{ id: 'medusa', xp: 0, selectedAbilityId: 'medusa-petrificar' }]);
-    expect(medusa.abilities.map((a) => a.id)).toEqual(['medusa-petrificar']);
+    expect(medusa.activeAbilities.map((a) => a.id)).toEqual(['medusa-petrificar']);
   });
 
   it('falls back to activeOptions[0] when selectedAbilityId is not one of the character\'s options (e.g. a stale/unauthored id)', () => {
     const [medusa] = loadCharactersByIds([{ id: 'medusa', xp: 0, selectedAbilityId: 'not-a-real-option' }]);
-    expect(medusa.abilities.map((a) => a.id)).toEqual(['medusa-petrificar']);
+    expect(medusa.activeAbilities.map((a) => a.id)).toEqual(['medusa-petrificar']);
   });
 
-  it('never equips a passive below the LTS rarity gate, even when rarity is passed (no character has an authored passive yet, so this stays empty either way)', () => {
-    const [alpha] = loadCharactersByIds([{ id: 'medusa', xp: 0, rarity: 'Alpha' }]);
-    const [lts] = loadCharactersByIds([{ id: 'medusa', xp: 0, rarity: 'LTS' }]);
-    expect(alpha.abilities.map((a) => a.id)).toEqual(['medusa-petrificar']);
-    expect(lts.abilities.map((a) => a.id)).toEqual(['medusa-petrificar']);
+  it('never equips a passive below Zero-Day, and equipping the active is unaffected by rarity', () => {
+    // No character has an authored passiveAbilityId yet, so passiveAbilities is
+    // empty at every tier — this pins the gate's *shape* (rarity never leaks
+    // into the active slot) rather than a positive unlock, which needs content.
+    for (const rarity of ['Alpha', 'LTS', 'Zero-Day'] as const) {
+      const [medusa] = loadCharactersByIds([{ id: 'medusa', xp: 0, rarity }]);
+      expect(medusa.activeAbilities.map((a) => a.id)).toEqual(['medusa-petrificar']);
+      expect(medusa.passiveAbilities).toEqual([]);
+    }
   });
 });
 

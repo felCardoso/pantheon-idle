@@ -35,6 +35,10 @@
   --animate-ability-cast-darken: ability-cast-darken 1.8s ease-in-out forwards;
   --animate-ability-cast-portrait: ability-cast-portrait 1.8s ease-out forwards;
   --animate-ability-cast-text: ability-cast-text 1.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-attack-lunge-light: attack-lunge-light 0.48s ease-out;
+  --animate-attack-lunge-heavy: attack-lunge-heavy 0.7s cubic-bezier(0.3, 0, 0.2, 1);
+  --animate-attack-projectile: attack-projectile 0.5s ease-in forwards;
+  --animate-impact-flash: impact-flash 0.35s ease-out forwards;
 }
 
 @keyframes scanline {
@@ -84,6 +88,34 @@
   22% { transform: translateX(0%); opacity: 1; }
   75% { transform: translateX(0%); opacity: 1; }
   100% { transform: translateX(18%); opacity: 0; }
+}
+
+/* Attack-cadence animations — --lunge-dir is +1 for allies (facing right), -1 for enemies
+   (facing left), set inline per card so one keyframe serves both sides. Tiering is in
+   useBattleReplay.ts's attackTierFor: too fast to lunge every hit fires a projectile only
+   (see attack-projectile below), a moderate cadence affords a short step-in, and a slow one
+   reads as a single heavy, deliberate strike. */
+@keyframes attack-lunge-light {
+  0% { transform: translateX(0); }
+  35% { transform: translateX(calc(var(--lunge-dir, 1) * 10px)); }
+  100% { transform: translateX(0); }
+}
+
+@keyframes attack-lunge-heavy {
+  0% { transform: translateX(0) scale(1); }
+  40% { transform: translateX(calc(var(--lunge-dir, 1) * 22px)) scale(1.08); }
+  100% { transform: translateX(0) scale(1); }
+}
+
+@keyframes attack-projectile {
+  0% { transform: translateX(0) scaleX(1); opacity: 0.9; }
+  85% { opacity: 0.9; }
+  100% { transform: translateX(calc(var(--lunge-dir, 1) * 58vw)) scaleX(2.4); opacity: 0; }
+}
+
+@keyframes impact-flash {
+  0% { opacity: 0.9; transform: scale(0.6); }
+  100% { opacity: 0; transform: scale(1.6); }
 }
 
 html, body, #root {

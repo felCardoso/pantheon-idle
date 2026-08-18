@@ -1,30 +1,12 @@
 import { PASSIVE_UNLOCK_RARITY, RARITY_RANK } from '../schema';
-import type { AbilityDefinition, CombatantData, CombatConstants, Rarity } from '../schema';
+import type { AbilityDefinition, CombatantData, Rarity } from '../schema';
 import type { Combatant } from './types';
 import { levelForXp, levelMultiplier } from './leveling';
 import type { WorldId } from './progression';
+import { CONSTANTS, WORLD_CONTENT } from '../data';
 
-import constantsJson from '../data/constants.json';
-import jurupariAbilities from '../data/abilities/jurupari.json';
-import jurupariCharacters from '../data/characters/jurupari.json';
-import jurupariEnemies from '../data/enemies/jurupari.json';
-import yggdrasilAbilities from '../data/abilities/yggdrasil.json';
-import yggdrasilCharacters from '../data/characters/yggdrasil.json';
-import yggdrasilEnemyAbilities from '../data/abilities/yggdrasil-enemies.json';
-import yggdrasilEnemies from '../data/enemies/yggdrasil.json';
-import olympusAbilities from '../data/abilities/olympus.json';
-import olympusCharacters from '../data/characters/olympus.json';
-import olympusEnemyAbilities from '../data/abilities/olympus-enemies.json';
-import olympusEnemies from '../data/enemies/olympus.json';
-import takamagaharaAbilities from '../data/abilities/takamagahara.json';
-import takamagaharaCharacters from '../data/characters/takamagahara.json';
-import takamagaharaEnemies from '../data/enemies/takamagahara.json';
-import duatAbilities from '../data/abilities/duat.json';
-import duatEnemies from '../data/enemies/duat.json';
-import orunAbilities from '../data/abilities/orun.json';
-import orunEnemies from '../data/enemies/orun.json';
-
-export const CONSTANTS = constantsJson as CombatConstants;
+// Re-exported so existing engine/UI call sites keep importing it from here.
+export { CONSTANTS };
 
 /**
  * Every playable ally character across all implemented mythologies, keyed by
@@ -34,12 +16,7 @@ export const CONSTANTS = constantsJson as CombatConstants;
  * mythology has ally characters yet (Duat/Orun have none so far; see
  * docs/personagens.md for the planned full 24-character roster).
  */
-const ALL_CHARACTERS = [
-  ...(jurupariCharacters as CombatantData[]),
-  ...(yggdrasilCharacters as CombatantData[]),
-  ...(olympusCharacters as CombatantData[]),
-  ...(takamagaharaCharacters as CombatantData[]),
-];
+const ALL_CHARACTERS: CombatantData[] = Object.values(WORLD_CONTENT).flatMap((w) => w.characters);
 
 const CHARACTER_REGISTRY: Record<string, CombatantData> = Object.fromEntries(ALL_CHARACTERS.map((c) => [c.id, c]));
 
@@ -61,16 +38,9 @@ export function characterIdsByMythology(): { mythology: string; ids: string[] }[
 }
 
 const ABILITY_REGISTRY: Record<string, AbilityDefinition> = Object.fromEntries(
-  [
-    ...(jurupariAbilities as AbilityDefinition[]),
-    ...(yggdrasilAbilities as AbilityDefinition[]),
-    ...(yggdrasilEnemyAbilities as AbilityDefinition[]),
-    ...(olympusAbilities as AbilityDefinition[]),
-    ...(olympusEnemyAbilities as AbilityDefinition[]),
-    ...(takamagaharaAbilities as AbilityDefinition[]),
-    ...(duatAbilities as AbilityDefinition[]),
-    ...(orunAbilities as AbilityDefinition[]),
-  ].map((a) => [a.id, a]),
+  Object.values(WORLD_CONTENT)
+    .flatMap((w) => w.abilities)
+    .map((a) => [a.id, a]),
 );
 
 function resolveAbilities(ids: string[]): AbilityDefinition[] {
@@ -99,31 +69,57 @@ export function passiveAbilityFor(templateId: string): AbilityDefinition | undef
   return id ? ABILITY_REGISTRY[id] : undefined;
 }
 
+/** The character's bench-ability options, if authored (docs/combate.md v3.1 §3). */
+export function benchOptionsFor(templateId: string): AbilityDefinition[] {
+  const data = CHARACTER_REGISTRY[templateId];
+  return data ? resolveAbilities(data.benchOptions ?? []) : [];
+}
+
+export interface ResolvedAbilities {
+  active: AbilityDefinition[];
+  bench: AbilityDefinition[];
+  passive: AbilityDefinition[];
+}
+
 /**
- * Enemies never choose (docs/combate.md §8: "Ações Hardcoded" — a boss can
- * run several abilities at once in fixed sequence) so every one of their
- * activeOptions fires, plus their passive unconditionally (enemies bypass
- * the rarity gate). Allies get exactly one active — `selectedAbilityId` if
- * it's actually one of the character's activeOptions, else activeOptions[0]
- * (docs/combate.md §5: "o jogador equipa uma por vez") — plus their passive
- * only once `rarity` clears PASSIVE_UNLOCK_RARITY.
+ * Splits a character's kit into the three scopes the real-time engine gates on
+ * (docs/combate.md v3.1 §3).
+ *
+ * Enemies never choose (§7: "scripts fixos" — a boss runs several abilities at
+ * once) so every one of their activeOptions fires, plus their passive
+ * unconditionally (enemies bypass the rarity gate). Per §7A they carry no
+ * bench abilities at all.
+ *
+ * Allies get exactly one active and one bench ability — the player's
+ * selection if it is genuinely one of that character's options, else the first
+ * one — plus their passive only once `rarity` clears PASSIVE_UNLOCK_RARITY.
  */
 function resolveCombatantAbilities(
   data: CombatantData,
   isAlly: boolean,
   rarity?: Rarity,
   selectedAbilityId?: string,
-): AbilityDefinition[] {
+  selectedBenchAbilityId?: string,
+): ResolvedAbilities {
   if (!isAlly) {
-    const ids = data.passiveAbilityId ? [...data.activeOptions, data.passiveAbilityId] : data.activeOptions;
-    return resolveAbilities(ids);
+    return {
+      active: resolveAbilities(data.activeOptions),
+      bench: [],
+      passive: resolveAbilities(data.passiveAbilityId ? [data.passiveAbilityId] : []),
+    };
   }
 
-  const selected = selectedAbilityId && data.activeOptions.includes(selectedAbilityId) ? selectedAbilityId : data.activeOptions[0];
-  const activeIds = selected ? [selected] : [];
+  const selectedActive = selectedAbilityId && data.activeOptions.includes(selectedAbilityId) ? selectedAbilityId : data.activeOptions[0];
+  const benchOptions = data.benchOptions ?? [];
+  const selectedBench =
+    selectedBenchAbilityId && benchOptions.includes(selectedBenchAbilityId) ? selectedBenchAbilityId : benchOptions[0];
   const passiveUnlocked = !!rarity && !!data.passiveAbilityId && RARITY_RANK[rarity] >= RARITY_RANK[PASSIVE_UNLOCK_RARITY];
-  const ids = passiveUnlocked ? [...activeIds, data.passiveAbilityId!] : activeIds;
-  return resolveAbilities(ids);
+
+  return {
+    active: resolveAbilities(selectedActive ? [selectedActive] : []),
+    bench: resolveAbilities(selectedBench ? [selectedBench] : []),
+    passive: resolveAbilities(passiveUnlocked ? [data.passiveAbilityId!] : []),
+  };
 }
 
 /** Mythological synergy bonus for a same-mythology team, per combate.md section 5. */
@@ -140,19 +136,25 @@ function buildCombatant(
   level: number = 0,
   rarity?: Rarity,
   selectedAbilityId?: string,
+  selectedBenchAbilityId?: string,
 ): Combatant {
   const scale = (1 + synergyBonus) * statMultiplier;
   const hp = Math.round(data.baseStats.hp * scale);
   const atk = Math.round(data.baseStats.atk * scale);
-  // Allies: DEF/INI/ESQ/ICE are ability-granted build choices, not generic growing stats
+  // Allies: DEF/VEL/ESQ/ICE are ability-granted build choices, not generic growing stats
   // (schema.ts) — never scaled by level/synergy, always exactly whatever the character's kit
   // grants (today always 0, until kits that grant them exist). Enemies are untouched by that
-  // rule — their DEF/INI/ESQ scaling by statMultiplier is world/estágio difficulty tuning, a
+  // rule — their DEF/VEL/ESQ scaling by statMultiplier is world/estágio difficulty tuning, a
   // separate, pre-existing mechanic (progression.ts's difficultyMultiplier).
   const def = isAlly ? data.baseStats.def : data.baseStats.def * statMultiplier;
-  const ini = isAlly ? data.baseStats.ini : Math.round(data.baseStats.ini * statMultiplier);
+  // VEL is a rate, not a pool: it is NOT rounded (unlike the old INI, which was an
+  // ordering key) because attackIntervalFor() reads it as a continuous multiplier —
+  // rounding would collapse every enemy speed tier below 1.0 down to 0.
+  const vel = isAlly ? data.baseStats.vel : data.baseStats.vel * statMultiplier;
   const esq = isAlly ? data.baseStats.esq : data.baseStats.esq * statMultiplier;
   const ice = isAlly ? data.baseStats.ice : (data.baseStats.ice ?? 0) * statMultiplier;
+
+  const abilities = resolveCombatantAbilities(data, isAlly, rarity, selectedAbilityId, selectedBenchAbilityId);
 
   return {
     id: idSuffix ? `${data.id}#${idSuffix}` : data.id,
@@ -162,15 +164,19 @@ function buildCombatant(
     isAlly,
     stars: data.stars ?? 0,
     level,
-    base: { hp, atk, def, ini, esq, ice },
+    base: { hp, atk, def, vel, esq, ice },
     maxHp: hp,
     hp,
     shield: 0,
     statuses: [],
-    abilities: resolveCombatantAbilities(data, isAlly, rarity, selectedAbilityId),
+    activeAbilities: abilities.active,
+    benchAbilities: abilities.bench,
+    passiveAbilities: abilities.passive,
     statusDurationBonus: data.statusDurationBonus ?? 0,
-    alwaysActsFirst: data.alwaysActsFirst ?? false,
     halfHpTriggered: false,
+    attackCooldownRemaining: 0,
+    abilityCooldownRemaining: {},
+    isVanguard: false,
   };
 }
 
@@ -217,7 +223,7 @@ export function loadCharactersByIds(entries: OwnedCharacterEntry[]): Combatant[]
 
 /** The original 4-character Jurupari.iso roster at level 0, still used by the CLI demo and existing tests. */
 export function loadJurupariAllies(): Combatant[] {
-  return loadCharactersByIds((jurupariCharacters as CombatantData[]).map((c) => ({ id: c.id, xp: 0 })));
+  return loadCharactersByIds(WORLD_CONTENT.jurupari.characters.map((c) => ({ id: c.id, xp: 0 })));
 }
 
 interface WorldEnemyData {
@@ -238,14 +244,9 @@ interface WorldEnemyData {
  * collision in one battle, the same reasoning that renamed Jurupari.iso's
  * "Caipora.sh"/"Curupira.sh" trash mobs once those became real allies.
  */
-const ENEMY_REGISTRY: Record<WorldId, WorldEnemyData> = {
-  jurupari: jurupariEnemies as WorldEnemyData,
-  duat: duatEnemies as WorldEnemyData,
-  orun: orunEnemies as WorldEnemyData,
-  takamagahara: takamagaharaEnemies as WorldEnemyData,
-  olympus: olympusEnemies as WorldEnemyData,
-  yggdrasil: yggdrasilEnemies as WorldEnemyData,
-};
+const ENEMY_REGISTRY = Object.fromEntries(
+  Object.entries(WORLD_CONTENT).map(([world, content]) => [world, content.enemies as WorldEnemyData]),
+) as Record<WorldId, WorldEnemyData>;
 
 /**
  * Builds a wave of `count` comuns enemies for the given world, cycling

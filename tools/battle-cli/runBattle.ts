@@ -1,7 +1,5 @@
-import { loadJurupariAllies, loadJurupariBoss, loadJurupariComuns } from '../core/loader';
-import { runBattle } from '../core/battle';
+import { loadJurupariAllies, loadJurupariBoss, loadJurupariComuns, runBattle, type Combatant } from '../../src/engine';
 import { formatLogEntry } from './format';
-import type { Combatant } from '../core/types';
 
 function parseArgs(argv: string[]) {
   const useBoss = argv.includes('--boss');
@@ -14,7 +12,7 @@ function printRoster(label: string, units: Combatant[]) {
   console.log(`\n${label}`);
   for (const u of units) {
     console.log(
-      `  ${u.name.padEnd(20)} HP ${u.maxHp.toString().padStart(6)}  ATK ${u.base.atk.toString().padStart(4)}  DEF ${u.base.def.toString().padStart(3)}  INI ${u.base.ini.toString().padStart(3)}  ESQ ${(u.base.esq * 100).toFixed(0)}%`,
+      `  ${u.name.padEnd(20)} HP ${u.maxHp.toString().padStart(6)}  ATK ${u.base.atk.toString().padStart(4)}  DEF ${u.base.def.toString().padStart(3)}  VEL ${u.base.vel.toFixed(2).padStart(5)}  ESQ ${(u.base.esq * 100).toFixed(0)}%`,
     );
   }
 }
@@ -45,7 +43,7 @@ function main() {
     if (line !== null) console.log(line);
   }
 
-  console.log(`\nDuração: ${result.rounds} rodada(s).`);
+  console.log(`\nDuração: ${result.duration.toFixed(1)}s.`);
   printFinalHp('HP final — time do jogador:', result.allies);
   printFinalHp('HP final — inimigos:', result.enemies);
 }

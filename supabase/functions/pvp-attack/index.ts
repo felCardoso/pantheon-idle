@@ -7,8 +7,8 @@
 // directory's files for the line-by-line origin of each copy).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.112.3';
 import { corsHeaders } from '../_shared/cors.ts';
-import { loadCharactersByIds, type OwnedCharacterEntry } from '../_shared/engine/loader.ts';
-import { runBattle } from '../_shared/engine/battle.ts';
+import { loadCharactersByIds, type OwnedCharacterEntry } from '../_shared/engine/core/loader.ts';
+import { runBattle } from '../_shared/engine/core/battle.ts';
 
 const K_FACTOR = 32;
 const REWARD_CREDITS_WIN = 30;
@@ -158,6 +158,12 @@ Deno.serve(async (req) => {
         ratingDelta: attackerDelta,
         newRating,
         rewardCredits: won ? REWARD_CREDITS_WIN : REWARD_CREDITS_LOSS,
+        // The fight itself, so the client can actually show it instead of just the outcome —
+        // same log/combatant shapes useBattleReplay already knows how to step through for PvE.
+        // Both rosters are small (<=5 a side), so this stays well within response-size budget.
+        log: result.log,
+        attackers,
+        defenders,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );

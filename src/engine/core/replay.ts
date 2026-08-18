@@ -3,7 +3,7 @@ import type { StatusType } from '../schema';
 
 /**
  * Framework-agnostic playback layer: turns a finished battle's log into a
- * sequence of HP/shield/round snapshots any UI can step through at its own
+ * sequence of HP/shield/timestamp snapshots any UI can step through at its own
  * pace (the log itself carries every delta needed).
  */
 export interface UnitSnapshot {
@@ -16,16 +16,20 @@ export interface UnitSnapshot {
 }
 
 export interface ReplayState {
-  round: number;
+  /** Simulation clock in seconds, taken from the last applied entry's `at`. */
+  now: number;
   units: Record<string, UnitSnapshot>;
   /**
-   * Front-to-back line-up/queue order per side (front = index 0) — the two
-   * front units are this round's clash participants; on `clashEnd` the
-   * survivor rotates to the back of its own side and the dead one is
-   * dropped entirely, mirroring battle.ts's own queue rotation.
+   * Front-to-back queue order per side. Index 0 is the Vanguard — the only
+   * unit that attacks or takes damage; the rest are the Bench. Unlike v2 there
+   * is no rotation-per-exchange: a unit only leaves index 0 by being ejected
+   * (`vanguardExit`), which drops it from the array entirely.
    */
   allyOrder: string[];
   enemyOrder: string[];
+  /** Ids of the two current Vanguards, for the UI to know who to animate. */
+  allyVanguardId: string | null;
+  enemyVanguardId: string | null;
 }
 
 /**
@@ -44,23 +48,22 @@ export function createInitialReplayState(allies: Combatant[], enemies: Combatant
     units[u.id] = { id: u.id, hp: u.maxHp, maxHp: u.maxHp, shield: 0, statuses: {} };
   }
   return {
-    round: 0,
+    now: 0,
     units,
     allyOrder: allies.map((u) => u.id),
     enemyOrder: enemies.map((u) => u.id),
+    allyVanguardId: allies[0]?.id ?? null,
+    enemyVanguardId: enemies[0]?.id ?? null,
   };
 }
 
-/** Rotates `id` to the back of whichever side's order array currently holds it if it's still alive, or drops it entirely if it died this clash. */
-function rotateOrDrop(state: ReplayState, id: string): ReplayState {
-  const alive = (state.units[id]?.hp ?? 0) > 0;
+/** Drops an ejected Vanguard from whichever side's queue holds it. */
+function dropFromQueue(state: ReplayState, id: string): ReplayState {
   if (state.allyOrder.includes(id)) {
-    const rest = state.allyOrder.filter((u) => u !== id);
-    return { ...state, allyOrder: alive ? [...rest, id] : rest };
+    return { ...state, allyOrder: state.allyOrder.filter((u) => u !== id) };
   }
   if (state.enemyOrder.includes(id)) {
-    const rest = state.enemyOrder.filter((u) => u !== id);
-    return { ...state, enemyOrder: alive ? [...rest, id] : rest };
+    return { ...state, enemyOrder: state.enemyOrder.filter((u) => u !== id) };
   }
   return state;
 }
@@ -87,64 +90,71 @@ function damage(prev: UnitSnapshot, hpDamage: number, shieldAbsorbed: number): P
 
 /** Applies one log entry on top of a snapshot, returning the next snapshot. Pure — safe to step forward or replay from scratch. */
 export function applyReplayEntry(state: ReplayState, entry: BattleLogEntry, nameToId: Record<string, string>): ReplayState {
-  switch (entry.kind) {
-    case 'clashStart':
-      return { ...state, round: entry.round };
+  // Every entry carries the clock, so a UI can drive playback on real time.
+  const base = { ...state, now: entry.at };
 
-    case 'clashEnd': {
-      let next = rotateOrDrop(state, nameToId[entry.allyUnit]);
-      next = rotateOrDrop(next, nameToId[entry.enemyUnit]);
-      return next;
+  switch (entry.kind) {
+    case 'vanguardEnter': {
+      const id = nameToId[entry.unit];
+      return entry.side === 'allies' ? { ...base, allyVanguardId: id } : { ...base, enemyVanguardId: id };
+    }
+
+    case 'vanguardExit': {
+      const next = dropFromQueue(base, nameToId[entry.unit]);
+      const replacementId = entry.replacedBy ? nameToId[entry.replacedBy] : null;
+      return entry.side === 'allies'
+        ? { ...next, allyVanguardId: replacementId }
+        : { ...next, enemyVanguardId: replacementId };
     }
 
     case 'attack': {
-      if (entry.result.dodged) return state;
+      if (entry.result.dodged) return base;
       const id = entry.result.defender.id;
-      const prev = state.units[id];
-      if (!prev) return state;
-      return withUnit(state, id, damage(prev, entry.result.hpDamage, entry.result.shieldAbsorbed));
+      const prev = base.units[id];
+      if (!prev) return base;
+      return withUnit(base, id, damage(prev, entry.result.hpDamage, entry.result.shieldAbsorbed));
     }
 
     case 'statusTick': {
       const id = nameToId[entry.target];
-      const prev = state.units[id];
-      if (!prev) return state;
+      const prev = base.units[id];
+      if (!prev) return base;
       if (entry.tickKind === 'heal') {
-        return withUnit(state, id, { hp: Math.min(prev.maxHp, prev.hp + entry.amount) });
+        return withUnit(base, id, { hp: Math.min(prev.maxHp, prev.hp + entry.amount) });
       }
-      return withUnit(state, id, damage(prev, entry.amount - entry.shieldAbsorbed, entry.shieldAbsorbed));
+      return withUnit(base, id, damage(prev, entry.amount - entry.shieldAbsorbed, entry.shieldAbsorbed));
     }
 
     case 'heal': {
       const id = nameToId[entry.target];
-      const prev = state.units[id];
-      if (!prev) return state;
-      return withUnit(state, id, { hp: Math.min(prev.maxHp, prev.hp + entry.amount) });
+      const prev = base.units[id];
+      if (!prev) return base;
+      return withUnit(base, id, { hp: Math.min(prev.maxHp, prev.hp + entry.amount) });
     }
 
     case 'shieldGranted': {
       const id = nameToId[entry.target];
-      const prev = state.units[id];
-      if (!prev) return state;
-      return withUnit(state, id, { shield: prev.shield + entry.amount });
+      const prev = base.units[id];
+      if (!prev) return base;
+      return withUnit(base, id, { shield: prev.shield + entry.amount });
     }
 
     case 'iceReflect': {
       const id = nameToId[entry.target];
-      const prev = state.units[id];
-      if (!prev) return state;
-      return withUnit(state, id, damage(prev, entry.hpDamage, entry.shieldAbsorbed));
+      const prev = base.units[id];
+      if (!prev) return base;
+      return withUnit(base, id, damage(prev, entry.hpDamage, entry.shieldAbsorbed));
     }
 
     case 'directDamage': {
       const id = nameToId[entry.target];
-      const prev = state.units[id];
-      if (!prev) return state;
-      return withUnit(state, id, damage(prev, entry.hpDamage, entry.shieldAbsorbed));
+      const prev = base.units[id];
+      if (!prev) return base;
+      return withUnit(base, id, damage(prev, entry.hpDamage, entry.shieldAbsorbed));
     }
 
-    case 'enrage': {
-      let next = state;
+    case 'overload': {
+      let next = base;
       for (const d of entry.damages) {
         const id = nameToId[d.target];
         const prev = next.units[id];
@@ -156,33 +166,31 @@ export function applyReplayEntry(state: ReplayState, entry: BattleLogEntry, name
 
     case 'statusApplied': {
       const id = nameToId[entry.target];
-      const prev = state.units[id];
-      if (!prev) return state;
+      const prev = base.units[id];
+      if (!prev) return base;
       const current = prev.statuses[entry.status] ?? 0;
       const next = STACKABLE_STATUSES.has(entry.status) ? current + 1 : 1;
-      return withUnit(state, id, { statuses: { ...prev.statuses, [entry.status]: next } });
+      return withUnit(base, id, { statuses: { ...prev.statuses, [entry.status]: next } });
     }
 
     case 'statusExpired': {
       const id = nameToId[entry.target];
-      const prev = state.units[id];
-      if (!prev) return state;
+      const prev = base.units[id];
+      if (!prev) return base;
       const current = prev.statuses[entry.status] ?? 0;
       const next = Math.max(0, current - 1);
       const statuses = { ...prev.statuses };
       if (next <= 0) delete statuses[entry.status];
       else statuses[entry.status] = next;
-      return withUnit(state, id, { statuses });
+      return withUnit(base, id, { statuses });
     }
 
     case 'battleStart':
-    case 'turnSkippedStun':
+    case 'attackBlockedStun':
     case 'dodge':
-    case 'actionCancelled':
-    case 'pingAdvantage':
     case 'death':
     case 'battleEnd':
     case 'abilityUsed':
-      return state;
+      return base;
   }
 }

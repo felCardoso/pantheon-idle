@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { absorbIntoShield, applyStatus, dispelStatuses, effectiveAtk, effectiveDef, effectiveIni, endOfRoundTick, isStunned } from './statusEffects';
+import { absorbIntoShield, applyStatus, dispelStatuses, effectiveAtk, effectiveDef, effectiveVel, tickStatuses, isStunned } from './statusEffects';
 import { makeCombatant } from './testUtils';
 
 describe('applyStatus', () => {
@@ -9,7 +9,7 @@ describe('applyStatus', () => {
 
     const instance = applyStatus(target, jurupari, 'lag', 2, 0.2);
 
-    expect(instance.remainingRounds).toBe(3);
+    expect(instance.remainingSeconds).toBe(3);
   });
 
   it('replaces an existing non-stacking status instead of adding a second one', () => {
@@ -38,7 +38,7 @@ describe('applyStatus', () => {
 
     const instance = applyStatus(target, jurupari, 'target', null, 0);
 
-    expect(instance.remainingRounds).toBeNull();
+    expect(instance.remainingSeconds).toBeNull();
   });
 });
 
@@ -50,9 +50,9 @@ describe('effective stats', () => {
   });
 
   it('lag reduces effective INI by its percent', () => {
-    const c = makeCombatant({ baseStats: { ini: 100 } });
+    const c = makeCombatant({ baseStats: { vel: 100 } });
     applyStatus(c, c, 'lag', 2, 0.2);
-    expect(effectiveIni(c)).toBeCloseTo(80);
+    expect(effectiveVel(c)).toBeCloseTo(80);
   });
 
   it('a negative buffDef reduces effective Firewall (no dedicated Firewall-reduction status in v2)', () => {
@@ -76,12 +76,12 @@ describe('isStunned', () => {
   });
 });
 
-describe('endOfRoundTick', () => {
+describe('tickStatuses', () => {
   it('Leak damage hits shield before HP', () => {
     const c = makeCombatant({ shield: 10 });
     applyStatus(c, c, 'leak', 3, 30);
 
-    const { ticks } = endOfRoundTick(c);
+    const { ticks } = tickStatuses(c, 1);
 
     expect(ticks).toEqual([{ status: 'leak', amount: 30, kind: 'damage', shieldAbsorbed: 10 }]);
     expect(c.shield).toBe(0);
@@ -92,7 +92,7 @@ describe('endOfRoundTick', () => {
     const c = makeCombatant({ shield: 100 });
     applyStatus(c, c, 'trojan', 3, 30);
 
-    endOfRoundTick(c);
+    tickStatuses(c, 1);
 
     expect(c.shield).toBe(100);
     expect(c.hp).toBe(c.maxHp - 30);
@@ -102,27 +102,27 @@ describe('endOfRoundTick', () => {
     const c = makeCombatant({ hp: 990 });
     applyStatus(c, c, 'nanites', 3, 50);
 
-    const { ticks } = endOfRoundTick(c);
+    const { ticks } = tickStatuses(c, 1);
 
     expect(ticks).toEqual([{ status: 'nanites', amount: 10, kind: 'heal', shieldAbsorbed: 0 }]);
     expect(c.hp).toBe(c.maxHp);
   });
 
-  it('decrements duration and expires a status that reaches 0 rounds remaining', () => {
+  it('ages a status down by the elapsed seconds and expires it at 0', () => {
     const c = makeCombatant();
     applyStatus(c, c, 'lag', 1, 0.2);
 
-    const { expired } = endOfRoundTick(c);
+    const { expired } = tickStatuses(c, 1);
 
     expect(expired).toEqual(['lag']);
     expect(c.statuses).toHaveLength(0);
   });
 
-  it('leaves a null-duration status (Target) untouched by round aging', () => {
+  it('leaves a null-duration status (Target) untouched by time aging', () => {
     const c = makeCombatant();
     applyStatus(c, c, 'target', null, 0);
 
-    const { expired } = endOfRoundTick(c);
+    const { expired } = tickStatuses(c, 1);
 
     expect(expired).toHaveLength(0);
     expect(c.statuses).toHaveLength(1);

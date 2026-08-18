@@ -1,5 +1,5 @@
 import type { Faction, Rarity } from '../types';
-import type { StatusType } from '../engine/schema';
+import type { StatusType } from '../engine';
 
 /** Ascending tier: Alpha < Beta < Stable < LTS < Zero-Day (docs/personagens.md). */
 export const RARITY_COLOR: Record<Rarity, string> = {
@@ -30,7 +30,7 @@ export const STATUS_ICON: Record<StatusType, string> = {
   target: 'crosshair',
   buffAtk: 'swords',
   buffDef: 'shield',
-  buffIni: 'zap',
+  buffVel: 'zap',
   buffEsq: 'wind',
   buffIce: 'orbit',
 };
@@ -46,7 +46,7 @@ export const STATUS_COLOR: Record<StatusType, string> = {
   target: '#ff3b5c',
   buffAtk: '#39ff9c',
   buffDef: '#39ff9c',
-  buffIni: '#39ff9c',
+  buffVel: '#39ff9c',
   buffEsq: '#39ff9c',
   buffIce: '#39ff9c',
 };

@@ -26,13 +26,47 @@ const TONE_CLASS: Record<NonNullable<ChatMessage['tone']>, string> = {
   system: 'text-arcane-300',
 };
 
+/** The Log tab's three independent on/off filters — "Batalha" shows abilityUsed lines, "Vitórias"/"Derrota" show the win/loss summary lines, and a draw is shown by either (docs request: "empate deve sempre aparecer se Vitória ou Derrota estiverem selecionadas"). */
+interface LogFilters {
+  battle: boolean;
+  wins: boolean;
+  losses: boolean;
+}
+
+const LOG_FILTER_TOGGLES: { key: keyof LogFilters; label: string; activeClass: string }[] = [
+  { key: 'battle', label: 'Batalha', activeClass: 'bg-code-500 text-void-950' },
+  { key: 'wins', label: 'Vitórias', activeClass: 'bg-arcane-500 text-void-950' },
+  { key: 'losses', label: 'Derrota', activeClass: 'bg-signal-red text-void-950' },
+];
+
+function matchesLogFilters(message: ChatMessage, filters: LogFilters): boolean {
+  switch (message.logCategory) {
+    case 'battle':
+      return filters.battle;
+    case 'result-win':
+      return filters.wins;
+    case 'result-loss':
+      return filters.losses;
+    case 'result-draw':
+      return filters.wins || filters.losses;
+    default:
+      return true;
+  }
+}
+
 export function ChatPanel({ messages, open, onClose, clusterMessages, inCluster, onSendClusterMessage }: ChatPanelProps) {
   const [activeTab, setActiveTab] = useState<ChatTabId>('log');
   const [draft, setDraft] = useState('');
   const [localMessages, setLocalMessages] = useState<ChatMessage[]>([]);
+  const [logFilters, setLogFilters] = useState<LogFilters>({ battle: true, wins: true, losses: true });
 
   const allMessages = useMemo(() => [...messages, ...localMessages], [messages, localMessages]);
-  const filtered = activeTab === 'guild' ? clusterMessages : allMessages.filter((m) => m.tab === activeTab);
+  const filtered =
+    activeTab === 'guild'
+      ? clusterMessages
+      : activeTab === 'log'
+        ? allMessages.filter((m) => m.tab === 'log' && matchesLogFilters(m, logFilters))
+        : allMessages.filter((m) => m.tab === activeTab);
   const canPost = activeTab === 'global' || (activeTab === 'guild' && inCluster);
 
   function handleSubmit(e: FormEvent) {
@@ -86,6 +120,25 @@ export function ChatPanel({ messages, open, onClose, clusterMessages, inCluster,
             <Icon name="x" size={16} />
           </button>
         </div>
+
+        {activeTab === 'log' && (
+          <div className="flex shrink-0 items-center gap-1.5 border-b border-void-600 px-3 py-1.5">
+            {LOG_FILTER_TOGGLES.map((toggle) => {
+              const on = logFilters[toggle.key];
+              return (
+                <button
+                  key={toggle.key}
+                  onClick={() => setLogFilters((prev) => ({ ...prev, [toggle.key]: !prev[toggle.key] }))}
+                  className={`rounded-full px-2.5 py-1 font-display text-[10px] font-bold uppercase tracking-wide transition ${
+                    on ? toggle.activeClass : 'bg-void-800 text-white/40'
+                  }`}
+                >
+                  {toggle.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto px-3 py-2 font-mono text-xs">
           {filtered.length === 0 && (

@@ -453,7 +453,8 @@ function GameShellReady({
               lastReward={battle.lastReward}
               onNextBattle={battle.startNewBattle}
               floaters={battle.floaters}
-              activeAbility={battle.activeAbility}
+              activeAbilities={battle.activeAbilities}
+              attackAnims={battle.attackAnims}
             />
           )}
         </div>

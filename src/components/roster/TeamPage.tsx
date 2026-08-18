@@ -5,7 +5,7 @@ import { Icon } from '../common/Icon';
 import { PvpAttackModal } from '../team/PvpAttackModal';
 import { PvpLeaderboardModal } from '../team/PvpLeaderboardModal';
 import { buildOwnedRoster, characterPower, type RosterCharacter } from '../../data/roster';
-import { CONSTANTS } from '../../engine/core/loader';
+import { CONSTANTS } from '../../engine';
 import { RARITY_COLOR } from '../../data/theme';
 import type { OwnedCharacter } from '../../hooks/useOwnedCharacters';
 import type { TeamSlot, UsePlayerTeamsResult } from '../../hooks/usePlayerTeams';

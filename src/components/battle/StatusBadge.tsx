@@ -13,7 +13,7 @@ const STATUS_LABEL: Record<ActiveStatus['type'], string> = {
   target: 'Target',
   buffAtk: 'Processamento aumentado',
   buffDef: 'Firewall aumentado',
-  buffIni: 'Ping aumentado',
+  buffVel: 'Ping aumentado',
   buffEsq: 'Evasion aumentada',
   buffIce: 'ESP aumentado',
 };

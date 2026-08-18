@@ -10,7 +10,7 @@
       "hp": 800,
       "atk": 80,
       "def": 0,
-      "ini": 0,
+      "vel": 0,
       "esq": 0,
       "ice": 0
     },
@@ -28,7 +28,7 @@
       "hp": 800,
       "atk": 80,
       "def": 0,
-      "ini": 0,
+      "vel": 0,
       "esq": 0,
       "ice": 0
     },
@@ -47,7 +47,7 @@
       "hp": 800,
       "atk": 80,
       "def": 0,
-      "ini": 0,
+      "vel": 0,
       "esq": 0,
       "ice": 0
     },
@@ -66,11 +66,10 @@
       "hp": 800,
       "atk": 80,
       "def": 0,
-      "ini": 0,
+      "vel": 0,
       "esq": 0,
       "ice": 0
     },
-    "alwaysActsFirst": true,
     "activeOptions": []
   }
 ]

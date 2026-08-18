@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Icon } from '../common/Icon';
 import { pvpRankTierFor } from '../../data/pvpRank';
+import { usePvpBattle } from '../../hooks/usePvpBattle';
+import { PvpBattleStage } from '../battle/PvpBattleStage';
 import type { PvpAttackResult, PvpOpponent, UsePvpResult } from '../../hooks/usePvp';
 
 interface PvpAttackModalProps {
@@ -21,6 +23,8 @@ export function PvpAttackModal({ pvp, onRewardCredits, onToast, onClose }: PvpAt
   const [loadingOpponents, setLoadingOpponents] = useState(false);
   const [attacking, setAttacking] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<{ opponent: PvpOpponent; result: PvpAttackResult } | null>(null);
+  /** Non-null while the fight itself is playing (PvpBattleStage) — the rating/reward summary only reveals once the player continues past it. */
+  const [playingBattle, setPlayingBattle] = useState<{ opponent: PvpOpponent; result: PvpAttackResult } | null>(null);
 
   async function refreshOpponents() {
     setLoadingOpponents(true);
@@ -42,6 +46,13 @@ export function PvpAttackModal({ pvp, onRewardCredits, onToast, onClose }: PvpAt
       onToast('Não foi possível atacar — o oponente pode não ter um time de defesa.');
       return;
     }
+    setPlayingBattle({ opponent, result });
+  }
+
+  function handleBattleContinue() {
+    if (!playingBattle) return;
+    const { opponent, result } = playingBattle;
+    setPlayingBattle(null);
     setLastResult({ opponent, result });
     onRewardCredits(result.rewardCredits);
     onToast(
@@ -142,6 +153,43 @@ export function PvpAttackModal({ pvp, onRewardCredits, onToast, onClose }: PvpAt
           )}
         </div>
       </div>
+
+      {playingBattle && (
+        <PvpBattlePlayer key={playingBattle.opponent.userId + playingBattle.result.newRating} playingBattle={playingBattle} onContinue={handleBattleContinue} />
+      )}
     </div>
+  );
+}
+
+/** Split out so usePvpBattle (a hook) only ever mounts while a fight is actually playing — PvpAttackModal itself may render with playingBattle null. */
+function PvpBattlePlayer({
+  playingBattle,
+  onContinue,
+}: {
+  playingBattle: { opponent: PvpOpponent; result: PvpAttackResult };
+  onContinue: () => void;
+}) {
+  const { opponent, result } = playingBattle;
+  const battle = usePvpBattle({
+    log: result.log,
+    attackers: result.attackers,
+    defenders: result.defenders,
+    battleKey: opponent.userId,
+    playing: true,
+  });
+
+  return (
+    <PvpBattleStage
+      attackerName="Você"
+      defenderName={opponent.username}
+      allies={battle.allies}
+      enemies={battle.enemies}
+      floaters={battle.floaters}
+      activeAbilities={battle.activeAbilities}
+      attackAnims={battle.attackAnims}
+      finished={battle.finished}
+      winner={battle.winner}
+      onContinue={onContinue}
+    />
   );
 }

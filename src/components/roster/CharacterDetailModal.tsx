@@ -74,7 +74,7 @@ export function CharacterDetailModal({ character, owned, ownedRarity, selectedAb
                 { icon: 'heart', label: 'HP', value: Math.round(character.stats.hp) },
                 { icon: 'swords', label: 'ATK', value: Math.round(character.stats.atk) },
                 { icon: 'shield', label: 'DEF', value: `${Math.round(character.stats.def * 100)}%` },
-                { icon: 'zap', label: 'INI', value: `${Math.round(character.stats.ini * 100)}%` },
+                { icon: 'zap', label: 'VEL', value: `${Math.round(character.stats.vel * 100)}%` },
                 { icon: 'wind', label: 'ESQ', value: `${Math.round(character.stats.esq * 100)}%` },
                 { icon: 'shield-off', label: 'ICE', value: `${Math.round(character.stats.ice * 100)}%` },
               ] as const

@@ -4,13 +4,24 @@ import { PixelFigure } from './PixelFigure';
 import { StatusBadge } from './StatusBadge';
 import { FACTION_COLOR, RARITY_COLOR, NEGATIVE_STATUSES } from '../../data/theme';
 import type { BattleUnit } from '../../types';
-import type { FloatingText } from '../../hooks/useBattleSimulation';
+import type { AttackAnimTier, FloatingText } from '../../hooks/useBattleSimulation';
 
 interface UnitCardProps {
   unit: BattleUnit;
   delay?: number;
   floatingTexts?: FloatingText[];
+  /** Set while this unit is mid-swing as the attacker — id changes every attack so the CSS animation restarts, tier picks which one plays (see useBattleReplay.ts's attackTierFor). */
+  attack?: { id: string; tier: AttackAnimTier } | null;
+  /** Set briefly while this unit is on the receiving end of a landed (non-dodged) hit. */
+  impactFlash?: { id: string } | null;
 }
+
+/** Ranged is too fast to lunge for every hit (fires only); a moderate cadence steps in and still fires; a slow one is one heavy, committed strike with no projectile. */
+const LUNGE_CLASS: Partial<Record<AttackAnimTier, string>> = {
+  lightMelee: 'animate-attack-lunge-light',
+  heavyMelee: 'animate-attack-lunge-heavy',
+};
+const SHOWS_PROJECTILE: Partial<Record<AttackAnimTier, true>> = { ranged: true, lightMelee: true };
 
 const FLOATER_STYLE: Record<FloatingText['kind'], string> = {
   damage: 'text-white',
@@ -26,7 +37,7 @@ const FLOATER_PREFIX: Record<FloatingText['kind'], string> = {
   shield: '+',
 };
 
-export function UnitCard({ unit, delay = 0, floatingTexts = [] }: UnitCardProps) {
+export function UnitCard({ unit, delay = 0, floatingTexts = [], attack = null, impactFlash = null }: UnitCardProps) {
   const factionColor = FACTION_COLOR[unit.faction];
   const rarityColor = RARITY_COLOR[unit.rarity];
   const isDead = unit.hp <= 0;
@@ -34,6 +45,11 @@ export function UnitCard({ unit, delay = 0, floatingTexts = [] }: UnitCardProps)
   const shieldPct = Math.max(0, Math.min(100, (unit.shield / unit.maxHp) * 100));
   const isCritical = !isDead && hpPct <= 25;
   const negativeStatuses = unit.statuses.filter((s) => NEGATIVE_STATUSES.has(s.type));
+  const lungeClass = attack ? LUNGE_CLASS[attack.tier] : undefined;
+  const showsProjectile = attack ? SHOWS_PROJECTILE[attack.tier] : false;
+  // Allies face right (toward the enemy column), enemies face left — one keyframe set serves
+  // both sides via this CSS var (see index.css's attack-lunge-*/attack-projectile).
+  const lungeDir = unit.isAlly ? 1 : -1;
 
   return (
     <motion.div
@@ -56,11 +72,13 @@ export function UnitCard({ unit, delay = 0, floatingTexts = [] }: UnitCardProps)
       </div>
 
       <div
-        className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg sm:h-16 sm:w-16 sm:rounded-xl"
+        key={attack?.id}
+        className={`relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg sm:h-16 sm:w-16 sm:rounded-xl ${lungeClass ?? ''}`}
         style={{
           background: `linear-gradient(150deg, ${rarityColor}22, #0a0a12)`,
           border: `1.5px solid ${factionColor}aa`,
           boxShadow: isDead ? 'none' : `0 0 14px -2px ${factionColor}88`,
+          ['--lunge-dir' as string]: lungeDir,
         }}
       >
         {unit.portraitUrl ? (
@@ -77,6 +95,20 @@ export function UnitCard({ unit, delay = 0, floatingTexts = [] }: UnitCardProps)
           <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-signal-red/90 text-[8px] font-bold text-white ring-2 ring-void-950">
             !
           </span>
+        )}
+        {showsProjectile && (
+          <span
+            key={`projectile-${attack?.id}`}
+            className="animate-attack-projectile pointer-events-none absolute left-1/2 top-1/2 h-1 w-3 -translate-y-1/2 rounded-full"
+            style={{ background: factionColor, boxShadow: `0 0 6px 1px ${factionColor}`, ['--lunge-dir' as string]: lungeDir }}
+          />
+        )}
+        {impactFlash && (
+          <span
+            key={`impact-${impactFlash.id}`}
+            className="animate-impact-flash pointer-events-none absolute inset-0 rounded-lg sm:rounded-xl"
+            style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.85), transparent 70%)' }}
+          />
         )}
       </div>
 

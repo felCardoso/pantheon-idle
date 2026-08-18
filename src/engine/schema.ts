@@ -1,9 +1,13 @@
 // Data-driven combat schema: characters, enemies and abilities are plain JSON
 // (see src/engine/data/**) interpreted at runtime by the ability engine. Adding
 // a new world/character/enemy means adding data, not code — see docs/combate.md
-// (v2) for the Gatilho x Efeito x Alvo design this mirrors. There is no
-// elemental-affinity system in v2 ("Não existe um sistema de elementos") —
-// tactical variety comes entirely from status effects and positioning.
+// (v3.1) for the Relay & Bench design this mirrors. There is no elemental-
+// affinity system ("Não há elementos com pedra-papel-tesoura") — tactical
+// variety comes entirely from status effects and loadout choices.
+//
+// v3.1 is real-time continuous: there are no turns, rounds or initiative order.
+// Everything that used to be measured in rounds is now measured in SECONDS, and
+// only the Vanguard (index 0 of each side's queue) attacks or takes damage.
 
 export type Faction = 'Firewall' | 'Malware' | 'Crypto-Miner' | 'Exploit';
 
@@ -12,14 +16,34 @@ export type Rarity = 'Alpha' | 'Beta' | 'Stable' | 'LTS' | 'Zero-Day';
 /** Ascending rank — higher number is rarer. Lives here (not src/data/roster.ts) so loader.ts's ability-selection resolution doesn't have to reach outside the engine layer; re-exported from roster.ts for existing UI call sites. */
 export const RARITY_RANK: Record<Rarity, number> = { Alpha: 0, Beta: 1, Stable: 2, LTS: 3, 'Zero-Day': 4 };
 
-/** Lowest owned rarity that unlocks a character's passive ability at all (docs/combate.md v2 section 5: "só ativa a partir de LTS"). Re-exported from abilityProgression.ts for existing UI call sites. */
-export const PASSIVE_UNLOCK_RARITY: Rarity = 'LTS';
+/**
+ * Lowest owned rarity that unlocks a character's passive ability —
+ * docs/combate.md v3.1 §3: "Desbloqueada automaticamente apenas para
+ * personagens Zero-Day".
+ *
+ * Raised from LTS with no data migration needed: passive level 1 was always
+ * free and PASSIVE_MAX_LEVEL_BY_RARITY capped LTS at exactly 1, so the paid
+ * tier (level 2, 50k créditos) was never reachable below Zero-Day — nobody
+ * can have bought something this takes away. Stale `passive_level` rows on
+ * non-Zero-Day characters are simply ignored: the passive is re-gated by
+ * rarity at load time (see resolveCombatantAbilities in loader.ts), so the
+ * value lies dormant and becomes valid again if that character ever reaches
+ * Zero-Day.
+ *
+ * Not implemented: §3's second unlock path ("através das melhorias de
+ * personagem, quando ele sobe para a v2.0") — no character-versioning system
+ * exists yet.
+ */
+export const PASSIVE_UNLOCK_RARITY: Rarity = 'Zero-Day';
 
 /**
- * The 8 named statuses from docs/combate.md section 3, plus the 5 generic
+ * The 8 named statuses from docs/combate.md v3.1 §4, plus the 5 generic
  * buff/debuff-attribute statuses (buffX with a negative magnitude is how
  * Firewall/Ping/Evasion/ESP debuffs are expressed — there's no dedicated
  * named status for those, unlike Throttling/Lag which do have one).
+ *
+ * "Corrosão" (Set.exe / Corrupted Daemon, §7) is not a distinct status: it is
+ * a Firewall reduction, i.e. a negative-magnitude `buffDef`.
  */
 export type StatusType =
   | 'leak'
@@ -32,29 +56,47 @@ export type StatusType =
   | 'target'
   | 'buffAtk'
   | 'buffDef'
-  | 'buffIni'
+  | 'buffVel'
   | 'buffEsq'
   | 'buffIce';
 
 /**
  * HP/ATK are the only stats that grow generically (level + mythology
- * synergy — see loader.ts's buildCombatant). DEF/INI/ESQ/ICE are build
+ * synergy — see loader.ts's buildCombatant). DEF/VEL/ESQ/ICE are build
  * choices, not investable stats: every playable character starts at 0 for
- * all four and they only ever move when a specific ability or Módulo grants
- * them. Enemies are the deliberate exception (world/estágio difficulty
- * balancing, not a player build system).
+ * all four and they only ever move when a specific ability, Bench ability or
+ * Módulo grants them (docs/combate.md v3.1 §2: "Iniciam em 0 e só são
+ * alterados por Habilidades, Banco ou Módulos"). Enemies are the deliberate
+ * exception (world/estágio difficulty balancing, not a player build system).
  */
 export interface BaseStats {
   hp: number;
   atk: number;
   /** Firewall — fraction of physical damage mitigated, e.g. 0.15 = ignores 15%. Ability/rune-granted only. */
   def: number;
-  /** Ping — turn priority within a line-up clash, normally 0-1. Ability-granted only. */
-  ini: number;
+  /** Ping — attack SPEED. Drives how often the Vanguard attacks; see attackIntervalFor() below. Ability/rune-granted only. */
+  vel: number;
   /** Evasion — chance to fully dodge an attack, e.g. 0.10 = 10%. Ability/rune-granted only. */
   esq: number;
-  /** ESP ("ICE" internally) — fraction of physical damage received that reflects back onto the attacker. Ability/rune-granted only. */
+  /** ESP ("ICE" internally) — thorns. Reflects this fraction of the incoming attack's damage back onto the attacker. Ability/rune-granted only. */
   ice: number;
+}
+
+/**
+ * VEL -> seconds between basic attacks. docs/combate.md v3.1 §2 defines VEL as
+ * "a frequência (Cooldown/Tick) com que o processo executa seus ataques
+ * básicos" but gives no formula, and every playable character starts at VEL 0,
+ * so a base interval is required for the stat to mean anything.
+ *
+ * Diminishing-returns shape (interval = base / (1 + vel)) rather than linear
+ * subtraction: it can never reach zero, so no stacked Ping buff can produce an
+ * infinite-attacks-per-tick loop. The floor is a second, independent guard.
+ */
+export const BASE_ATTACK_INTERVAL_SECONDS = 2.0;
+export const MIN_ATTACK_INTERVAL_SECONDS = 0.25;
+
+export function attackIntervalFor(vel: number): number {
+  return Math.max(MIN_ATTACK_INTERVAL_SECONDS, BASE_ATTACK_INTERVAL_SECONDS / (1 + Math.max(0, vel)));
 }
 
 /** How an effect's numeric strength is computed. */
@@ -67,81 +109,88 @@ export type Magnitude =
   | { kind: 'triggeringDamage' };
 
 /**
- * docs/combate.md section 6's target list — self, 1 aliado (menor HP / maior
- * ATK / aliado da frente / aleatório), todos os aliados, 1 inimigo (menor
- * Evasion / maior Ping / aleatório), todos os inimigos — plus `attacker`/
- * `defender`, two context-bound engine primitives the doc doesn't name
- * explicitly but that are needed for triggers like "ao ser atingido" (mira em
- * quem atacou) or "ao atacar" (mira em quem está sendo atacado).
+ * Targeting. In Relay & Bench only the Vanguard of each side is on the field,
+ * so "1 inimigo" and "todos os inimigos" collapse to the enemy Vanguard for
+ * damage purposes — the multi-enemy selectors are kept because bench-wide
+ * buffs and boss kits that hit "toda a linha inimiga" (Fenrir, §7B) still need
+ * to address whole queues.
  */
 export type TargetSelector =
   | 'self'
   | 'attacker'
   | 'defender'
+  /** The acting unit's own side's current Vanguard (index 0) — the only ally that can be damaged/healed in combat. */
+  | 'ownVanguard'
+  /** The opposing side's current Vanguard. */
+  | 'enemyVanguard'
   | 'allEnemies'
   | 'allAllies'
+  /** Benched allies only (excludes the Vanguard) — for kits that buff the reserve. */
+  | 'benchAllies'
   | 'lowestHpAlly'
   | 'highestAtkAlly'
-  | 'frontAlly'
   | 'randomAlly'
   | 'lowestEsqEnemy'
-  | 'highestIniEnemy'
+  | 'highestAtkEnemy'
+  | 'lowestHpEnemy'
   | 'randomEnemy';
 
 /**
- * docs/combate.md section 6's ~26 named triggers, translated to camelCase
- * identifiers, plus `onCriticalHit` — one engine-only addition beyond the
- * doc's list (fires only when the acting unit's own hit crits; no named v2
- * trigger covers this, and 6 existing kits already depend on it). Two notes
- * on how the doc's prose maps to these identifiers:
- * - The doc names two different triggers "Network Breach" (ally wounded vs.
- *   ally shield broken) — disambiguated here as `onAllyWounded` /
- *   `onAllyShieldBreak`.
- * - `onAttack` keeps its pre-v2 semantics (fires after the unit's own basic
- *   attack resolves, doesn't replace it) rather than the doc's literal
- *   "Execution substitui o ataque básico" — no current kit needs an ability
- *   to replace the basic attack, so that mechanic isn't implemented yet.
- * - `constant` ("Background Service") isn't a real fireable event; abilities
- *   using it fire once at battleStart, same call site as `battleStart`
- *   itself — authoring one is equivalent to a battleStart-trigger ability
- *   with `duration: 'permanent'` effects.
+ * Trigger vocabulary for the real-time engine.
+ *
+ * Removed from v2, with no data migration needed (a survey of
+ * src/engine/data/abilities/** shows the authored kits only use battleStart,
+ * onAttack, onCounter and onCriticalHit):
+ * - `roundStart` / `roundEnd` ("Loop Start/End") — there are no rounds.
+ * - `onPingAdvantage` — Ping is no longer an initiative comparison.
+ * - `onFrontAllyWounded` — the Vanguard IS the only ally that can be wounded,
+ *   so this collapsed into `onAllyWounded`.
+ *
+ * Added for Relay & Bench:
+ * - `onVanguardEnter` / `onVanguardExit` — a unit rotating into/out of the
+ *   front. Bench abilities hook these to attach/detach their buffs.
  */
 export type AbilityTrigger =
   | 'battleStart' // Boot Sequence
-  | 'roundStart' // Loop Start
-  | 'roundEnd' // Loop End
-  | 'constant' // Background Service
+  | 'constant' // Background Service — always-on; for bench abilities this is the normal choice
   | 'preAttack' // Pre-Execution
   | 'onAttack' // Execution
   | 'postAttack' // Post-Execution
   | 'onCounter' // Counter (Riposte)
   | 'onWounded' // Data Loss
-  | 'onHalfHp' // Critical Sector
+  | 'onHalfHp' // Critical Sector (Yamata-no-Orochi's 50% threshold, §7B)
   | 'onDeath' // System Failure
   | 'onKill' // Process Terminated
   | 'onShieldReceived' // Firewall Active
   | 'onShieldBreak' // Firewall Breach
   | 'onHealReceived' // Nanites Received
-  | 'onAllyAttack' // Co-op Processing
-  | 'onFrontAllyWounded' // Proxy Defense
-  | 'onAllyWounded' // Network Breach (Ally Wounded)
-  | 'onAllyDeath' // Node Offline
+  | 'onAllyAttack' // Co-op Processing — fires on benched allies when the Vanguard attacks
+  | 'onAllyWounded' // Network Breach
+  | 'onAllyDeath' // Node Offline (Set.exe's passive, §7B)
   | 'onAllyShieldReceived' // Network Firewall
   | 'onAllyShieldBreak' // Network Breach (Ally Shield Broken)
-  | 'onAllySpawned' // Instance Spawned — inert until a summon mechanic exists
   | 'onAllyAppliedTrojan' // Trojan Echo
   | 'onAllyAppliedLeak' // Leak Echo
   | 'onAllyAppliedCrash' // Crash Echo
   | 'onDodge' // Ghosting
-  | 'onPingAdvantage' // Ping Advantage
-  | 'onCriticalHit'; // engine-only, no v2 equivalent
+  | 'onVanguardEnter' // rotated into the front
+  | 'onVanguardExit' // rotated out of the front (ejected)
+  | 'onCriticalHit'; // engine-only, no doc equivalent
+
+/**
+ * Where an ability may run (docs/combate.md v3.1 §3).
+ * - `active`: only while its owner is the Vanguard. Player picks 1 of 2.
+ * - `bench`: only while its owner is benched; buffs the allied Vanguard. Player picks 1 of 2.
+ * - `passive`: always on, tier-gated, no player choice.
+ */
+export type AbilityScope = 'active' | 'bench' | 'passive';
 
 export interface ApplyStatusEffect {
   type: 'applyStatus';
   target: TargetSelector;
   status: StatusType;
-  /** Round count, or "default" to use the standard duration table (constants.json). */
-  duration: number | 'default';
+  /** Seconds, or "default" to use the standard duration table (constants.json). */
+  durationSeconds: number | 'default';
   magnitude: Magnitude;
   ignoresDef?: boolean;
   ignoresShield?: boolean;
@@ -168,17 +217,21 @@ export interface DirectDamageEffect {
   ignoresDef?: boolean;
   /** Backdoor-style: skip shield entirely and hit HP directly. */
   ignoresShield?: boolean;
+  /** Ogum.exe (§7B): "quebra Escudos imediatamente" — zeroes the target's shield before applying damage. */
+  breaksShield?: boolean;
+  /** Yamata-no-Orochi (§7B): "múltiplos hits sequenciais instantâneos com dano reduzido". Defaults to 1. */
+  hits?: number;
 }
 
-export type BuffableAttribute = 'atk' | 'def' | 'ini' | 'esq' | 'ice';
+export type BuffableAttribute = 'atk' | 'def' | 'vel' | 'esq' | 'ice';
 
-/** "Buff de atributo (Processamento/Firewall/Ping/Evasion/ESP)" — magnitude is a percent bonus, e.g. 0.3 = +30%. A negative magnitude is how attribute debuffs beyond Throttling/Lag (which have their own dedicated statuses) are expressed — e.g. a Firewall-reduction effect is just this with a negative value on `def`. */
+/** "Buff de atributo (Processamento/Firewall/Ping/Evasion/ESP)" — magnitude is a percent bonus, e.g. 0.3 = +30%. A negative magnitude is how attribute debuffs beyond Throttling/Lag (which have their own dedicated statuses) are expressed — e.g. Corrosão (a Firewall reduction) is just this with a negative value on `def`. */
 export interface BuffAttributeEffect {
   type: 'buffAttribute';
   target: TargetSelector;
   attribute: BuffableAttribute;
-  /** Round count, "default" for the standard duration, or "permanent" for the rest of the battle. */
-  duration: number | 'default' | 'permanent';
+  /** Seconds, "default" for the standard duration, or "permanent" for the rest of the battle. */
+  durationSeconds: number | 'default' | 'permanent';
   magnitude: Magnitude;
 }
 
@@ -195,9 +248,16 @@ export type AbilityEffect = ApplyStatusEffect | HealEffect | GrantShieldEffect |
 export interface AbilityDefinition {
   id: string;
   name: string;
-  /** Passive: LTS+ only, always active, no player choice. Active: one of a character's activeOptions, player-equipped. */
-  kind: 'active' | 'passive';
+  /** Which slot this ability occupies — gates when the engine will even consider firing it. */
+  scope: AbilityScope;
   trigger: AbilityTrigger;
+  /**
+   * Seconds between repeat firings. Only meaningful for `constant`-triggered
+   * abilities, which is how the doc's cooldown bosses are expressed — Fenrir
+   * "a cada 4 segundos", Ogum "a cada 3 segundos" (§7B). Omit for
+   * event-triggered abilities, which fire whenever their event fires.
+   */
+  cooldownSeconds?: number;
   /** Probability in [0, 1] that the ability fires when its trigger fires. Omit for guaranteed (1). */
   chance?: number;
   effects: AbilityEffect[];
@@ -212,22 +272,25 @@ export interface CombatantData {
   stars?: number;
   baseStats: BaseStats;
   /**
-   * Candidate active-ability ids (docs/combate.md section 5: "todo
-   * personagem possui 3 opções de habilidades ativas, o jogador equipa uma
-   * por vez"). Not a fixed-length tuple — enemies and not-yet-rebalanced
-   * characters may carry fewer or more than 3 until authored to the target
-   * shape. The engine always resolves exactly one at load time (the
-   * player's selection, or activeOptions[0] if none chosen yet).
+   * Candidate active-ability ids (docs/combate.md v3.1 §3: "2 opções de
+   * habilidades ativas, o jogador escolhe 1"). Not a fixed-length tuple —
+   * enemies carry exactly 1 fixed ability (§7A) and not-yet-rebalanced
+   * characters may still carry 3 from v2. The engine always resolves exactly
+   * one at load time (the player's selection, or activeOptions[0] by default).
    */
   activeOptions: string[];
-  /** LTS+ only; single fixed passive, always active once unlocked. Undefined = not authored yet. */
+  /**
+   * Candidate bench-ability ids (§3: "2 opções de habilidades de banco, o
+   * jogador escolhe 1"). Empty for enemies — §7A: "sem Habilidade de Banco".
+   */
+  benchOptions?: string[];
+  /** Tier-gated; single fixed passive, always active once unlocked. Undefined = not authored yet. */
   passiveAbilityId?: string;
-  /** Jurupari.exe's passive: +N rounds to any status this unit applies. */
+  /** Jurupari.exe's passive: +N seconds to any status this unit applies. */
   statusDurationBonus?: number;
-  /** Saci.exe's passive: this unit always wins Ping priority in its own line-up clash. */
-  alwaysActsFirst?: boolean;
 }
 
+/** Default status durations, in SECONDS. */
 export interface StatusDurationTable {
   leak: number;
   trojan: number;
@@ -236,11 +299,11 @@ export interface StatusDurationTable {
   nanites: number;
   throttling: number;
   lag: number;
-  /** "Até o próximo ataque recebido" — not round-based, null marks that. */
+  /** "Até o próximo ataque recebido" — not time-based, null marks that. */
   target: null;
   buffAtk: number;
   buffDef: number;
-  buffIni: number;
+  buffVel: number;
   buffEsq: number;
   buffIce: number;
 }
@@ -248,11 +311,19 @@ export interface StatusDurationTable {
 export interface CombatConstants {
   critChanceBase: number;
   critMultiplier: number;
+  /** Simulation granularity. Every cooldown/duration is resolved in whole ticks. */
+  tickSeconds: number;
   statusDefaultDurations: StatusDurationTable;
   synergyByCount: Record<string, number>;
-  antiInfiniteRound: {
-    roundLimit: number;
-    enrageStartRound: number;
-    enrageBasePercent: number;
+  /** docs/combate.md v3.1 §6 — all thresholds in seconds. */
+  antiInfinite: {
+    /** Hard stop; battle is aborted as a draw. */
+    timeLimitSeconds: number;
+    /** When System Overload starts ticking. */
+    overloadStartSeconds: number;
+    /** How often overload damage lands once started ("a cada 5 segundos"). */
+    overloadIntervalSeconds: number;
+    /** Absolute damage as a fraction of max HP, added per overload tick ("5% aos 31s, 10% aos 36s"). */
+    overloadStepPercent: number;
   };
 }

@@ -32,7 +32,7 @@ export function makeCombatant(overrides: Partial<Combatant> & { baseStats?: Part
     hp: 1000,
     atk: 100,
     def: 0,
-    ini: 50,
+    vel: 0,
     esq: 0,
     ice: 0,
     ...overrides.baseStats,
@@ -52,10 +52,14 @@ export function makeCombatant(overrides: Partial<Combatant> & { baseStats?: Part
     hp: overrides.hp ?? maxHp,
     shield: overrides.shield ?? 0,
     statuses: overrides.statuses ?? [],
-    abilities: overrides.abilities ?? [],
+    activeAbilities: overrides.activeAbilities ?? [],
+    benchAbilities: overrides.benchAbilities ?? [],
+    passiveAbilities: overrides.passiveAbilities ?? [],
     statusDurationBonus: overrides.statusDurationBonus ?? 0,
-    alwaysActsFirst: overrides.alwaysActsFirst ?? false,
     halfHpTriggered: overrides.halfHpTriggered ?? false,
+    attackCooldownRemaining: overrides.attackCooldownRemaining ?? 0,
+    abilityCooldownRemaining: overrides.abilityCooldownRemaining ?? {},
+    isVanguard: overrides.isVanguard ?? true,
   };
 }
 
@@ -63,7 +67,7 @@ export function makeAbility(overrides: Partial<AbilityDefinition> & Pick<Ability
   return {
     id: overrides.id ?? 'test-ability',
     name: overrides.name ?? 'Test Ability',
-    kind: overrides.kind ?? 'active',
+    scope: overrides.scope ?? 'active',
     chance: overrides.chance,
     trigger: overrides.trigger,
     effects: overrides.effects,

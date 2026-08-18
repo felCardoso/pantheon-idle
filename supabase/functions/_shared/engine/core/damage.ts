@@ -1,3 +1,6 @@
+// AUTO-GENERATED from src/engine — DO NOT EDIT BY HAND.
+// Run `npm run sync:pvp-engine` after changing the engine.
+// See scripts/sync-pvp-engine.mjs for why this copy exists.
 import type { RngLike } from './rng.ts';
 import type { AttackResult, Combatant } from './types.ts';
 import { absorbIntoShield, consumeMark, effectiveAtk, effectiveDef, effectiveEsq, isMarked } from './statusEffects.ts';

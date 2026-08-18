@@ -1,32 +1,32 @@
 import { useCallback, useEffect, useReducer, useState } from 'react';
-import { loadCharactersByIds, loadWorldBoss, loadWorldComuns } from '../engine/core/loader';
-import { runBattle } from '../engine/core/battle';
-import { Rng } from '../engine/core/rng';
-import { applyReplayEntry, buildNameToId, createInitialReplayState, type ReplayState } from '../engine/core/replay';
 import {
+  buildNameToId,
   difficultyMultiplier,
   enemyCountRange,
   ESTAGIOS_PER_FASE,
   FASES_PER_WORLD,
   isBossStage,
+  loadCharactersByIds,
+  loadWorldBoss,
+  loadWorldComuns,
   localFaseNumber,
   resolveProgression,
+  Rng,
+  runBattle,
   teamSizeMultiplier,
   worldIdForFase,
   worldIndexForFase,
+  type BattleLogEntry,
+  type Combatant,
   type WorldPosition,
-} from '../engine/core/progression';
-import type { BattleLogEntry, Combatant } from '../engine/core/types';
-import {
-  DISPLAY_PORTRAIT_BY_TEMPLATE_ID,
-  DISPLAY_RARITY_BY_TEMPLATE_ID,
-  ENEMY_LEVEL_BY_TEMPLATE_ID,
-  FALLBACK_FACTION,
-  FALLBACK_RARITY,
-  WORLD_DISPLAY_BY_ID,
-} from '../data/engineDisplay';
+} from '../engine';
+import { WORLD_DISPLAY_BY_ID } from '../data/engineDisplay';
+import { toBattleUnits } from '../data/battleUnits';
+import { useBattleReplay, type AbilityCastEvent, type AttackAnimEvent, type FloatingText } from './useBattleReplay';
 import type { OwnedCharacter } from './useOwnedCharacters';
-import type { ActiveStatus, BattleUnit, ChatMessage, StageInfo } from '../types';
+import type { BattleUnit, ChatMessage, StageInfo } from '../types';
+
+export type { FloatingText, FloatingTextKind, AbilityCastEvent, AttackAnimEvent, AttackAnimTier } from './useBattleReplay';
 
 interface BattleSession extends WorldPosition {
   seed: number;
@@ -78,71 +78,6 @@ function createSession(
   return { seed, ...position, isBoss: boss, ownedCharacters, allies, enemies, log: result.log, nameToId: buildNameToId(allies, enemies), bonusMultiplier };
 }
 
-export type FloatingTextKind = 'damage' | 'crit' | 'heal' | 'shield';
-
-export interface FloatingText {
-  id: string;
-  unitId: string;
-  amount: number;
-  kind: FloatingTextKind;
-  createdAt: number;
-}
-
-/** How long a floating number stays on screen before being pruned. */
-const FLOATER_LIFETIME_MS = 1100;
-
-/** The full-screen "ability cast" callout (darken + sliding name + caster portrait) triggered by a BattleLogEntry's 'abilityUsed' kind — see abilityEngine.ts's fireTrigger. */
-export interface AbilityCastEvent {
-  id: string;
-  unitId: string;
-  unitName: string;
-  isAlly: boolean;
-  abilityName: string;
-  portraitUrl?: string;
-  createdAt: number;
-}
-
-/** How long the ability-cast callout stays on screen before being pruned — matches index.css's ability-cast-* keyframe durations. */
-const ABILITY_CAST_LIFETIME_MS = 1800;
-
-interface PlaybackState {
-  session: BattleSession;
-  replay: ReplayState;
-  index: number;
-  logFeed: ChatMessage[];
-  floaters: FloatingText[];
-  /** Non-null while the "ability cast" callout should be showing — see ABILITY_CAST_LIFETIME_MS. */
-  activeAbility: AbilityCastEvent | null;
-  finished: boolean;
-  winner: 'allies' | 'enemies' | 'draw' | null;
-  totalCredits: number;
-  totalXp: number;
-  /** Credits/XP earned from this specific battle — set once it ends, shown on the winner overlay. */
-  lastReward: Reward | null;
-  /**
-   * The player's real saved progress — the highest position ever reached.
-   * Distinct from `session.fase/estagio` (what's currently on screen), and
-   * never regresses even when the live position does (e.g. after a retreat,
-   * or replaying an earlier estágio via playStage). See progression.ts's
-   * resolveProgression for the full transition rules.
-   */
-  frontier: WorldPosition;
-  /** Non-null while grinding back up after a retirar-se-ao-perder retreat — see progression.ts's resolveProgression. */
-  recoveryWinsRemaining: number | null;
-}
-
-type Action =
-  | { type: 'reset'; session: BattleSession; frontier: WorldPosition; recoveryWinsRemaining: number | null }
-  | { type: 'tick' }
-  | { type: 'pruneFloaters' }
-  | { type: 'pruneActiveAbility' }
-  | { type: 'adjustCredits'; delta: number }
-  | { type: 'setWallet'; credits: number; xp: number };
-
-let chatIdCounter = 0;
-let floaterIdCounter = 0;
-let abilityCastIdCounter = 0;
-
 // The reward numbers below are the same across every world — a placeholder
 // until the real per-world economy (docs/mundos.md's "recompensas
 // específicas" per world) lands.
@@ -163,7 +98,9 @@ function rewardFor(winner: 'allies' | 'enemies' | 'draw', session: BattleSession
   return { credits: Math.round(base.credits * session.bonusMultiplier), xp: Math.round(base.xp * session.bonusMultiplier) };
 }
 
-/** "[1] Jurupari 1-6 / Venceu [+20 C / +15 XP]" — the only line the Log tab shows, once per finished battle. */
+let chatIdCounter = 0;
+
+/** "[1] Jurupari 1-6 / Venceu [+20 C / +15 XP]" — the only line the Log tab's result filters show, once per finished battle. Tagged so "Vitórias"/"Derrota" can be toggled independently, with a draw counted under both (docs request). */
 function buildBattleSummary(winner: 'allies' | 'enemies' | 'draw', session: BattleSession, reward: Reward): ChatMessage {
   const won = winner === 'allies';
   const resultLabel = won ? 'Venceu' : winner === 'draw' ? 'Empate' : 'Perdeu';
@@ -179,54 +116,38 @@ function buildBattleSummary(winner: 'allies' | 'enemies' | 'draw', session: Batt
     text,
     time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
     tone: won ? 'success' : winner === 'draw' ? 'system' : 'danger',
+    logCategory: won ? 'result-win' : winner === 'draw' ? 'result-draw' : 'result-loss',
   };
 }
 
-/** What floating numbers (if any) a log entry should spawn, keyed by target unit id. */
-function floatersFor(entry: BattleLogEntry, nameToId: Record<string, string>): Omit<FloatingText, 'id' | 'createdAt'>[] {
-  switch (entry.kind) {
-    case 'attack':
-      if (entry.result.dodged) return [];
-      return [
-        {
-          unitId: entry.result.defender.id,
-          amount: entry.result.finalDamage,
-          kind: entry.result.crit ? 'crit' : 'damage',
-        },
-      ];
-    case 'statusTick':
-      return [{ unitId: nameToId[entry.target], amount: entry.amount, kind: entry.tickKind === 'heal' ? 'heal' : 'damage' }];
-    case 'heal':
-      return [{ unitId: nameToId[entry.target], amount: entry.amount, kind: 'heal' }];
-    case 'shieldGranted':
-      return [{ unitId: nameToId[entry.target], amount: entry.amount, kind: 'shield' }];
-    case 'iceReflect':
-      return [{ unitId: nameToId[entry.target], amount: entry.amount, kind: 'damage' }];
-    case 'directDamage':
-      return [{ unitId: nameToId[entry.target], amount: entry.amount, kind: 'damage' }];
-    case 'enrage':
-      return entry.damages.map((d) => ({ unitId: nameToId[d.target], amount: d.amount, kind: 'damage' as const }));
-    default:
-      return [];
-  }
+interface SessionState {
+  session: BattleSession;
+  /** Bumped on every new session — the replay hook's resetKey, so it knows to restart playback from t=0. */
+  battleId: number;
+  resultLogFeed: ChatMessage[];
+  totalCredits: number;
+  totalXp: number;
+  /** Credits/XP earned from this specific battle — set once it ends, shown on the winner overlay. */
+  lastReward: Reward | null;
+  /**
+   * The player's real saved progress — the highest position ever reached.
+   * Distinct from `session.fase/estagio` (what's currently on screen), and
+   * never regresses even when the live position does (e.g. after a retreat,
+   * or replaying an earlier estágio via playStage). See progression.ts's
+   * resolveProgression for the full transition rules.
+   */
+  frontier: WorldPosition;
+  /** Non-null while grinding back up after a retirar-se-ao-perder retreat — see progression.ts's resolveProgression. */
+  recoveryWinsRemaining: number | null;
 }
 
-/** Resolves an 'abilityUsed' entry into the ability-cast callout's data (caster identity + portrait) — null for every other entry kind. */
-function abilityCastEventFor(entry: BattleLogEntry, session: BattleSession): Omit<AbilityCastEvent, 'id' | 'createdAt'> | null {
-  if (entry.kind !== 'abilityUsed') return null;
-  const unitId = session.nameToId[entry.unit];
-  const combatant = session.allies.find((c) => c.id === unitId) ?? session.enemies.find((c) => c.id === unitId);
-  if (!combatant) return null;
-  return {
-    unitId,
-    unitName: entry.unit,
-    isAlly: combatant.isAlly,
-    abilityName: entry.abilityName,
-    portraitUrl: DISPLAY_PORTRAIT_BY_TEMPLATE_ID[combatant.templateId],
-  };
-}
+type SessionAction =
+  | { type: 'reset'; session: BattleSession; frontier: WorldPosition; recoveryWinsRemaining: number | null }
+  | { type: 'battleEnd'; winner: 'allies' | 'enemies' | 'draw' }
+  | { type: 'adjustCredits'; delta: number }
+  | { type: 'setWallet'; credits: number; xp: number };
 
-function buildInitialState(
+function buildInitialSession(
   seed: number,
   position: WorldPosition,
   ownedCharacters: OwnedCharacter[],
@@ -234,17 +155,11 @@ function buildInitialState(
   initialXp: number,
   bonusMultiplier: number,
   selectedAbilityByCharacterId: Record<string, string>,
-): PlaybackState {
-  const session = createSession(seed, position, ownedCharacters, bonusMultiplier, selectedAbilityByCharacterId);
+): SessionState {
   return {
-    session,
-    replay: createInitialReplayState(session.allies, session.enemies),
-    index: 0,
-    logFeed: [],
-    floaters: [],
-    activeAbility: null,
-    finished: session.log.length === 0,
-    winner: null,
+    session: createSession(seed, position, ownedCharacters, bonusMultiplier, selectedAbilityByCharacterId),
+    battleId: 0,
+    resultLogFeed: [],
     totalCredits: initialCredits,
     totalXp: initialXp,
     lastReward: null,
@@ -253,121 +168,35 @@ function buildInitialState(
   };
 }
 
-function reducer(state: PlaybackState, action: Action): PlaybackState {
-  if (action.type === 'reset') {
-    return {
-      session: action.session,
-      replay: createInitialReplayState(action.session.allies, action.session.enemies),
-      index: 0,
-      // The Log tab and the wallet are history across battles, not just this one — carry them forward.
-      logFeed: state.logFeed,
-      totalCredits: state.totalCredits,
-      totalXp: state.totalXp,
-      floaters: [],
-      activeAbility: null,
-      finished: action.session.log.length === 0,
-      winner: null,
-      lastReward: null,
-      frontier: action.frontier,
-      recoveryWinsRemaining: action.recoveryWinsRemaining,
-    };
+function sessionReducer(state: SessionState, action: SessionAction): SessionState {
+  switch (action.type) {
+    case 'reset':
+      return {
+        session: action.session,
+        battleId: state.battleId + 1,
+        // The Log tab and the wallet are history across battles, not just this one — carry them forward.
+        resultLogFeed: state.resultLogFeed,
+        totalCredits: state.totalCredits,
+        totalXp: state.totalXp,
+        lastReward: null,
+        frontier: action.frontier,
+        recoveryWinsRemaining: action.recoveryWinsRemaining,
+      };
+    case 'battleEnd': {
+      const reward = rewardFor(action.winner, state.session);
+      return {
+        ...state,
+        resultLogFeed: [...state.resultLogFeed, buildBattleSummary(action.winner, state.session, reward)],
+        totalCredits: state.totalCredits + reward.credits,
+        totalXp: state.totalXp + reward.xp,
+        lastReward: reward,
+      };
+    }
+    case 'adjustCredits':
+      return { ...state, totalCredits: Math.max(0, state.totalCredits + action.delta) };
+    case 'setWallet':
+      return { ...state, totalCredits: action.credits, totalXp: action.xp };
   }
-
-  if (action.type === 'pruneFloaters') {
-    const now = Date.now();
-    const floaters = state.floaters.filter((f) => now - f.createdAt < FLOATER_LIFETIME_MS);
-    return floaters.length === state.floaters.length ? state : { ...state, floaters };
-  }
-
-  if (action.type === 'pruneActiveAbility') {
-    if (!state.activeAbility || Date.now() - state.activeAbility.createdAt < ABILITY_CAST_LIFETIME_MS) return state;
-    return { ...state, activeAbility: null };
-  }
-
-  if (action.type === 'adjustCredits') {
-    return { ...state, totalCredits: Math.max(0, state.totalCredits + action.delta) };
-  }
-
-  if (action.type === 'setWallet') {
-    return { ...state, totalCredits: action.credits, totalXp: action.xp };
-  }
-
-  if (state.finished || state.index >= state.session.log.length) {
-    return state.finished ? state : { ...state, finished: true };
-  }
-
-  const entry = state.session.log[state.index];
-  const replay = applyReplayEntry(state.replay, entry, state.session.nameToId);
-
-  let logFeed = state.logFeed;
-  let totalCredits = state.totalCredits;
-  let totalXp = state.totalXp;
-  let lastReward = state.lastReward;
-  if (entry.kind === 'battleEnd') {
-    const reward = rewardFor(entry.winner, state.session);
-    logFeed = [...state.logFeed, buildBattleSummary(entry.winner, state.session, reward)];
-    totalCredits += reward.credits;
-    totalXp += reward.xp;
-    lastReward = reward;
-  }
-
-  const now = Date.now();
-  const newFloaters = floatersFor(entry, state.session.nameToId)
-    .filter((f) => f.unitId)
-    .map((f) => {
-      floaterIdCounter += 1;
-      return { ...f, id: `floater-${floaterIdCounter}`, createdAt: now };
-    });
-  const castEvent = abilityCastEventFor(entry, state.session);
-  let activeAbility = state.activeAbility;
-  if (castEvent) {
-    abilityCastIdCounter += 1;
-    activeAbility = { ...castEvent, id: `ability-cast-${abilityCastIdCounter}`, createdAt: now };
-  }
-  const winner = entry.kind === 'battleEnd' ? entry.winner : state.winner;
-  const index = state.index + 1;
-
-  return {
-    ...state,
-    replay,
-    index,
-    logFeed,
-    totalCredits,
-    totalXp,
-    lastReward,
-    floaters: [...state.floaters, ...newFloaters],
-    activeAbility,
-    winner,
-    finished: index >= state.session.log.length,
-  };
-}
-
-function toActiveStatuses(statuses: ReplayState['units'][string]['statuses']): ActiveStatus[] {
-  return Object.entries(statuses)
-    .filter(([, count]) => (count ?? 0) > 0)
-    .map(([type, count]) => ({ type: type as ActiveStatus['type'], count: count ?? 0 }));
-}
-
-function toBattleUnits(templates: Combatant[], replay: ReplayState, order: string[]): BattleUnit[] {
-  const byId = new Map(templates.map((t) => [t.id, t]));
-  return order.map((id) => {
-    const t = byId.get(id)!;
-    const snapshot = replay.units[t.id];
-    return {
-      id: t.id,
-      name: t.name,
-      faction: t.faction ?? FALLBACK_FACTION,
-      rarity: DISPLAY_RARITY_BY_TEMPLATE_ID[t.templateId] ?? FALLBACK_RARITY,
-      // Allies carry a real level (derived from XP); enemies use a cosmetic per-templateId number.
-      level: t.isAlly ? t.level : (ENEMY_LEVEL_BY_TEMPLATE_ID[t.templateId] ?? 1),
-      hp: snapshot?.hp ?? t.maxHp,
-      maxHp: t.maxHp,
-      shield: snapshot?.shield ?? 0,
-      statuses: snapshot ? toActiveStatuses(snapshot.statuses) : [],
-      isAlly: t.isAlly,
-      portraitUrl: DISPLAY_PORTRAIT_BY_TEMPLATE_ID[t.templateId],
-    };
-  });
 }
 
 export interface UseBattleSimulationOptions {
@@ -394,8 +223,9 @@ export interface BattleSimulation {
   stage: StageInfo;
   logFeed: ChatMessage[];
   floaters: FloatingText[];
-  /** Non-null while the "ability cast" callout should be showing — see ABILITY_CAST_LIFETIME_MS. */
-  activeAbility: AbilityCastEvent | null;
+  /** At most one per side — a concurrent ally + enemy cast is what renders as a clash. */
+  activeAbilities: AbilityCastEvent[];
+  attackAnims: AttackAnimEvent[];
   /** Créditos/XP earned since `initialCredits`/`initialXp` — the caller is responsible for persisting these. */
   credits: number;
   xp: number;
@@ -444,27 +274,21 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
   // each finish. Kept outside the reducer since it's UI-driven mode, not battle state.
   const [mode, setMode] = useState<'advance' | 'repeat'>('advance');
   const [retreatOnLoss, setRetreatOnLoss] = useState(true);
-  const [state, dispatch] = useReducer(reducer, undefined, () =>
-    buildInitialState(Date.now() >>> 0, initialPosition, initialOwnedCharacters, initialCredits, initialXp, bonusMultiplier, selectedAbilityByCharacterId),
+  const [state, dispatch] = useReducer(sessionReducer, undefined, () =>
+    buildInitialSession(Date.now() >>> 0, initialPosition, initialOwnedCharacters, initialCredits, initialXp, bonusMultiplier, selectedAbilityByCharacterId),
   );
 
-  useEffect(() => {
-    if (!playing || state.finished) return;
-    const id = setInterval(() => dispatch({ type: 'tick' }), tickMs);
-    return () => clearInterval(id);
-  }, [playing, state.finished, state.session, tickMs]);
-
-  useEffect(() => {
-    if (state.floaters.length === 0) return;
-    const id = setInterval(() => dispatch({ type: 'pruneFloaters' }), 250);
-    return () => clearInterval(id);
-  }, [state.floaters.length]);
-
-  useEffect(() => {
-    if (!state.activeAbility) return;
-    const id = setTimeout(() => dispatch({ type: 'pruneActiveAbility' }), ABILITY_CAST_LIFETIME_MS);
-    return () => clearTimeout(id);
-  }, [state.activeAbility]);
+  const onBattleEnd = useCallback((winner: 'allies' | 'enemies' | 'draw') => dispatch({ type: 'battleEnd', winner }), []);
+  const replay = useBattleReplay({
+    log: state.session.log,
+    allies: state.session.allies,
+    enemies: state.session.enemies,
+    nameToId: state.session.nameToId,
+    resetKey: state.battleId,
+    playing,
+    tickMs,
+    onBattleEnd,
+  });
 
   // World progression — see progression.ts's resolveProgression for the full Avançar/Repetir/
   // retirar-se-ao-perder rules this follows. Only while Auto is on.
@@ -472,9 +296,9 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
   // frozen at whatever the previous battle started with) so XP earned since the last battle
   // is reflected in the next one's stats, not just in the Team page display.
   useEffect(() => {
-    if (!state.finished || !playing) return;
+    if (!replay.finished || !playing) return;
     const position: WorldPosition = { fase: state.session.fase, estagio: state.session.estagio };
-    const won = state.winner === 'allies';
+    const won = replay.winner === 'allies';
     const result = resolveProgression(
       { position, frontier: state.frontier, recoveryWinsRemaining: state.recoveryWinsRemaining },
       { mode, retreatOnLoss, won },
@@ -489,8 +313,8 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     }, autoAdvanceDelayMs);
     return () => clearTimeout(timer);
   }, [
-    state.finished,
-    state.winner,
+    replay.finished,
+    replay.winner,
     state.session,
     state.frontier,
     state.recoveryWinsRemaining,
@@ -510,7 +334,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     if (mode === 'advance') return;
     setMode('advance');
     const position: WorldPosition = { fase: state.session.fase, estagio: state.session.estagio };
-    const won = state.winner === 'allies';
+    const won = replay.winner === 'allies';
     const result = resolveProgression(
       { position, frontier: state.frontier, recoveryWinsRemaining: state.recoveryWinsRemaining },
       { mode: 'advance', retreatOnLoss, won },
@@ -526,7 +350,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     mode,
     state.session.fase,
     state.session.estagio,
-    state.winner,
+    replay.winner,
     state.frontier,
     state.recoveryWinsRemaining,
     retreatOnLoss,
@@ -540,7 +364,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     if (mode === 'repeat') return;
     setMode('repeat');
     const position: WorldPosition = { fase: state.session.fase, estagio: state.session.estagio };
-    const won = state.winner === 'allies';
+    const won = replay.winner === 'allies';
     const result = resolveProgression(
       { position, frontier: state.frontier, recoveryWinsRemaining: state.recoveryWinsRemaining },
       { mode: 'repeat', retreatOnLoss, won },
@@ -560,7 +384,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     state.session.fase,
     state.session.estagio,
     state.session.seed,
-    state.winner,
+    replay.winner,
     state.frontier,
     state.recoveryWinsRemaining,
     retreatOnLoss,
@@ -589,8 +413,8 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
   const stageWorldDisplay = WORLD_DISPLAY_BY_ID[stageWorldId];
 
   return {
-    allies: toBattleUnits(state.session.allies, state.replay, state.replay.allyOrder),
-    enemies: toBattleUnits(state.session.enemies, state.replay, state.replay.enemyOrder),
+    allies: toBattleUnits(state.session.allies, replay.replay, replay.replay.allyOrder, true),
+    enemies: toBattleUnits(state.session.enemies, replay.replay, replay.replay.enemyOrder, false),
     stage: {
       worldId: stageWorldId,
       worldName: stageWorldDisplay.name,
@@ -600,17 +424,18 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
       // Each world's own last fase has a 6th slot for its boss, one past its 5 regular estágios.
       totalStages: localFaseNumber(state.session.fase) === FASES_PER_WORLD ? ESTAGIOS_PER_FASE + 1 : ESTAGIOS_PER_FASE,
       isBoss: state.session.isBoss,
-      round: state.replay.round,
+      round: Math.floor(replay.replay.now),
     },
-    logFeed: state.logFeed,
-    floaters: state.floaters,
-    activeAbility: state.activeAbility,
+    logFeed: [...replay.abilityLogFeed, ...state.resultLogFeed],
+    floaters: replay.floaters,
+    activeAbilities: replay.activeAbilities,
+    attackAnims: replay.attackAnims,
     credits: state.totalCredits,
     xp: state.totalXp,
     lastReward: state.lastReward,
     playing,
-    finished: state.finished,
-    winner: state.winner,
+    finished: replay.finished,
+    winner: replay.winner,
     setPlaying,
     startNewBattle,
     repeatBattle,

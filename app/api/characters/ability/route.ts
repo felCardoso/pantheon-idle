@@ -8,7 +8,7 @@ import {
   PASSIVE_UNLOCK_RARITY,
   PASSIVE_UPGRADE_COST_CREDITS,
 } from '../../../../src/data/abilityProgression';
-import { RARITY_RANK } from '../../../../src/engine/schema';
+import { RARITY_RANK } from '../../../../src/engine';
 import type { Rarity } from '../../../../src/types';
 
 /** Upgrades a character's ability or passive level by exactly one step — the next level and

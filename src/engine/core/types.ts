@@ -2,17 +2,30 @@ import type { AbilityDefinition, BaseStats, Faction, StatusType } from '../schem
 
 export interface StatusEffectInstance {
   status: StatusType;
-  /** Rounds left before this expires; null = consumed on next hit taken (Target) or lasts the rest of the battle (permanent buffs) — never ages down on its own either way. */
-  remainingRounds: number | null;
   /**
-   * Meaning depends on status: flat HP delta per round for DOT/regen
-   * statuses, percent reduction for Throttling/Lag, percent bonus/malus for
-   * the generic buffAtk/buffDef/buffIni/buffEsq/buffIce statuses (negative
-   * value = a debuff, e.g. a Firewall-reduction effect). Unused for
-   * crash/target (presence is all that matters).
+   * Seconds left before this expires; null = consumed on next hit taken
+   * (Target) or lasts the rest of the battle (permanent buffs) — never ages
+   * down on its own either way.
+   */
+  remainingSeconds: number | null;
+  /**
+   * Meaning depends on status: HP delta PER SECOND for DOT/regen statuses,
+   * percent reduction for Throttling/Lag, percent bonus/malus for the generic
+   * buffAtk/buffDef/buffVel/buffEsq/buffIce statuses (negative value = a
+   * debuff, e.g. Corrosão is a negative buffDef). Unused for crash/target
+   * (presence is all that matters).
    */
   value: number;
   ignoresShield?: boolean;
+  /**
+   * Set for statuses attached by a bench ability, naming the benched owner.
+   * When that owner rotates into the Vanguard (or is ejected) the engine
+   * detaches every status carrying its id — this is what makes bench buffs
+   * "apenas enquanto o dono estiver inativo" (docs/combate.md v3.1 §1).
+   */
+  benchSourceId?: string;
+  /** Fractional-second accumulator for per-second ticks; internal to the status manager. */
+  tickAccumulator?: number;
 }
 
 export interface Combatant {
@@ -31,11 +44,21 @@ export interface Combatant {
   hp: number;
   shield: number;
   statuses: StatusEffectInstance[];
-  abilities: AbilityDefinition[];
+  /** Fires only while this unit is the Vanguard. */
+  activeAbilities: AbilityDefinition[];
+  /** Fires only while this unit is benched. */
+  benchAbilities: AbilityDefinition[];
+  /** Always on, regardless of position. */
+  passiveAbilities: AbilityDefinition[];
   statusDurationBonus: number;
-  alwaysActsFirst: boolean;
   /** Whether this unit has already fired its onHalfHp trigger this battle — fires once, the first time HP crosses below 50% max, never re-fires on a later heal-then-redrop. */
   halfHpTriggered: boolean;
+  /** Seconds until this unit's next basic attack. Only ticks down while it is the Vanguard. */
+  attackCooldownRemaining: number;
+  /** Seconds until each cooldown-driven ability may fire again, keyed by ability id. */
+  abilityCooldownRemaining: Record<string, number>;
+  /** True while this unit is its side's index-0 Vanguard. */
+  isVanguard: boolean;
 }
 
 export function isAlive(c: Combatant): boolean {
@@ -54,22 +77,23 @@ export interface AttackResult {
   defenderDied: boolean;
 }
 
-export type BattleLogEntry =
+/**
+ * Every entry carries `at`, the simulation timestamp in seconds, so the UI can
+ * replay the battle on a real clock instead of stepping an abstract index.
+ */
+export type BattleLogEntry = { at: number } & (
   | { kind: 'battleStart' }
-  /** One clashStart = one line-up clash (front-of-queue vs front-of-queue) — "round" now means "clash," not "every unit's turn." */
-  | { kind: 'clashStart'; round: number }
-  /** An active ability (kind: 'active') actually fired — passed its trigger and chance roll. Passives don't log this; they're not a "cast" moment worth a UI callout. */
-  | { kind: 'abilityUsed'; unit: string; abilityId: string; abilityName: string }
-  | { kind: 'turnSkippedStun'; unit: string }
+  /** A unit rotated into the front. Emitted at t=0 for the opening pair too. */
+  | { kind: 'vanguardEnter'; unit: string; side: 'allies' | 'enemies' }
+  /** The Vanguard was ejected; `replacedBy` is null when that side has nobody left. */
+  | { kind: 'vanguardExit'; unit: string; side: 'allies' | 'enemies'; replacedBy: string | null }
+  /** An active/bench ability actually fired — passed its trigger, cooldown and chance roll. */
+  | { kind: 'abilityUsed'; unit: string; abilityId: string; abilityName: string; scope: 'active' | 'bench' | 'passive' }
+  /** A basic attack was suppressed because the unit is under Crash (stun). */
+  | { kind: 'attackBlockedStun'; unit: string }
   | { kind: 'attack'; result: AttackResult }
   | { kind: 'dodge'; attacker: string; defender: string }
-  /** The lower-Ping clash participant's attack was skipped because the higher-Ping one's attack ejected it first. */
-  | { kind: 'actionCancelled'; unit: string }
-  /** Fires when a clash's priority is decided by a real Ping (INI) difference (not alwaysActsFirst, not a tie). */
-  | { kind: 'pingAdvantage'; unit: string }
-  /** Marks a clash as fully resolved — the two line-up participants that round, for replay to requeue (survivor to back, dead one dropped). */
-  | { kind: 'clashEnd'; allyUnit: string; enemyUnit: string }
-  | { kind: 'statusApplied'; target: string; status: StatusType; source: string; rounds: number | null }
+  | { kind: 'statusApplied'; target: string; status: StatusType; source: string; seconds: number | null }
   | {
       kind: 'statusTick';
       target: string;
@@ -85,5 +109,7 @@ export type BattleLogEntry =
   /** ICE reflection: `source` is the defender whose ICE fired, `target` is the original attacker taking it back. */
   | { kind: 'iceReflect'; source: string; target: string; amount: number; shieldAbsorbed: number; hpDamage: number; targetDied: boolean }
   | { kind: 'death'; unit: string }
-  | { kind: 'enrage'; round: number; percent: number; damages: { target: string; amount: number }[] }
-  | { kind: 'battleEnd'; winner: 'allies' | 'enemies' | 'draw'; reason: 'elimination' | 'roundLimit' };
+  /** System Overload tick (docs/combate.md v3.1 §6). */
+  | { kind: 'overload'; percent: number; damages: { target: string; amount: number }[] }
+  | { kind: 'battleEnd'; winner: 'allies' | 'enemies' | 'draw'; reason: 'elimination' | 'timeLimit' }
+);

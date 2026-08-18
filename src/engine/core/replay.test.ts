@@ -29,18 +29,19 @@ describe('replay', () => {
     expect(state.units[b.id]).toEqual({ id: b.id, hp: 500, maxHp: 500, shield: 0, statuses: {} });
   });
 
-  it('clashStart sets the round', () => {
+  it('every entry advances the replay clock to its own timestamp', () => {
     const a = makeCombatant();
     let state = createInitialReplayState([a], []);
-    state = applyReplayEntry(state, { kind: 'clashStart', round: 3 }, {});
-    expect(state.round).toBe(3);
+    expect(state.now).toBe(0);
+    state = applyReplayEntry(state, { at: 3.4, kind: 'battleStart' }, {});
+    expect(state.now).toBe(3.4);
   });
 
   it('a dodge does not change HP', () => {
     const a = makeCombatant();
     const b = makeCombatant();
     let state = createInitialReplayState([a], [b]);
-    state = applyReplayEntry(state, { kind: 'dodge', attacker: a.name, defender: b.name }, {});
+    state = applyReplayEntry(state, { at: 0, kind: 'dodge', attacker: a.name, defender: b.name }, {});
     expect(state.units[b.id].hp).toBe(b.maxHp);
   });
 
@@ -50,7 +51,7 @@ describe('replay', () => {
     let state = createInitialReplayState([], [defender]);
     state = withInitialShield(state, defender.id, 30);
 
-    const entry: BattleLogEntry = { kind: 'attack', result: fakeAttack({ defender, finalDamage: 50, hpDamage: 20, shieldAbsorbed: 30 }) };
+    const entry: BattleLogEntry = { at: 0, kind: 'attack', result: fakeAttack({ defender, finalDamage: 50, hpDamage: 20, shieldAbsorbed: 30 }) };
     state = applyReplayEntry(state, entry, nameToId);
 
     expect(state.units[defender.id]).toMatchObject({ shield: 0, hp: 980 });
@@ -59,7 +60,7 @@ describe('replay', () => {
   it('a dodged attack changes nothing', () => {
     const defender = makeCombatant({ name: 'Def' });
     let state = createInitialReplayState([], [defender]);
-    const entry: BattleLogEntry = { kind: 'attack', result: fakeAttack({ defender, dodged: true, finalDamage: 0, hpDamage: 0 }) };
+    const entry: BattleLogEntry = { at: 0, kind: 'attack', result: fakeAttack({ defender, dodged: true, finalDamage: 0, hpDamage: 0 }) };
     state = applyReplayEntry(state, entry, {});
     expect(state.units[defender.id].hp).toBe(defender.maxHp);
   });
@@ -70,7 +71,7 @@ describe('replay', () => {
     let state = createInitialReplayState([target], []);
     state = withInitialShield(state, target.id, 10);
 
-    const entry: BattleLogEntry = { kind: 'statusTick', target: 'T', status: 'trojan', amount: 30, tickKind: 'damage', shieldAbsorbed: 10 };
+    const entry: BattleLogEntry = { at: 0, kind: 'statusTick', target: 'T', status: 'trojan', amount: 30, tickKind: 'damage', shieldAbsorbed: 10 };
     state = applyReplayEntry(state, entry, nameToId);
 
     expect(state.units[target.id]).toMatchObject({ shield: 0, hp: 980 });
@@ -80,7 +81,7 @@ describe('replay', () => {
     const target = makeCombatant({ name: 'T', maxHp: 1000 });
     const nameToId = buildNameToId([target], []);
     let state = createInitialReplayState([target], []);
-    state = applyReplayEntry(state, { kind: 'statusTick', target: 'T', status: 'nanites', amount: 9999, tickKind: 'heal', shieldAbsorbed: 0 }, nameToId);
+    state = applyReplayEntry(state, { at: 0, kind: 'statusTick', target: 'T', status: 'nanites', amount: 9999, tickKind: 'heal', shieldAbsorbed: 0 }, nameToId);
     expect(state.units[target.id].hp).toBe(1000);
   });
 
@@ -91,10 +92,10 @@ describe('replay', () => {
     // createInitialReplayState always starts at full HP; force a deficit to prove the heal cap works.
     state = { ...state, units: { ...state.units, [target.id]: { ...state.units[target.id], hp: 500 } } };
 
-    state = applyReplayEntry(state, { kind: 'heal', target: 'T', amount: 100, source: 'X' }, nameToId);
+    state = applyReplayEntry(state, { at: 0, kind: 'heal', target: 'T', amount: 100, source: 'X' }, nameToId);
     expect(state.units[target.id].hp).toBe(600);
 
-    state = applyReplayEntry(state, { kind: 'shieldGranted', target: 'T', amount: 50, source: 'X' }, nameToId);
+    state = applyReplayEntry(state, { at: 0, kind: 'shieldGranted', target: 'T', amount: 50, source: 'X' }, nameToId);
     expect(state.units[target.id].shield).toBe(50);
   });
 
@@ -107,7 +108,7 @@ describe('replay', () => {
 
     state = applyReplayEntry(
       state,
-      { kind: 'iceReflect', source: 'Defender', target: 'Attacker', amount: 50, shieldAbsorbed: 30, hpDamage: 20, targetDied: false },
+      { at: 0, kind: 'iceReflect', source: 'Defender', target: 'Attacker', amount: 50, shieldAbsorbed: 30, hpDamage: 20, targetDied: false },
       nameToId,
     );
 
@@ -123,7 +124,7 @@ describe('replay', () => {
 
     state = applyReplayEntry(
       state,
-      { kind: 'enrage', round: 30, percent: 0.02, damages: [{ target: 'A', amount: 20 }, { target: 'B', amount: 10 }] },
+      { at: 31, kind: 'overload', percent: 0.05, damages: [{ target: 'A', amount: 20 }, { target: 'B', amount: 10 }] },
       nameToId,
     );
 
@@ -136,7 +137,7 @@ describe('replay', () => {
     const nameToId = buildNameToId([target], []);
     let state = createInitialReplayState([target], []);
 
-    const entry: BattleLogEntry = { kind: 'statusApplied', target: 'T', status: 'lag', source: 'X', rounds: 2 };
+    const entry: BattleLogEntry = { at: 0, kind: 'statusApplied', target: 'T', status: 'lag', source: 'X', seconds: 2 };
     state = applyReplayEntry(state, entry, nameToId);
     expect(state.units[target.id].statuses.lag).toBe(1);
 
@@ -149,7 +150,7 @@ describe('replay', () => {
     const target = makeCombatant({ name: 'T' });
     const nameToId = buildNameToId([target], []);
     let state = createInitialReplayState([target], []);
-    const entry: BattleLogEntry = { kind: 'statusApplied', target: 'T', status: 'leak', source: 'X', rounds: 3 };
+    const entry: BattleLogEntry = { at: 0, kind: 'statusApplied', target: 'T', status: 'leak', source: 'X', seconds: 3 };
 
     state = applyReplayEntry(state, entry, nameToId);
     state = applyReplayEntry(state, entry, nameToId);
@@ -161,9 +162,9 @@ describe('replay', () => {
     const target = makeCombatant({ name: 'T' });
     const nameToId = buildNameToId([target], []);
     let state = createInitialReplayState([target], []);
-    state = applyReplayEntry(state, { kind: 'statusApplied', target: 'T', status: 'lag', source: 'X', rounds: 2 }, nameToId);
+    state = applyReplayEntry(state, { at: 0, kind: 'statusApplied', target: 'T', status: 'lag', source: 'X', seconds: 2 }, nameToId);
 
-    state = applyReplayEntry(state, { kind: 'statusExpired', target: 'T', status: 'lag' }, nameToId);
+    state = applyReplayEntry(state, { at: 0, kind: 'statusExpired', target: 'T', status: 'lag' }, nameToId);
 
     expect(state.units[target.id].statuses.lag).toBeUndefined();
   });
@@ -178,47 +179,44 @@ describe('replay', () => {
       expect(state.enemyOrder).toEqual([c.id]);
     });
 
-    it('clashEnd rotates both surviving participants to the back of their own side', () => {
+    it('vanguardExit drops the ejected unit and promotes the named replacement', () => {
       const a = makeCombatant({ name: 'A' });
       const b = makeCombatant({ name: 'B' });
       const enemy = makeCombatant({ name: 'E' });
       const nameToId = buildNameToId([a, b], [enemy]);
       let state = createInitialReplayState([a, b], [enemy]);
+      expect(state.allyVanguardId).toBe(a.id);
 
-      state = applyReplayEntry(state, { kind: 'clashEnd', allyUnit: 'A', enemyUnit: 'E' }, nameToId);
-
-      expect(state.allyOrder).toEqual([b.id, a.id]);
-      expect(state.enemyOrder).toEqual([enemy.id]);
-    });
-
-    it('clashEnd drops a participant that died this clash instead of rotating it', () => {
-      const a = makeCombatant({ name: 'A' });
-      const b = makeCombatant({ name: 'B' });
-      const enemy = makeCombatant({ name: 'E' });
-      const nameToId = buildNameToId([a, b], [enemy]);
-      let state = createInitialReplayState([a, b], [enemy]);
-      // Simulate A having died this clash (an 'attack' entry already zeroed its HP).
-      state = { ...state, units: { ...state.units, [a.id]: { ...state.units[a.id], hp: 0 } } };
-
-      state = applyReplayEntry(state, { kind: 'clashEnd', allyUnit: 'A', enemyUnit: 'E' }, nameToId);
+      state = applyReplayEntry(state, { at: 5, kind: 'vanguardExit', unit: 'A', side: 'allies', replacedBy: 'B' }, nameToId);
 
       expect(state.allyOrder).toEqual([b.id]);
+      expect(state.allyVanguardId).toBe(b.id);
       expect(state.enemyOrder).toEqual([enemy.id]);
     });
 
-    it('rotating repeatedly cycles the queue so the next unit is always at the front', () => {
+    it('a surviving Vanguard is never rotated to the back — it holds the front until ejected', () => {
       const a = makeCombatant({ name: 'A' });
       const b = makeCombatant({ name: 'B' });
-      const c = makeCombatant({ name: 'C' });
       const enemy = makeCombatant({ name: 'E' });
-      const nameToId = buildNameToId([a, b, c], [enemy]);
-      let state = createInitialReplayState([a, b, c], [enemy]);
+      const nameToId = buildNameToId([a, b], [enemy]);
+      let state = createInitialReplayState([a, b], [enemy]);
 
-      state = applyReplayEntry(state, { kind: 'clashEnd', allyUnit: 'A', enemyUnit: 'E' }, nameToId);
-      expect(state.allyOrder).toEqual([b.id, c.id, a.id]);
+      state = applyReplayEntry(state, { at: 2, kind: 'attack', result: fakeAttack({ defender: enemy, finalDamage: 10, hpDamage: 10 }) }, nameToId);
 
-      state = applyReplayEntry(state, { kind: 'clashEnd', allyUnit: 'B', enemyUnit: 'E' }, nameToId);
-      expect(state.allyOrder).toEqual([c.id, a.id, b.id]);
+      expect(state.allyOrder).toEqual([a.id, b.id]);
+      expect(state.allyVanguardId).toBe(a.id);
+    });
+
+    it('the last vanguardExit on a side leaves no replacement', () => {
+      const a = makeCombatant({ name: 'A' });
+      const enemy = makeCombatant({ name: 'E' });
+      const nameToId = buildNameToId([a], [enemy]);
+      let state = createInitialReplayState([a], [enemy]);
+
+      state = applyReplayEntry(state, { at: 9, kind: 'vanguardExit', unit: 'A', side: 'allies', replacedBy: null }, nameToId);
+
+      expect(state.allyOrder).toEqual([]);
+      expect(state.allyVanguardId).toBeNull();
     });
   });
 });
