@@ -99,10 +99,10 @@ Buffs de banco não têm timer: ficam presos ao dono (`benchSourceId`) e são re
 
 ### Passo 1 — Definir os status base
 
-Abra (ou crie) o arquivo da mitologia em `src/engine/data/characters/`:
+Todos os personagens do jogo ficam numa lista só, em `src/engine/data/characters.json`. Adicione uma entrada nela:
 
 ```jsonc
-// src/engine/data/characters/olympus.json
+// src/engine/data/characters.json — um item do array
 {
   "id": "atena",                    // único no jogo inteiro; é a chave de tudo
   "name": "Atena.exe",
@@ -127,24 +127,11 @@ Abra (ou crie) o arquivo da mitologia em `src/engine/data/characters/`:
 
 **Sobre `vel`:** o valor alimenta a fórmula `intervalo = 2.0s / (1 + VEL)`, com piso de 0,25s. Então `vel: 0` ataca a cada 2,0s e `vel: 1` a cada 1,0s. É uma *taxa*, não uma ordem de prioridade — valores acima de ~3 são inúteis (batem no piso).
 
-### Passo 2 — Registrar a mitologia (só se for nova)
+### Passo 2 — Registrar (nada a fazer)
 
-Se o arquivo já existia, **pule este passo** — o personagem já é carregado.
+Não há passo de registro para personagens nem para habilidades: os dois arquivos são listas planas que o `loader.ts` carrega inteiras. Uma mitologia nova também não precisa de registro — o campo `mythology` do próprio personagem é o que agrupa o compêndio e calcula a Sinergia de Cluster.
 
-Para uma mitologia inédita, adicione uma entrada em `src/engine/data/index.ts`:
-
-```ts
-export const WORLD_CONTENT: Record<WorldId, WorldContent> = {
-  // ...
-  olympus: {
-    characters: olympusCharacters as CombatantData[],
-    enemies: olympusEnemies,
-    abilities: [...(olympusAbilities as AbilityDefinition[]), ...(olympusEnemyAbilities as AbilityDefinition[])],
-  },
-};
-```
-
-É o **único** lugar que muda. O `loader.ts` deriva todos os registries daqui e nunca precisa ser tocado.
+O único conteúdo ainda registrado por mundo são os **inimigos**, em `WORLD_ENEMIES` (`src/engine/data/index.ts`), porque cada mundo sorteia os seus.
 
 ### Passo 3 — Conferir
 
@@ -158,7 +145,7 @@ npm run battle   # batalha real no terminal
 
 ## 3. Criar uma habilidade nova
 
-Habilidades ficam em `src/engine/data/abilities/<mitologia>.json`. A estrutura é sempre **Gatilho × Efeito × Alvo**.
+Todas as habilidades do jogo — de aliados e de inimigos — ficam em `src/engine/data/abilities.json`. A estrutura é sempre **Gatilho × Efeito × Alvo**.
 
 ### Exemplo A — Habilidade ativa (dano + status)
 

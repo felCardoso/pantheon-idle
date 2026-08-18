@@ -142,7 +142,7 @@ export type TargetSelector =
  * Trigger vocabulary for the real-time engine.
  *
  * Removed from v2, with no data migration needed (a survey of
- * src/engine/data/abilities/** shows the authored kits only use battleStart,
+ * src/engine/data/abilities.json shows the authored kits only use battleStart,
  * onAttack, onCounter and onCriticalHit):
  * - `roundStart` / `roundEnd` ("Loop Start/End") — there are no rounds.
  * - `onPingAdvantage` — Ping is no longer an initiative comparison.

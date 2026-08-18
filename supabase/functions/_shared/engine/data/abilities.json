@@ -1,0 +1,1042 @@
+[
+  {
+    "id": "curupira-lentidao-counter",
+    "name": "Pé-pra-Trás",
+    "scope": "active",
+    "trigger": "onCounter",
+    "chance": 0.25,
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "attacker",
+        "status": "lag",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.2
+        },
+        "durationSeconds": 4
+      }
+    ]
+  },
+  {
+    "id": "caipora-enfraquecimento",
+    "name": "Assobio da Mata",
+    "scope": "active",
+    "trigger": "onAttack",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "throttling",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.15
+        },
+        "durationSeconds": 4
+      }
+    ]
+  },
+  {
+    "id": "script-kiddie-lentidao",
+    "name": "Script Kiddie — Ataque Básico",
+    "scope": "active",
+    "trigger": "onAttack",
+    "chance": 0.1,
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "lag",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.2
+        },
+        "durationSeconds": 4
+      }
+    ]
+  },
+  {
+    "id": "firewall-turret-shield",
+    "name": "Posto Blindado",
+    "scope": "active",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "grantShield",
+        "target": "self",
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.2
+        }
+      }
+    ]
+  },
+  {
+    "id": "corrupted-daemon-sangramento",
+    "name": "Corte Corrosivo",
+    "scope": "active",
+    "trigger": "onAttack",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "leak",
+        "magnitude": {
+          "kind": "flat",
+          "value": 15
+        },
+        "ignoresDef": true,
+        "stacks": true,
+        "durationSeconds": 6
+      }
+    ]
+  },
+  {
+    "id": "anhanga-enfraquecimento",
+    "name": "Sussurro da Mata",
+    "scope": "active",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "allEnemies",
+        "status": "throttling",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.15
+        },
+        "durationSeconds": 4
+      }
+    ]
+  },
+  {
+    "id": "anhanga-cura-virus",
+    "name": "Corrupção Restauradora",
+    "scope": "active",
+    "trigger": "onCriticalHit",
+    "effects": [
+      {
+        "type": "heal",
+        "target": "self",
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.1
+        }
+      },
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "trojan",
+        "magnitude": {
+          "kind": "triggeringDamage"
+        },
+        "durationSeconds": "default"
+      }
+    ]
+  },
+  {
+    "id": "odin-shield-team",
+    "name": "Manto de Asgard",
+    "scope": "active",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "grantShield",
+        "target": "allAllies",
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.12
+        }
+      }
+    ]
+  },
+  {
+    "id": "freya-regen-team",
+    "name": "Bênção de Vanaheim",
+    "scope": "active",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "allAllies",
+        "status": "nanites",
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.03
+        },
+        "durationSeconds": "default"
+      }
+    ]
+  },
+  {
+    "id": "thor-sangramento",
+    "name": "Golpe do Trovão",
+    "scope": "active",
+    "trigger": "onAttack",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "leak",
+        "magnitude": {
+          "kind": "percentOfBaseAtk",
+          "basePercent": 0.15
+        },
+        "durationSeconds": 4
+      }
+    ]
+  },
+  {
+    "id": "ratatoskr-marcado",
+    "name": "Fofoca da Copa",
+    "scope": "active",
+    "trigger": "onAttack",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "target",
+        "magnitude": {
+          "kind": "flat",
+          "value": 0
+        },
+        "durationSeconds": "default"
+      }
+    ]
+  },
+  {
+    "id": "draugr-lentidao",
+    "name": "Toque Gélido",
+    "scope": "active",
+    "trigger": "onAttack",
+    "chance": 0.1,
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "lag",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.2
+        },
+        "durationSeconds": 4
+      }
+    ]
+  },
+  {
+    "id": "valquiria-corrompida-shield",
+    "name": "Asas Corrompidas",
+    "scope": "active",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "grantShield",
+        "target": "self",
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.2
+        }
+      }
+    ]
+  },
+  {
+    "id": "lobo-selvagem-sangramento",
+    "name": "Presas Selvagens",
+    "scope": "active",
+    "trigger": "onAttack",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "leak",
+        "magnitude": {
+          "kind": "flat",
+          "value": 15
+        },
+        "ignoresDef": true,
+        "stacks": true,
+        "durationSeconds": 6
+      }
+    ]
+  },
+  {
+    "id": "fenrir-enfraquecimento",
+    "name": "Uivo do Fim dos Tempos",
+    "scope": "active",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "allEnemies",
+        "status": "throttling",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.15
+        },
+        "durationSeconds": 4
+      }
+    ]
+  },
+  {
+    "id": "fenrir-cura-sangramento",
+    "name": "Fome da Raiz",
+    "scope": "active",
+    "trigger": "onCriticalHit",
+    "effects": [
+      {
+        "type": "heal",
+        "target": "self",
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.1
+        }
+      },
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "leak",
+        "magnitude": {
+          "kind": "flat",
+          "value": 15
+        },
+        "ignoresDef": true,
+        "durationSeconds": 6
+      }
+    ]
+  },
+  {
+    "id": "zeus-atordoamento-team",
+    "name": "Raio Inaugural",
+    "scope": "active",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "allEnemies",
+        "status": "crash",
+        "magnitude": {
+          "kind": "flat",
+          "value": 0
+        },
+        "durationSeconds": "default"
+      }
+    ]
+  },
+  {
+    "id": "hades-self-shield",
+    "name": "Muralha do Submundo",
+    "scope": "active",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "grantShield",
+        "target": "self",
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.2
+        }
+      }
+    ]
+  },
+  {
+    "id": "atena-corrosao",
+    "name": "Estratégia Corrosiva",
+    "scope": "active",
+    "trigger": "onAttack",
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "defender",
+        "attribute": "def",
+        "magnitude": {
+          "kind": "percent",
+          "value": -0.18
+        },
+        "durationSeconds": 4
+      }
+    ]
+  },
+  {
+    "id": "satiro-veneno",
+    "name": "Zurro Venenoso",
+    "scope": "active",
+    "trigger": "onAttack",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "trojan",
+        "magnitude": {
+          "kind": "percentOfBaseAtk",
+          "basePercent": 0.15
+        },
+        "durationSeconds": "default"
+      }
+    ]
+  },
+  {
+    "id": "medusa-petrificar",
+    "name": "Olhar Petrificante",
+    "scope": "active",
+    "trigger": "onAttack",
+    "chance": 0.35,
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "crash",
+        "magnitude": {
+          "kind": "flat",
+          "value": 0
+        },
+        "durationSeconds": 2
+      }
+    ]
+  },
+  {
+    "id": "medusa-veneno",
+    "name": "Presas Venenosas",
+    "scope": "active",
+    "trigger": "onAttack",
+    "chance": 0.7,
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "trojan",
+        "magnitude": {
+          "kind": "percentOfBaseAtk",
+          "basePercent": 0.15
+        },
+        "durationSeconds": "default"
+      }
+    ]
+  },
+  {
+    "id": "medusa-armadura-pedra",
+    "name": "Armadura de Pedra",
+    "scope": "active",
+    "trigger": "onCounter",
+    "chance": 0.25,
+    "effects": [
+      {
+        "type": "grantShield",
+        "target": "allAllies",
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.1
+        }
+      }
+    ]
+  },
+  {
+    "id": "medusa-espinhos-veneno",
+    "name": "Espinhos Venenosos",
+    "scope": "active",
+    "trigger": "onCounter",
+    "chance": 0.3,
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "attacker",
+        "status": "trojan",
+        "magnitude": {
+          "kind": "percentOfBaseAtk",
+          "basePercent": 0.1
+        },
+        "durationSeconds": "default"
+      }
+    ]
+  },
+  {
+    "id": "hercules-impacto",
+    "name": "Impacto",
+    "scope": "active",
+    "trigger": "onAttack",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "throttling",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.15
+        },
+        "durationSeconds": 4
+      }
+    ]
+  },
+  {
+    "id": "hercules-furia",
+    "name": "Fúria",
+    "scope": "active",
+    "trigger": "onAttack",
+    "chance": 0.5,
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "leak",
+        "magnitude": {
+          "kind": "percentOfBaseAtk",
+          "basePercent": 0.12
+        },
+        "stacks": true,
+        "durationSeconds": 4
+      }
+    ]
+  },
+  {
+    "id": "hercules-clava-primordial",
+    "name": "A Clava Primordial",
+    "scope": "active",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "allEnemies",
+        "status": "crash",
+        "magnitude": {
+          "kind": "flat",
+          "value": 0
+        },
+        "durationSeconds": "default"
+      }
+    ]
+  },
+  {
+    "id": "hercules-pele-leao",
+    "name": "Pele do Leão de Nemeia",
+    "scope": "active",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "grantShield",
+        "target": "self",
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.18
+        }
+      }
+    ]
+  },
+  {
+    "id": "minotauro-provocar",
+    "name": "Provocar",
+    "scope": "active",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "grantShield",
+        "target": "allAllies",
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.08
+        }
+      }
+    ]
+  },
+  {
+    "id": "minotauro-labrys",
+    "name": "Labrys",
+    "scope": "active",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "allEnemies",
+        "status": "leak",
+        "magnitude": {
+          "kind": "percentOfBaseAtk",
+          "basePercent": 0.1
+        },
+        "durationSeconds": 4
+      }
+    ]
+  },
+  {
+    "id": "minotauro-fear",
+    "name": "Fear",
+    "scope": "active",
+    "trigger": "onAttack",
+    "chance": 0.3,
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "throttling",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.15
+        },
+        "durationSeconds": 4
+      }
+    ]
+  },
+  {
+    "id": "minotauro-aterrorizar",
+    "name": "Aterrorizar",
+    "scope": "active",
+    "trigger": "onCounter",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "attacker",
+        "status": "throttling",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.15
+        },
+        "durationSeconds": 4
+      }
+    ]
+  },
+  {
+    "id": "ciclope-atordoamento",
+    "name": "Golpe do Ciclope",
+    "scope": "active",
+    "trigger": "onAttack",
+    "chance": 0.1,
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "crash",
+        "magnitude": {
+          "kind": "flat",
+          "value": 0
+        },
+        "durationSeconds": 2
+      }
+    ]
+  },
+  {
+    "id": "esqueleto-espartano-shield",
+    "name": "Falange Espartana",
+    "scope": "active",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "grantShield",
+        "target": "self",
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.2
+        }
+      }
+    ]
+  },
+  {
+    "id": "hidra-menor-sangramento",
+    "name": "Mordida Regenerativa",
+    "scope": "active",
+    "trigger": "onAttack",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "leak",
+        "magnitude": {
+          "kind": "flat",
+          "value": 15
+        },
+        "ignoresDef": true,
+        "stacks": true,
+        "durationSeconds": 6
+      }
+    ]
+  },
+  {
+    "id": "typhon-enfraquecimento",
+    "name": "Rugido Primordial",
+    "scope": "active",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "allEnemies",
+        "status": "throttling",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.15
+        },
+        "durationSeconds": 4
+      }
+    ]
+  },
+  {
+    "id": "typhon-cura-corrosao",
+    "name": "Veneno dos Cem Dragões",
+    "scope": "active",
+    "trigger": "onCriticalHit",
+    "effects": [
+      {
+        "type": "heal",
+        "target": "self",
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.1
+        }
+      },
+      {
+        "type": "buffAttribute",
+        "target": "defender",
+        "attribute": "def",
+        "magnitude": {
+          "kind": "percent",
+          "value": -0.15
+        },
+        "durationSeconds": 4
+      }
+    ]
+  },
+  {
+    "id": "amaterasu-regen-team",
+    "name": "Luz Perpétua",
+    "scope": "active",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "allAllies",
+        "status": "nanites",
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.04
+        },
+        "durationSeconds": "default"
+      }
+    ]
+  },
+  {
+    "id": "amaterasu-shield-team",
+    "name": "Alvorada Radiante",
+    "scope": "active",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "grantShield",
+        "target": "allAllies",
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.1
+        }
+      }
+    ]
+  },
+  {
+    "id": "amaterasu-reflexo-solar",
+    "name": "Reflexo Solar",
+    "scope": "active",
+    "trigger": "onCounter",
+    "chance": 0.3,
+    "effects": [
+      {
+        "type": "heal",
+        "target": "self",
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.08
+        }
+      }
+    ]
+  },
+  {
+    "id": "yokai-menor-lentidao",
+    "name": "Sussurro Yokai",
+    "scope": "active",
+    "trigger": "onAttack",
+    "chance": 0.1,
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "lag",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.2
+        },
+        "durationSeconds": 4
+      }
+    ]
+  },
+  {
+    "id": "samurai-corrompido-shield",
+    "name": "Guarda de Bushido",
+    "scope": "active",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "grantShield",
+        "target": "self",
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.2
+        }
+      }
+    ]
+  },
+  {
+    "id": "kappa-veneno",
+    "name": "Água Amaldiçoada",
+    "scope": "active",
+    "trigger": "onAttack",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "trojan",
+        "magnitude": {
+          "kind": "flat",
+          "value": 15
+        },
+        "ignoresDef": true,
+        "stacks": true,
+        "durationSeconds": 6
+      }
+    ]
+  },
+  {
+    "id": "orochi-veneno-aoe",
+    "name": "Hálito das Oito Cabeças",
+    "scope": "active",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "allEnemies",
+        "status": "trojan",
+        "magnitude": {
+          "kind": "flat",
+          "value": 15
+        },
+        "durationSeconds": 6
+      }
+    ]
+  },
+  {
+    "id": "orochi-cura-enfraquecimento",
+    "name": "Regeneração Serpentina",
+    "scope": "active",
+    "trigger": "onCriticalHit",
+    "effects": [
+      {
+        "type": "heal",
+        "target": "self",
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.1
+        }
+      },
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "throttling",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.15
+        },
+        "durationSeconds": 4
+      }
+    ]
+  },
+  {
+    "id": "mumia-veneno",
+    "name": "Maldição da Múmia",
+    "scope": "active",
+    "trigger": "onAttack",
+    "chance": 0.1,
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "trojan",
+        "magnitude": {
+          "kind": "flat",
+          "value": 15
+        },
+        "durationSeconds": 6
+      }
+    ]
+  },
+  {
+    "id": "chacal-guardiao-shield",
+    "name": "Guarda de Anúbis",
+    "scope": "active",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "grantShield",
+        "target": "self",
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.2
+        }
+      }
+    ]
+  },
+  {
+    "id": "serpente-nilo-veneno",
+    "name": "Mordida do Nilo",
+    "scope": "active",
+    "trigger": "onAttack",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "trojan",
+        "magnitude": {
+          "kind": "flat",
+          "value": 15
+        },
+        "ignoresDef": true,
+        "stacks": true,
+        "durationSeconds": 6
+      }
+    ]
+  },
+  {
+    "id": "set-enfraquecimento",
+    "name": "Tempestade do Caos",
+    "scope": "active",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "allEnemies",
+        "status": "throttling",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.15
+        },
+        "durationSeconds": 4
+      }
+    ]
+  },
+  {
+    "id": "set-cura-corrosao",
+    "name": "Corrupção do Deserto",
+    "scope": "active",
+    "trigger": "onCriticalHit",
+    "effects": [
+      {
+        "type": "heal",
+        "target": "self",
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.1
+        }
+      },
+      {
+        "type": "buffAttribute",
+        "target": "defender",
+        "attribute": "def",
+        "magnitude": {
+          "kind": "percent",
+          "value": -0.15
+        },
+        "durationSeconds": 4
+      }
+    ]
+  },
+  {
+    "id": "espirito-ancestral-lentidao",
+    "name": "Chamado Ancestral",
+    "scope": "active",
+    "trigger": "onAttack",
+    "chance": 0.1,
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "lag",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.2
+        },
+        "durationSeconds": 4
+      }
+    ]
+  },
+  {
+    "id": "guardiao-mata-shield",
+    "name": "Raiz Protetora",
+    "scope": "active",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "grantShield",
+        "target": "self",
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.2
+        }
+      }
+    ]
+  },
+  {
+    "id": "tambor-guerra-sangramento",
+    "name": "Ritmo de Guerra",
+    "scope": "active",
+    "trigger": "onAttack",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "leak",
+        "magnitude": {
+          "kind": "flat",
+          "value": 15
+        },
+        "ignoresDef": true,
+        "stacks": true,
+        "durationSeconds": 6
+      }
+    ]
+  },
+  {
+    "id": "ogum-enfraquecimento",
+    "name": "Lâmina de Ferro",
+    "scope": "active",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "allEnemies",
+        "status": "throttling",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.15
+        },
+        "durationSeconds": 4
+      }
+    ]
+  },
+  {
+    "id": "ogum-cura-sangramento",
+    "name": "Forja de Guerra",
+    "scope": "active",
+    "trigger": "onCriticalHit",
+    "effects": [
+      {
+        "type": "heal",
+        "target": "self",
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.1
+        }
+      },
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "leak",
+        "magnitude": {
+          "kind": "flat",
+          "value": 15
+        },
+        "ignoresDef": true,
+        "durationSeconds": 6
+      }
+    ]
+  }
+]

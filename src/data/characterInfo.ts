@@ -1,9 +1,9 @@
 /**
  * Lore + ability flavor text for the character compendium, team and
  * ability-picker screens. Keyed by templateId. Flavor text is looked up by
- * ability id (matching an id in src/engine/data/abilities/*.json — see a
+ * ability id (matching an id in src/engine/data/abilities.json — see a
  * character's `activeOptions`/`passiveAbilityId` in
- * src/engine/data/characters/*.json) rather than by position, so it survives
+ * src/engine/data/characters.json) rather than by position, so it survives
  * a character gaining more activeOptions later without needing to be
  * reordered — see docs/combate-v2-ability-authoring.md for the authoring
  * convention. An id with no entry here falls back to the ability's own
@@ -17,7 +17,7 @@
  * Hércules, Minotauro and Amaterasu were also trimmed from their original
  * 3-4 always-on abilities down to 1 selectable active during the v2
  * ability-selection migration — their other ability ids still exist in
- * src/engine/data/abilities/*.json as unwired candidates, ready to be added
+ * src/engine/data/abilities.json as unwired candidates, ready to be added
  * back to `activeOptions` (with flavor text here) once real 3-option kits
  * are authored.
  */
