@@ -50,6 +50,23 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Saldo insuficiente.' }, { status: 400 });
   }
 
+  // Debit before granting anything, as a compare-and-swap: the balance just read is a
+  // condition on the update, so the row only changes if nothing else has spent from it. The
+  // previous read-check-then-write let two concurrent rolls both pass the balance check and
+  // both spend the same currency. Zero rows back means another request won the race.
+  //
+  // Debiting first means a later failure costs the player the price without granting a pull,
+  // which is the right way round: the alternative duplicates paid characters.
+  const debit = supabaseAdmin.from('player_progress');
+  const { data: debited, error: debitError } = await (currency === 'credits'
+    ? debit.update({ credits: balance - price }).eq('user_id', userId).eq('credits', balance)
+    : debit.update({ tokens: balance - price }).eq('user_id', userId).eq('tokens', balance)
+  ).select('credits, tokens');
+  if (debitError) return NextResponse.json({ error: debitError.message }, { status: 500 });
+  if (!debited || debited.length === 0) {
+    return NextResponse.json({ error: 'Saldo alterado durante a invocação — tente de novo.' }, { status: 409 });
+  }
+
   let ownedByCharacterId, fragmentCountByKey;
   try {
     ({ ownedByCharacterId, fragmentCountByKey } = await loadOwnershipState(userId));
@@ -81,13 +98,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 
-  const nextCredits = currency === 'credits' ? progress.credits - price : progress.credits;
-  const nextTokens = currency === 'tokens' ? progress.tokens - price : progress.tokens;
+  // Currency was already debited above; only the banner counters remain to persist.
+  const nextCredits = debited[0].credits;
+  const nextTokens = debited[0].tokens;
   const nextBannerPity = tier === 'banner' ? progress.banner_pity + count : progress.banner_pity;
 
   const { error: updateError } = await supabaseAdmin
     .from('player_progress')
-    .update({ credits: nextCredits, tokens: nextTokens, banner_pity: nextBannerPity, banner_guaranteed: guaranteed })
+    .update({ banner_pity: nextBannerPity, banner_guaranteed: guaranteed })
     .eq('user_id', userId);
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
 
