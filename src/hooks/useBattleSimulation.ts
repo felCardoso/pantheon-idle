@@ -204,7 +204,7 @@ function floatersFor(entry: BattleLogEntry, nameToId: Record<string, string>): O
       return [{ unitId: nameToId[entry.target], amount: entry.amount, kind: 'damage' }];
     case 'directDamage':
       return [{ unitId: nameToId[entry.target], amount: entry.amount, kind: 'damage' }];
-    case 'enrage':
+    case 'overload':
       return entry.damages.map((d) => ({ unitId: nameToId[d.target], amount: d.amount, kind: 'damage' as const }));
     default:
       return [];
@@ -600,7 +600,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
       // Each world's own last fase has a 6th slot for its boss, one past its 5 regular estágios.
       totalStages: localFaseNumber(state.session.fase) === FASES_PER_WORLD ? ESTAGIOS_PER_FASE + 1 : ESTAGIOS_PER_FASE,
       isBoss: state.session.isBoss,
-      round: state.replay.round,
+      round: Math.floor(state.replay.now),
     },
     logFeed: state.logFeed,
     floaters: state.floaters,

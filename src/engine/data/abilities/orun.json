@@ -2,7 +2,7 @@
   {
     "id": "espirito-ancestral-lentidao",
     "name": "Chamado Ancestral",
-    "kind": "active",
+    "scope": "active",
     "trigger": "onAttack",
     "chance": 0.1,
     "effects": [
@@ -10,18 +10,18 @@
         "type": "applyStatus",
         "target": "defender",
         "status": "lag",
-        "duration": 2,
         "magnitude": {
           "kind": "percent",
           "value": 0.2
-        }
+        },
+        "durationSeconds": 4
       }
     ]
   },
   {
     "id": "guardiao-mata-shield",
     "name": "Raiz Protetora",
-    "kind": "active",
+    "scope": "active",
     "trigger": "battleStart",
     "effects": [
       {
@@ -37,45 +37,45 @@
   {
     "id": "tambor-guerra-sangramento",
     "name": "Ritmo de Guerra",
-    "kind": "active",
+    "scope": "active",
     "trigger": "onAttack",
     "effects": [
       {
         "type": "applyStatus",
         "target": "defender",
         "status": "leak",
-        "duration": 3,
         "magnitude": {
           "kind": "flat",
           "value": 15
         },
         "ignoresDef": true,
-        "stacks": true
+        "stacks": true,
+        "durationSeconds": 6
       }
     ]
   },
   {
     "id": "ogum-enfraquecimento",
     "name": "Lâmina de Ferro",
-    "kind": "active",
+    "scope": "active",
     "trigger": "battleStart",
     "effects": [
       {
         "type": "applyStatus",
         "target": "allEnemies",
         "status": "throttling",
-        "duration": 2,
         "magnitude": {
           "kind": "percent",
           "value": 0.15
-        }
+        },
+        "durationSeconds": 4
       }
     ]
   },
   {
     "id": "ogum-cura-sangramento",
     "name": "Forja de Guerra",
-    "kind": "active",
+    "scope": "active",
     "trigger": "onCriticalHit",
     "effects": [
       {
@@ -90,12 +90,12 @@
         "type": "applyStatus",
         "target": "defender",
         "status": "leak",
-        "duration": 3,
         "magnitude": {
           "kind": "flat",
           "value": 15
         },
-        "ignoresDef": true
+        "ignoresDef": true,
+        "durationSeconds": 6
       }
     ]
   }

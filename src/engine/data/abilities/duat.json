@@ -2,7 +2,7 @@
   {
     "id": "mumia-veneno",
     "name": "Maldição da Múmia",
-    "kind": "active",
+    "scope": "active",
     "trigger": "onAttack",
     "chance": 0.1,
     "effects": [
@@ -10,18 +10,18 @@
         "type": "applyStatus",
         "target": "defender",
         "status": "trojan",
-        "duration": 3,
         "magnitude": {
           "kind": "flat",
           "value": 15
-        }
+        },
+        "durationSeconds": 6
       }
     ]
   },
   {
     "id": "chacal-guardiao-shield",
     "name": "Guarda de Anúbis",
-    "kind": "active",
+    "scope": "active",
     "trigger": "battleStart",
     "effects": [
       {
@@ -37,45 +37,45 @@
   {
     "id": "serpente-nilo-veneno",
     "name": "Mordida do Nilo",
-    "kind": "active",
+    "scope": "active",
     "trigger": "onAttack",
     "effects": [
       {
         "type": "applyStatus",
         "target": "defender",
         "status": "trojan",
-        "duration": 3,
         "magnitude": {
           "kind": "flat",
           "value": 15
         },
         "ignoresDef": true,
-        "stacks": true
+        "stacks": true,
+        "durationSeconds": 6
       }
     ]
   },
   {
     "id": "set-enfraquecimento",
     "name": "Tempestade do Caos",
-    "kind": "active",
+    "scope": "active",
     "trigger": "battleStart",
     "effects": [
       {
         "type": "applyStatus",
         "target": "allEnemies",
         "status": "throttling",
-        "duration": 2,
         "magnitude": {
           "kind": "percent",
           "value": 0.15
-        }
+        },
+        "durationSeconds": 4
       }
     ]
   },
   {
     "id": "set-cura-corrosao",
     "name": "Corrupção do Deserto",
-    "kind": "active",
+    "scope": "active",
     "trigger": "onCriticalHit",
     "effects": [
       {
@@ -90,11 +90,11 @@
         "type": "buffAttribute",
         "target": "defender",
         "attribute": "def",
-        "duration": 2,
         "magnitude": {
           "kind": "percent",
           "value": -0.15
-        }
+        },
+        "durationSeconds": 4
       }
     ]
   }

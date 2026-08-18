@@ -18,7 +18,7 @@ describe('checkVictory', () => {
   });
 });
 
-describe('decideByRemainingHp (round-limit tiebreaker, docs/combate.md section 7)', () => {
+describe('decideByRemainingHp (time-limit tiebreaker, docs/combate.md v3.1 §6)', () => {
   it('the side with more remaining HP% wins — never an arbitrary tie', () => {
     const allies = [makeCombatant({ hp: 80, maxHp: 100 })];
     const enemies = [makeCombatant({ hp: 40, maxHp: 100 })];
@@ -32,20 +32,31 @@ describe('decideByRemainingHp (round-limit tiebreaker, docs/combate.md section 7
   });
 });
 
-describe('runBattle — anti-infinite-round safeguard', () => {
-  it('a permanent stalemate (100% dodge both sides) still terminates via enrage true damage, doubling from 2% at round 30', () => {
-    const allies = [makeCombatant({ name: 'A', baseStats: { atk: 10, esq: 1, ini: 100 } })];
-    const enemies = [makeCombatant({ name: 'B', baseStats: { atk: 10, esq: 1, ini: 100 } })];
+describe('runBattle — anti-infinite-battle safeguard (docs/combate.md v3.1 §6)', () => {
+  it('a permanent stalemate (100% dodge both sides) terminates via System Overload, stepping 5% every 5s from 30s', () => {
+    const allies = [makeCombatant({ name: 'A', baseStats: { atk: 10, esq: 1, vel: 1 } })];
+    const enemies = [makeCombatant({ name: 'B', baseStats: { atk: 10, esq: 1, vel: 1 } })];
 
     const result = runBattle(allies, enemies, { seed: 1 });
 
-    expect(result.rounds).toBeLessThanOrEqual(50);
-    const enrageEntries = result.log.filter((e): e is Extract<typeof e, { kind: 'enrage' }> => e.kind === 'enrage');
-    expect(enrageEntries.length).toBeGreaterThan(0);
-    expect(enrageEntries[0]).toMatchObject({ round: 30, percent: 0.02 });
-    if (enrageEntries.length > 1) {
-      expect(enrageEntries[1]).toMatchObject({ round: 31, percent: 0.04 });
+    expect(result.duration).toBeLessThanOrEqual(50);
+    const overloads = result.log.filter((e): e is Extract<typeof e, { kind: 'overload' }> => e.kind === 'overload');
+    expect(overloads.length).toBeGreaterThan(0);
+    expect(overloads[0]).toMatchObject({ at: 30, percent: 0.05 });
+    if (overloads.length > 1) {
+      expect(overloads[1]).toMatchObject({ at: 35, percent: 0.1 });
     }
+  });
+
+  it('never runs past the 50s hard stop', () => {
+    // Two immortal healers: nothing but the time limit can end this.
+    const allies = [makeCombatant({ name: 'A', baseStats: { atk: 0, esq: 0, vel: 0 }, hp: 10 ** 9, maxHp: 10 ** 9 })];
+    const enemies = [makeCombatant({ name: 'B', baseStats: { atk: 0, esq: 0, vel: 0 }, hp: 10 ** 9, maxHp: 10 ** 9 })];
+
+    const result = runBattle(allies, enemies, { seed: 3 });
+
+    expect(result.duration).toBeLessThanOrEqual(50);
+    expect(result.reason).toBe('timeLimit');
   });
 });
 
@@ -53,15 +64,15 @@ describe('runBattle — full Jurupari.iso integration smoke test', () => {
   it('runs allies vs. the 3 common enemies to completion without throwing', () => {
     const result = runBattle(loadJurupariAllies(), loadJurupariComuns(3), { seed: 42 });
     expect(['allies', 'enemies', 'draw']).toContain(result.winner);
-    expect(result.rounds).toBeGreaterThan(0);
-    expect(result.rounds).toBeLessThanOrEqual(50);
+    expect(result.duration).toBeGreaterThan(0);
+    expect(result.duration).toBeLessThanOrEqual(50);
   });
 
   it('runs allies vs. Anhangá.exe to completion without throwing', () => {
     const result = runBattle(loadJurupariAllies(), loadJurupariBoss(), { seed: 42 });
     expect(['allies', 'enemies', 'draw']).toContain(result.winner);
-    expect(result.rounds).toBeGreaterThan(0);
-    expect(result.rounds).toBeLessThanOrEqual(50);
+    expect(result.duration).toBeGreaterThan(0);
+    expect(result.duration).toBeLessThanOrEqual(50);
   });
 
   it('runs Medusa/Hércules/Minotauro (4 abilities each, multiple onDamaged/onAttack/battleStart triggers firing every round) to completion without throwing', () => {
@@ -72,15 +83,15 @@ describe('runBattle — full Jurupari.iso integration smoke test', () => {
     ]);
     const result = runBattle(allies, loadJurupariComuns(3), { seed: 42 });
     expect(['allies', 'enemies', 'draw']).toContain(result.winner);
-    expect(result.rounds).toBeGreaterThan(0);
-    expect(result.rounds).toBeLessThanOrEqual(50);
+    expect(result.duration).toBeGreaterThan(0);
+    expect(result.duration).toBeLessThanOrEqual(50);
   });
 });
 
 describe('runBattle — ICE reflection', () => {
   it('reflects a fraction of the physical damage received back onto the attacker, logged independently of the attack entry', () => {
-    const allies = [makeCombatant({ name: 'Attacker', baseStats: { atk: 100, esq: 0, ini: 1 }, hp: 10000, maxHp: 10000 })];
-    const enemies = [makeCombatant({ name: 'Defender', baseStats: { esq: 0, ice: 0.5, ini: 0 }, hp: 10000, maxHp: 10000 })];
+    const allies = [makeCombatant({ name: 'Attacker', baseStats: { atk: 100, esq: 0, vel: 1 }, hp: 10000, maxHp: 10000 })];
+    const enemies = [makeCombatant({ name: 'Defender', baseStats: { esq: 0, ice: 0.5, vel: 0 }, hp: 10000, maxHp: 10000 })];
 
     const result = runBattle(allies, enemies, { seed: 7 });
 
@@ -94,8 +105,8 @@ describe('runBattle — ICE reflection', () => {
   });
 
   it('still reflects even when the primary hit kills the defender — only the defender\'s own retaliation is cancelled by death', () => {
-    const allies = [makeCombatant({ name: 'Attacker', baseStats: { atk: 10000, esq: 0, ini: 1 }, hp: 10000, maxHp: 10000 })];
-    const enemies = [makeCombatant({ name: 'Defender', baseStats: { esq: 0, ice: 0.1, ini: 0 }, hp: 1, maxHp: 1 })];
+    const allies = [makeCombatant({ name: 'Attacker', baseStats: { atk: 10000, esq: 0, vel: 1 }, hp: 10000, maxHp: 10000 })];
+    const enemies = [makeCombatant({ name: 'Defender', baseStats: { esq: 0, ice: 0.1, vel: 0 }, hp: 1, maxHp: 1 })];
 
     const result = runBattle(allies, enemies, { seed: 3 });
 
@@ -106,81 +117,78 @@ describe('runBattle — ICE reflection', () => {
   });
 });
 
-describe('runBattle — line-up/queue clash model (docs/combate.md §1-2)', () => {
-  it('the higher-Ping front-liner attacks first and cancels the loser\'s action when its hit ejects it', () => {
-    const allies = [makeCombatant({ name: 'FastKiller', baseStats: { atk: 99999, esq: 0, ini: 100 }, hp: 1000, maxHp: 1000 })];
-    const enemies = [makeCombatant({ name: 'SlowVictim', baseStats: { atk: 1, esq: 0, ini: 0 }, hp: 1, maxHp: 1 })];
+describe('runBattle — Relay & Bench model (docs/combate.md v3.1 §1)', () => {
+  it('a unit that stays benched all battle never attacks and never takes damage', () => {
+    // A1 one-shots the enemy, so it never rotates out and A2 never leaves the bench.
+    const allies = [
+      makeCombatant({ name: 'A1', baseStats: { atk: 9999, esq: 0, vel: 0 }, hp: 1000, maxHp: 1000 }),
+      makeCombatant({ name: 'A2', baseStats: { atk: 50, esq: 0, vel: 0 }, hp: 1000, maxHp: 1000 }),
+    ];
+    const enemies = [makeCombatant({ name: 'E1', baseStats: { atk: 50, esq: 0, vel: 0 }, hp: 100, maxHp: 100 })];
 
-    const result = runBattle(allies, enemies, { seed: 1 });
+    const result = runBattle(allies, enemies, { seed: 4 });
 
-    const pingEntry = result.log.find((e): e is Extract<typeof e, { kind: 'pingAdvantage' }> => e.kind === 'pingAdvantage');
-    expect(pingEntry?.unit).toBe('FastKiller');
-    const cancelled = result.log.find((e): e is Extract<typeof e, { kind: 'actionCancelled' }> => e.kind === 'actionCancelled');
-    expect(cancelled?.unit).toBe('SlowVictim');
-    // Only one attack entry should exist — the victim's own action never resolved.
-    const attacks = result.log.filter((e): e is Extract<typeof e, { kind: 'attack' }> => e.kind === 'attack');
-    expect(attacks).toHaveLength(1);
-    expect(attacks[0].result.attacker.name).toBe('FastKiller');
+    expect(result.winner).toBe('allies');
+    const attackers = new Set(
+      result.log.filter((e): e is Extract<typeof e, { kind: 'attack' }> => e.kind === 'attack').map((e) => e.result.attacker.name),
+    );
+    expect(attackers.has('A2')).toBe(false);
+    expect(allies[1].hp).toBe(1000);
+    expect(allies[1].isVanguard).toBe(false);
   });
 
-  it('a Ping tie resolves both attacks independently, with no cancellation', () => {
-    const allies = [makeCombatant({ name: 'A', baseStats: { atk: 10, esq: 0, ini: 50 }, hp: 10000, maxHp: 10000 })];
-    const enemies = [makeCombatant({ name: 'B', baseStats: { atk: 10, esq: 0, ini: 50 }, hp: 10000, maxHp: 10000 })];
+  it('ejecting the Vanguard promotes the next unit in the queue immediately', () => {
+    const allies = [
+      makeCombatant({ name: 'Fragile', baseStats: { atk: 1, esq: 0, vel: 0 }, hp: 1, maxHp: 1 }),
+      makeCombatant({ name: 'Backup', baseStats: { atk: 1, esq: 0, vel: 0 }, hp: 5000, maxHp: 5000 }),
+    ];
+    const enemies = [makeCombatant({ name: 'Bruiser', baseStats: { atk: 9999, esq: 0, vel: 0 }, hp: 5000, maxHp: 5000 })];
 
-    const result = runBattle(allies, enemies, { seed: 5 });
+    const result = runBattle(allies, enemies, { seed: 6 });
 
-    const firstClashAttacks = result.log
-      .slice(0, result.log.findIndex((e) => e.kind === 'clashEnd') + 1)
-      .filter((e): e is Extract<typeof e, { kind: 'attack' }> => e.kind === 'attack');
-    expect(firstClashAttacks).toHaveLength(2);
-    const cancelled = result.log.find((e) => e.kind === 'actionCancelled');
-    expect(cancelled).toBeUndefined();
-    const pingEntry = result.log.find((e) => e.kind === 'pingAdvantage');
-    expect(pingEntry).toBeUndefined();
+    const exit = result.log.find((e): e is Extract<typeof e, { kind: 'vanguardExit' }> => e.kind === 'vanguardExit');
+    expect(exit).toMatchObject({ unit: 'Fragile', side: 'allies', replacedBy: 'Backup' });
+    const enters = result.log.filter((e): e is Extract<typeof e, { kind: 'vanguardEnter' }> => e.kind === 'vanguardEnter');
+    expect(enters.map((e) => e.unit)).toContain('Backup');
   });
 
-  it('alwaysActsFirst wins its clash unconditionally, even against a much higher Ping opponent, without logging pingAdvantage', () => {
-    const allies = [makeCombatant({ name: 'Saci', baseStats: { atk: 99999, esq: 0, ini: 0 }, hp: 1000, maxHp: 1000, alwaysActsFirst: true })];
-    const enemies = [makeCombatant({ name: 'FastButSecond', baseStats: { atk: 1, esq: 0, ini: 9999 }, hp: 1, maxHp: 1 })];
-
-    const result = runBattle(allies, enemies, { seed: 2 });
-
-    const cancelled = result.log.find((e): e is Extract<typeof e, { kind: 'actionCancelled' }> => e.kind === 'actionCancelled');
-    expect(cancelled?.unit).toBe('FastButSecond');
-    const pingEntry = result.log.find((e) => e.kind === 'pingAdvantage');
-    expect(pingEntry).toBeUndefined(); // alwaysActsFirst is not a Ping win
-  });
-
-  it('a Crash-stunned front-liner skips its own attack but still gets attacked and requeues', () => {
-    const allies = [makeCombatant({ name: 'Stunned', baseStats: { atk: 10, esq: 0, ini: 0 }, hp: 10000, maxHp: 10000 })];
-    const enemies = [makeCombatant({ name: 'Attacker', baseStats: { atk: 10, esq: 0, ini: 0 }, hp: 10000, maxHp: 10000 })];
-    allies[0].statuses.push({ status: 'crash', remainingRounds: 1, value: 0 });
-
-    const result = runBattle(allies, enemies, { seed: 9 });
-
-    const skipEntry = result.log.find((e): e is Extract<typeof e, { kind: 'turnSkippedStun' }> => e.kind === 'turnSkippedStun');
-    expect(skipEntry?.unit).toBe('Stunned');
-    const firstAttack = result.log.find((e): e is Extract<typeof e, { kind: 'attack' }> => e.kind === 'attack');
-    expect(firstAttack?.result.attacker.name).toBe('Attacker');
-    const clashEnd = result.log.find((e): e is Extract<typeof e, { kind: 'clashEnd' }> => e.kind === 'clashEnd');
-    expect(clashEnd).toMatchObject({ allyUnit: 'Stunned', enemyUnit: 'Attacker' });
-  });
-
-  it('a lone survivor keeps recycling to the front of its own queue every clash (never skips a fight)', () => {
-    const allies = [makeCombatant({ name: 'Solo', baseStats: { atk: 5, esq: 0, ini: 50 }, hp: 100000, maxHp: 100000 })];
+  it('the battle ends only once one side has no units left', () => {
+    const allies = [makeCombatant({ name: 'Solo', baseStats: { atk: 9999, esq: 0, vel: 1 }, hp: 100000, maxHp: 100000 })];
     const enemies = [
-      makeCombatant({ name: 'E1', baseStats: { atk: 1, esq: 0, ini: 40 }, hp: 1, maxHp: 1 }),
-      makeCombatant({ name: 'E2', baseStats: { atk: 1, esq: 0, ini: 40 }, hp: 1, maxHp: 1 }),
-      makeCombatant({ name: 'E3', baseStats: { atk: 1, esq: 0, ini: 40 }, hp: 1, maxHp: 1 }),
+      makeCombatant({ name: 'E1', baseStats: { atk: 1, esq: 0, vel: 0 }, hp: 1, maxHp: 1 }),
+      makeCombatant({ name: 'E2', baseStats: { atk: 1, esq: 0, vel: 0 }, hp: 1, maxHp: 1 }),
+      makeCombatant({ name: 'E3', baseStats: { atk: 1, esq: 0, vel: 0 }, hp: 1, maxHp: 1 }),
     ];
 
     const result = runBattle(allies, enemies, { seed: 11 });
 
     expect(result.winner).toBe('allies');
-    // Solo (higher Ping) should have attacked in every clash until the enemy queue ran out.
-    const soloAttacks = result.log.filter(
-      (e): e is Extract<typeof e, { kind: 'attack' }> => e.kind === 'attack' && e.result.attacker.name === 'Solo',
-    );
-    expect(soloAttacks).toHaveLength(3);
+    expect(result.reason).toBe('elimination');
+    expect(enemies.every((e) => e.hp === 0)).toBe(true);
+  });
+
+  it('a higher-VEL Vanguard lands more basic attacks than a slower one over the same battle', () => {
+    const allies = [makeCombatant({ name: 'Fast', baseStats: { atk: 1, esq: 0, vel: 3 }, hp: 10 ** 7, maxHp: 10 ** 7 })];
+    const enemies = [makeCombatant({ name: 'Slow', baseStats: { atk: 1, esq: 0, vel: 0 }, hp: 10 ** 7, maxHp: 10 ** 7 })];
+
+    const result = runBattle(allies, enemies, { seed: 7 });
+
+    const attacks = result.log.filter((e): e is Extract<typeof e, { kind: 'attack' }> => e.kind === 'attack');
+    const fast = attacks.filter((e) => e.result.attacker.name === 'Fast').length;
+    const slow = attacks.filter((e) => e.result.attacker.name === 'Slow').length;
+    expect(fast).toBeGreaterThan(slow);
+  });
+
+  it('a Crash-stunned Vanguard loses its ready attack but still gets attacked', () => {
+    const allies = [makeCombatant({ name: 'Stunned', baseStats: { atk: 10, esq: 0, vel: 0 }, hp: 10000, maxHp: 10000 })];
+    const enemies = [makeCombatant({ name: 'Attacker', baseStats: { atk: 10, esq: 0, vel: 0 }, hp: 10000, maxHp: 10000 })];
+    allies[0].statuses.push({ status: 'crash', remainingSeconds: 30, value: 0 });
+
+    const result = runBattle(allies, enemies, { seed: 9 });
+
+    const blocked = result.log.find((e): e is Extract<typeof e, { kind: 'attackBlockedStun' }> => e.kind === 'attackBlockedStun');
+    expect(blocked?.unit).toBe('Stunned');
+    const firstAttack = result.log.find((e): e is Extract<typeof e, { kind: 'attack' }> => e.kind === 'attack');
+    expect(firstAttack?.result.attacker.name).toBe('Attacker');
   });
 });

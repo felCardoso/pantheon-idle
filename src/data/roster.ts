@@ -39,7 +39,6 @@ export interface RosterCharacter extends Omit<CharacterInfo, 'abilityFlavor' | '
   innateTrait: AbilityFlavor | null;
   /** The single ability shown in compact contexts (onboarding cards) — activeOptions[0], falling back to the innate trait. Null only if a character somehow has neither. */
   headlineAbility: ResolvedAbilityInfo | null;
-  alwaysActsFirst: boolean;
   statusDurationBonus: number;
   /** Star-up progress — always 0 until a star/rarity-upgrade system exists (docs/gdd.md section 7). */
   stars: number;
@@ -51,7 +50,7 @@ function toResolvedAbility(def: AbilityDefinition, flavor?: AbilityFlavor): Reso
   return {
     id: def.id,
     name: flavor?.name ?? def.name,
-    kind: def.kind === 'passive' ? 'Passiva' : 'Ativa',
+    kind: def.scope === 'passive' ? 'Passiva' : 'Ativa',
     description: flavor?.description ?? 'Sem descrição — ver docs/combate-v2-ability-authoring.md.',
     trigger: def.trigger,
   };
@@ -95,7 +94,6 @@ function toRosterCharacter(
     mythology,
     portraitUrl: DISPLAY_PORTRAIT_BY_TEMPLATE_ID[c.templateId],
     stats: c.base,
-    alwaysActsFirst: c.alwaysActsFirst,
     statusDurationBonus: c.statusDurationBonus,
     stars: c.stars,
     lore: info.lore,

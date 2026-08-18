@@ -2,25 +2,25 @@
   {
     "id": "zeus-atordoamento-team",
     "name": "Raio Inaugural",
-    "kind": "active",
+    "scope": "active",
     "trigger": "battleStart",
     "effects": [
       {
         "type": "applyStatus",
         "target": "allEnemies",
         "status": "crash",
-        "duration": "default",
         "magnitude": {
           "kind": "flat",
           "value": 0
-        }
+        },
+        "durationSeconds": "default"
       }
     ]
   },
   {
     "id": "hades-self-shield",
     "name": "Muralha do Submundo",
-    "kind": "active",
+    "scope": "active",
     "trigger": "battleStart",
     "effects": [
       {
@@ -36,43 +36,43 @@
   {
     "id": "atena-corrosao",
     "name": "Estratégia Corrosiva",
-    "kind": "active",
+    "scope": "active",
     "trigger": "onAttack",
     "effects": [
       {
         "type": "buffAttribute",
         "target": "defender",
         "attribute": "def",
-        "duration": 2,
         "magnitude": {
           "kind": "percent",
           "value": -0.18
-        }
+        },
+        "durationSeconds": 4
       }
     ]
   },
   {
     "id": "satiro-veneno",
     "name": "Zurro Venenoso",
-    "kind": "active",
+    "scope": "active",
     "trigger": "onAttack",
     "effects": [
       {
         "type": "applyStatus",
         "target": "defender",
         "status": "trojan",
-        "duration": "default",
         "magnitude": {
           "kind": "percentOfBaseAtk",
           "basePercent": 0.15
-        }
+        },
+        "durationSeconds": "default"
       }
     ]
   },
   {
     "id": "medusa-petrificar",
     "name": "Olhar Petrificante",
-    "kind": "active",
+    "scope": "active",
     "trigger": "onAttack",
     "chance": 0.35,
     "effects": [
@@ -80,18 +80,18 @@
         "type": "applyStatus",
         "target": "defender",
         "status": "crash",
-        "duration": 1,
         "magnitude": {
           "kind": "flat",
           "value": 0
-        }
+        },
+        "durationSeconds": 2
       }
     ]
   },
   {
     "id": "medusa-veneno",
     "name": "Presas Venenosas",
-    "kind": "active",
+    "scope": "active",
     "trigger": "onAttack",
     "chance": 0.7,
     "effects": [
@@ -99,18 +99,18 @@
         "type": "applyStatus",
         "target": "defender",
         "status": "trojan",
-        "duration": "default",
         "magnitude": {
           "kind": "percentOfBaseAtk",
           "basePercent": 0.15
-        }
+        },
+        "durationSeconds": "default"
       }
     ]
   },
   {
     "id": "medusa-armadura-pedra",
     "name": "Armadura de Pedra",
-    "kind": "active",
+    "scope": "active",
     "trigger": "onCounter",
     "chance": 0.25,
     "effects": [
@@ -127,7 +127,7 @@
   {
     "id": "medusa-espinhos-veneno",
     "name": "Espinhos Venenosos",
-    "kind": "active",
+    "scope": "active",
     "trigger": "onCounter",
     "chance": 0.3,
     "effects": [
@@ -135,36 +135,36 @@
         "type": "applyStatus",
         "target": "attacker",
         "status": "trojan",
-        "duration": "default",
         "magnitude": {
           "kind": "percentOfBaseAtk",
           "basePercent": 0.1
-        }
+        },
+        "durationSeconds": "default"
       }
     ]
   },
   {
     "id": "hercules-impacto",
     "name": "Impacto",
-    "kind": "active",
+    "scope": "active",
     "trigger": "onAttack",
     "effects": [
       {
         "type": "applyStatus",
         "target": "defender",
         "status": "throttling",
-        "duration": 2,
         "magnitude": {
           "kind": "percent",
           "value": 0.15
-        }
+        },
+        "durationSeconds": 4
       }
     ]
   },
   {
     "id": "hercules-furia",
     "name": "Fúria",
-    "kind": "active",
+    "scope": "active",
     "trigger": "onAttack",
     "chance": 0.5,
     "effects": [
@@ -172,37 +172,37 @@
         "type": "applyStatus",
         "target": "defender",
         "status": "leak",
-        "duration": 2,
         "magnitude": {
           "kind": "percentOfBaseAtk",
           "basePercent": 0.12
         },
-        "stacks": true
+        "stacks": true,
+        "durationSeconds": 4
       }
     ]
   },
   {
     "id": "hercules-clava-primordial",
     "name": "A Clava Primordial",
-    "kind": "active",
+    "scope": "active",
     "trigger": "battleStart",
     "effects": [
       {
         "type": "applyStatus",
         "target": "allEnemies",
         "status": "crash",
-        "duration": "default",
         "magnitude": {
           "kind": "flat",
           "value": 0
-        }
+        },
+        "durationSeconds": "default"
       }
     ]
   },
   {
     "id": "hercules-pele-leao",
     "name": "Pele do Leão de Nemeia",
-    "kind": "active",
+    "scope": "active",
     "trigger": "battleStart",
     "effects": [
       {
@@ -218,7 +218,7 @@
   {
     "id": "minotauro-provocar",
     "name": "Provocar",
-    "kind": "active",
+    "scope": "active",
     "trigger": "battleStart",
     "effects": [
       {
@@ -234,25 +234,25 @@
   {
     "id": "minotauro-labrys",
     "name": "Labrys",
-    "kind": "active",
+    "scope": "active",
     "trigger": "battleStart",
     "effects": [
       {
         "type": "applyStatus",
         "target": "allEnemies",
         "status": "leak",
-        "duration": 2,
         "magnitude": {
           "kind": "percentOfBaseAtk",
           "basePercent": 0.1
-        }
+        },
+        "durationSeconds": 4
       }
     ]
   },
   {
     "id": "minotauro-fear",
     "name": "Fear",
-    "kind": "active",
+    "scope": "active",
     "trigger": "onAttack",
     "chance": 0.3,
     "effects": [
@@ -260,29 +260,29 @@
         "type": "applyStatus",
         "target": "defender",
         "status": "throttling",
-        "duration": 2,
         "magnitude": {
           "kind": "percent",
           "value": 0.15
-        }
+        },
+        "durationSeconds": 4
       }
     ]
   },
   {
     "id": "minotauro-aterrorizar",
     "name": "Aterrorizar",
-    "kind": "active",
+    "scope": "active",
     "trigger": "onCounter",
     "effects": [
       {
         "type": "applyStatus",
         "target": "attacker",
         "status": "throttling",
-        "duration": 2,
         "magnitude": {
           "kind": "percent",
           "value": 0.15
-        }
+        },
+        "durationSeconds": 4
       }
     ]
   }

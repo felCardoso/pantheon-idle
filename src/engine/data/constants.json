@@ -1,20 +1,21 @@
 {
   "critChanceBase": 0.05,
   "critMultiplier": 1.5,
+  "tickSeconds": 0.1,
   "statusDefaultDurations": {
-    "leak": 3,
-    "trojan": 3,
-    "crash": 1,
-    "fragmentation": 2,
-    "nanites": 3,
-    "throttling": 2,
-    "lag": 2,
+    "leak": 4,
+    "trojan": 4,
+    "crash": 2,
+    "fragmentation": 4,
+    "nanites": 4,
+    "throttling": 4,
+    "lag": 4,
     "target": null,
-    "buffAtk": 2,
-    "buffDef": 2,
-    "buffIni": 2,
-    "buffEsq": 2,
-    "buffIce": 2
+    "buffAtk": 4,
+    "buffDef": 4,
+    "buffVel": 4,
+    "buffEsq": 4,
+    "buffIce": 4
   },
   "synergyByCount": {
     "2": 0.05,
@@ -22,9 +23,10 @@
     "4": 0.21,
     "5": 0.32
   },
-  "antiInfiniteRound": {
-    "roundLimit": 50,
-    "enrageStartRound": 30,
-    "enrageBasePercent": 0.02
+  "antiInfinite": {
+    "timeLimitSeconds": 50,
+    "overloadStartSeconds": 30,
+    "overloadIntervalSeconds": 5,
+    "overloadStepPercent": 0.05
   }
 }

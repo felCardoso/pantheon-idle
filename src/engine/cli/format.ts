@@ -12,7 +12,7 @@ const STATUS_LABEL: Record<StatusType, string> = {
   target: 'Target',
   buffAtk: 'Processamento aumentado',
   buffDef: 'Firewall aumentado',
-  buffIni: 'Ping aumentado',
+  buffVel: 'Ping aumentado',
   buffEsq: 'Evasion aumentada',
   buffIce: 'ESP aumentado',
 };
@@ -27,20 +27,16 @@ export function formatLogEntry(entry: BattleLogEntry): string | null {
   switch (entry.kind) {
     case 'battleStart':
       return '\n=== Início da batalha ===';
-    case 'clashStart':
-      return `\n--- Clash ${entry.round} ---`;
-    case 'turnSkippedStun':
-      return `  ${entry.unit} sofre Crash e perde a ação.`;
+    case 'vanguardEnter':
+      return `  >> ${entry.unit} assume a Vanguarda.`;
+    case 'vanguardExit':
+      return `  << ${entry.unit} foi ejetado${entry.replacedBy ? ` — ${entry.replacedBy} assume` : ' — fila vazia'}.`;
+    case 'attackBlockedStun':
+      return `  ${entry.unit} sofre Crash e perde o ataque.`;
     case 'dodge':
       return `  ${entry.defender} esquiva do ataque de ${entry.attacker}.`;
-    case 'actionCancelled':
-      return `  ${entry.unit} é ejetado antes de agir — ação cancelada.`;
-    case 'pingAdvantage':
-      return `  ${entry.unit} tem vantagem de Ping e age primeiro.`;
     case 'abilityUsed':
       return `  ${entry.unit} usa ${entry.abilityName}!`;
-    case 'clashEnd':
-      return null; // no narration needed — queue rotation is a UI-layer concern
     case 'attack': {
       const { attacker, defender, finalDamage, crit, shieldAbsorbed, hpDamage, defenderDied } = entry.result;
       const tags = [crit && 'crítico'].filter(Boolean).join(', ');
@@ -50,8 +46,8 @@ export function formatLogEntry(entry: BattleLogEntry): string | null {
       return `  ${attacker.name} ataca ${defender.name}: ${Math.round(finalDamage)} de dano${suffix}${shieldNote}${deathNote}`;
     }
     case 'statusApplied': {
-      const rounds = entry.rounds === null ? 'até o próximo ataque recebido' : `${entry.rounds} rodada(s)`;
-      return `  ${entry.source} aplica ${STATUS_LABEL[entry.status]} em ${entry.target} (${rounds}).`;
+      const dur = entry.seconds === null ? 'enquanto durar a condição' : `${entry.seconds}s`;
+      return `  ${entry.source} aplica ${STATUS_LABEL[entry.status]} em ${entry.target} (${dur}).`;
     }
     case 'statusTick':
       return `  ${entry.target} sofre ${Math.round(entry.amount)} de ${STATUS_LABEL[entry.status]}.`;
@@ -72,10 +68,10 @@ export function formatLogEntry(entry: BattleLogEntry): string | null {
       return `  ${entry.source} causa ${Math.round(entry.amount)} de dano direto em ${entry.target}${shieldNote}${deathNote}`;
     }
     case 'death':
-      return null; // already noted inline by the attack/tick/enrage line
-    case 'enrage':
-      return `  [Anti-rodada-infinita] Dano verdadeiro de ${(entry.percent * 100).toFixed(1)}% do HP máximo em todos os combatentes vivos.`;
+      return null; // already noted inline by the attack/tick/overload line
+    case 'overload':
+      return `  [System Overload] Dano absoluto de ${(entry.percent * 100).toFixed(1)}% do HP máximo em todos os processos vivos.`;
     case 'battleEnd':
-      return `\n=== Fim da batalha: vitória do ${WINNER_LABEL[entry.winner]} (${entry.reason === 'roundLimit' ? 'limite de rodadas' : 'eliminação'}) ===`;
+      return `\n=== Fim da batalha: vitória do ${WINNER_LABEL[entry.winner]} (${entry.reason === 'timeLimit' ? 'limite de tempo' : 'eliminação'}) ===`;
   }
 }

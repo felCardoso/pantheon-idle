@@ -2,7 +2,7 @@
   {
     "id": "ciclope-atordoamento",
     "name": "Golpe do Ciclope",
-    "kind": "active",
+    "scope": "active",
     "trigger": "onAttack",
     "chance": 0.1,
     "effects": [
@@ -10,18 +10,18 @@
         "type": "applyStatus",
         "target": "defender",
         "status": "crash",
-        "duration": 1,
         "magnitude": {
           "kind": "flat",
           "value": 0
-        }
+        },
+        "durationSeconds": 2
       }
     ]
   },
   {
     "id": "esqueleto-espartano-shield",
     "name": "Falange Espartana",
-    "kind": "active",
+    "scope": "active",
     "trigger": "battleStart",
     "effects": [
       {
@@ -37,45 +37,45 @@
   {
     "id": "hidra-menor-sangramento",
     "name": "Mordida Regenerativa",
-    "kind": "active",
+    "scope": "active",
     "trigger": "onAttack",
     "effects": [
       {
         "type": "applyStatus",
         "target": "defender",
         "status": "leak",
-        "duration": 3,
         "magnitude": {
           "kind": "flat",
           "value": 15
         },
         "ignoresDef": true,
-        "stacks": true
+        "stacks": true,
+        "durationSeconds": 6
       }
     ]
   },
   {
     "id": "typhon-enfraquecimento",
     "name": "Rugido Primordial",
-    "kind": "active",
+    "scope": "active",
     "trigger": "battleStart",
     "effects": [
       {
         "type": "applyStatus",
         "target": "allEnemies",
         "status": "throttling",
-        "duration": 2,
         "magnitude": {
           "kind": "percent",
           "value": 0.15
-        }
+        },
+        "durationSeconds": 4
       }
     ]
   },
   {
     "id": "typhon-cura-corrosao",
     "name": "Veneno dos Cem Dragões",
-    "kind": "active",
+    "scope": "active",
     "trigger": "onCriticalHit",
     "effects": [
       {
@@ -90,11 +90,11 @@
         "type": "buffAttribute",
         "target": "defender",
         "attribute": "def",
-        "duration": 2,
         "magnitude": {
           "kind": "percent",
           "value": -0.15
-        }
+        },
+        "durationSeconds": 4
       }
     ]
   }
