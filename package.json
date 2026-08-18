@@ -11,6 +11,7 @@
     "battle": "tsx tools/battle-cli/runBattle.ts",
     "test": "vitest run",
     "sync:pvp-engine": "node scripts/sync-pvp-engine.mjs",
+    "deploy:functions": "npm run sync:pvp-engine && supabase functions deploy pvp-attack",
     "check:boundary": "node scripts/check-engine-boundary.mjs"
   },
   "dependencies": {

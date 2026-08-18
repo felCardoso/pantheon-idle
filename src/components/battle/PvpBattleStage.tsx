@@ -1,6 +1,6 @@
-import { UnitCard } from './UnitCard';
+import { TeamFormation } from './TeamFormation';
+import { BattleDivider } from './BattleDivider';
 import { AbilityCastOverlay } from './AbilityCastOverlay';
-import { Icon } from '../common/Icon';
 import type { BattleUnit } from '../../types';
 import type { AbilityCastEvent, AttackAnimEvent, FloatingText } from '../../hooks/useBattleReplay';
 
@@ -66,24 +66,14 @@ export function PvpBattleStage({
 
         <div className="relative z-10 flex items-center justify-between px-4 py-3">
           <p className="font-display text-xs font-bold uppercase tracking-wide text-code-400">{attackerName}</p>
-          <div className="flex items-center gap-1.5 opacity-70">
-            <Icon name="swords" size={16} className="text-signal-red" />
-            <span className="font-display text-[10px] font-bold uppercase tracking-widest text-white/40">pvp</span>
-          </div>
+          <span className="font-display text-[10px] font-bold uppercase tracking-widest text-white/40">pvp</span>
           <p className="font-display text-xs font-bold uppercase tracking-wide text-signal-red">{defenderName}</p>
         </div>
 
-        <div className="relative z-10 flex flex-1 items-end justify-center gap-4 overflow-x-auto px-3 pb-8 sm:gap-10">
-          <div className="flex items-end gap-1.5 sm:gap-4">
-            {allies.map((unit, i) => (
-              <UnitCard key={unit.id} unit={unit} delay={i * 220} floatingTexts={floatersFor(unit.id)} attack={attackFor(unit.id)} impactFlash={impactFor(unit.id)} />
-            ))}
-          </div>
-          <div className="flex items-end gap-1.5 sm:gap-4">
-            {enemies.map((unit, i) => (
-              <UnitCard key={unit.id} unit={unit} delay={i * 220 + 110} floatingTexts={floatersFor(unit.id)} attack={attackFor(unit.id)} impactFlash={impactFor(unit.id)} />
-            ))}
-          </div>
+        <div className="relative z-10 flex flex-1 flex-col-reverse items-center justify-center gap-1 px-3 pb-4 md:flex-row md:gap-3">
+          <TeamFormation units={allies} isAllySide floatersFor={floatersFor} attackFor={attackFor} impactFor={impactFor} />
+          <BattleDivider />
+          <TeamFormation units={enemies} isAllySide={false} floatersFor={floatersFor} attackFor={attackFor} impactFor={impactFor} />
         </div>
 
         <AbilityCastOverlay activeAbilities={activeAbilities} />

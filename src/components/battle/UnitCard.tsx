@@ -14,7 +14,20 @@ interface UnitCardProps {
   attack?: { id: string; tier: AttackAnimTier } | null;
   /** Set briefly while this unit is on the receiving end of a landed (non-dodged) hit. */
   impactFlash?: { id: string } | null;
+  /** Vanguard is the unit actually fighting, so it renders noticeably larger than its bench. */
+  size?: UnitCardSize;
 }
+
+export type UnitCardSize = 'bench' | 'vanguard';
+
+const SPRITE_CLASS: Record<UnitCardSize, string> = {
+  bench: 'h-9 w-9 rounded-lg sm:h-11 sm:w-11',
+  vanguard: 'h-14 w-14 rounded-lg sm:h-20 sm:w-20 sm:rounded-xl',
+};
+const BAR_CLASS: Record<UnitCardSize, string> = {
+  bench: 'w-11 sm:w-12',
+  vanguard: 'w-16 sm:w-20',
+};
 
 /** Ranged is too fast to lunge for every hit (fires only); a moderate cadence steps in and still fires; a slow one is one heavy, committed strike with no projectile. */
 const LUNGE_CLASS: Partial<Record<AttackAnimTier, string>> = {
@@ -37,7 +50,7 @@ const FLOATER_PREFIX: Record<FloatingText['kind'], string> = {
   shield: '+',
 };
 
-export function UnitCard({ unit, delay = 0, floatingTexts = [], attack = null, impactFlash = null }: UnitCardProps) {
+export function UnitCard({ unit, delay = 0, floatingTexts = [], attack = null, impactFlash = null, size = 'bench' }: UnitCardProps) {
   const factionColor = FACTION_COLOR[unit.faction];
   const rarityColor = RARITY_COLOR[unit.rarity];
   const isDead = unit.hp <= 0;
@@ -73,7 +86,7 @@ export function UnitCard({ unit, delay = 0, floatingTexts = [], attack = null, i
 
       <div
         key={attack?.id}
-        className={`relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg sm:h-16 sm:w-16 sm:rounded-xl ${lungeClass ?? ''}`}
+        className={`relative flex items-center justify-center overflow-hidden ${SPRITE_CLASS[size]} ${lungeClass ?? ''}`}
         style={{
           background: `linear-gradient(150deg, ${rarityColor}22, #0a0a12)`,
           border: `1.5px solid ${factionColor}aa`,
@@ -113,7 +126,7 @@ export function UnitCard({ unit, delay = 0, floatingTexts = [], attack = null, i
       </div>
 
       {/* HP bar, with floating combat text anchored just above it */}
-      <div className="relative flex w-12 items-center gap-1 sm:w-16">
+      <div className={`relative flex items-center gap-1 ${BAR_CLASS[size]}`}>
         {floatingTexts.map((f, i) => (
           <span
             key={f.id}
@@ -141,7 +154,7 @@ export function UnitCard({ unit, delay = 0, floatingTexts = [], attack = null, i
       {/* shield — below HP */}
       {unit.shield > 0 && (
         <>
-          <div className="flex w-12 items-center gap-1 sm:w-16">
+          <div className={`flex items-center gap-1 ${BAR_CLASS[size]}`}>
             <Icon name="shield" size={9} className="text-signal-cyan/70" />
             <div className="h-1 flex-1 overflow-hidden rounded-full bg-void-700">
               <div className="h-full rounded-full bg-signal-cyan transition-all" style={{ width: `${shieldPct}%` }} />

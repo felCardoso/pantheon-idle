@@ -40,13 +40,13 @@ export function PvpAttackModal({ pvp, onRewardCredits, onToast, onClose }: PvpAt
   async function handleAttack(opponent: PvpOpponent) {
     if (attacking) return;
     setAttacking(opponent.userId);
-    const result = await pvp.attack(opponent);
+    const outcome = await pvp.attack(opponent);
     setAttacking(null);
-    if (!result) {
-      onToast('Não foi possível atacar — o oponente pode não ter um time de defesa.');
+    if (!outcome.ok) {
+      onToast(outcome.message);
       return;
     }
-    setPlayingBattle({ opponent, result });
+    setPlayingBattle({ opponent, result: outcome.result });
   }
 
   function handleBattleContinue() {
