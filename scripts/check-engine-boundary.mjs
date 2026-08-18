@@ -9,13 +9,14 @@
  * reaching into its internals, which quietly turns every private detail into
  * public API.
  *
- * Four rules, each a real failure mode rather than style policing:
+ * Five rules, each a real failure mode rather than style policing:
  *
  *   1. IN  — src/engine/** must not import anything outside src/engine.
  *   2. IN  — src/engine/** must not import a bare module (react, next, npm…).
- *   3. IN  — src/engine/** must not touch browser/Node globals or carry
- *            presentation concerns (colours, CSS classes, icon names).
- *   4. OUT — nothing outside src/engine may deep-import into it; the only
+ *   3. IN  — src/engine/** must not touch browser/Node globals.
+ *   4. IN  — src/engine/** must not carry presentation concerns (colours,
+ *            CSS classes, icon/portrait fields).
+ *   5. OUT — nothing outside src/engine may deep-import into it; the only
  *            legal specifier is the public API barrel, src/engine/index.ts.
  *
  * Usage: node scripts/check-engine-boundary.mjs   (run by `npm run lint`)
@@ -118,7 +119,7 @@ for (const root of CONSUMER_ROOTS) {
 
 // --- Report ------------------------------------------------------------------
 if (violations.length === 0) {
-  console.log(`Engine boundary OK — ${engineFiles.length} engine files, all 4 rules satisfied.`);
+  console.log(`Engine boundary OK — ${engineFiles.length} engine files, all 5 rules satisfied.`);
   process.exit(0);
 }
 
