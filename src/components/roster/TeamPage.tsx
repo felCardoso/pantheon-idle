@@ -165,14 +165,28 @@ export function TeamPage({
     await teams.setTeamCharacters(activeTeam.slot, [...activeTeam.characterIds, characterId]);
   }
 
-  /** Places characterId at an exact slot position — index < current length replaces that member, index === length appends. Used by both the "+" pick-mode flow and drag-and-drop. */
+  /**
+   * Places characterId at an exact slot position — index < current length replaces that member,
+   * index === length appends. Used by both the "+" pick-mode flow and drag-and-drop.
+   *
+   * A character already on the team is *moved* rather than rejected: slot order is the combat
+   * queue (index 0 is the Vanguard), so dragging someone to the front is how a player picks who
+   * leads. Refusing the drop would leave emptying the whole team as the only way to reorder it.
+   */
   async function placeAt(index: number, characterId: string) {
-    if (activeTeam.characterIds.includes(characterId)) {
-      onToast('Personagem já está no time.');
+    if (index >= MAX_TEAM_MEMBERS) return;
+    const current = activeTeam.characterIds;
+    const from = current.indexOf(characterId);
+
+    if (from !== -1) {
+      if (from === index) return;
+      const next = current.filter((id) => id !== characterId);
+      next.splice(Math.min(index, next.length), 0, characterId);
+      await teams.setTeamCharacters(activeTeam.slot, next);
       return;
     }
-    if (index >= MAX_TEAM_MEMBERS) return;
-    const next = [...activeTeam.characterIds];
+
+    const next = [...current];
     if (index < next.length) next[index] = characterId;
     else next.push(characterId);
     await teams.setTeamCharacters(activeTeam.slot, next);
@@ -191,6 +205,71 @@ export function TeamPage({
     e.preventDefault();
     const characterId = e.dataTransfer.getData('text/plain');
     if (characterId) placeAt(index, characterId);
+  }
+
+  /**
+   * One position in the combat queue. Index 0 is the Vanguard — the unit that actually fights
+   * until it falls — so it renders larger and highlighted, while 1..4 are the bench waiting to
+   * relay in. Both are the same drop target, so a bench member can be dragged onto the Vanguard
+   * slot to take the lead.
+   */
+  function renderSlot(index: number) {
+    const isVanguard = index === 0;
+    const c = activeTeamRoster[index];
+    const portraitSize = isVanguard ? 80 : 56;
+
+    if (!c) {
+      return (
+        <button
+          key={`empty-${index}`}
+          onClick={() => setPickingSlotIndex((prev) => (prev === index ? null : index))}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => handleDropOnSlot(index, e)}
+          className={`flex items-center justify-center rounded-xl border border-dashed transition ${
+            isVanguard ? 'h-20 w-20' : 'h-14 w-14'
+          } ${
+            pickingSlotIndex === index
+              ? 'animate-pulse border-code-400 bg-code-500/10 text-code-300'
+              : isVanguard
+                ? 'border-signal-amber/40 text-signal-amber/40 hover:border-signal-amber/70 hover:text-signal-amber/70'
+                : 'border-void-600 text-white/20 hover:border-void-500 hover:text-white/40'
+          }`}
+        >
+          <Icon name="plus" size={isVanguard ? 22 : 16} />
+        </button>
+      );
+    }
+
+    return (
+      <div
+        key={c.templateId}
+        draggable
+        onDragStart={(e) => e.dataTransfer.setData('text/plain', c.templateId)}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => handleDropOnSlot(index, e)}
+        className={`group relative flex cursor-grab flex-col items-center gap-1 active:cursor-grabbing ${isVanguard ? 'w-20' : 'w-14'}`}
+      >
+        <button
+          onClick={() => setDetailCharacter(c)}
+          className={`relative rounded-xl ${isVanguard ? 'ring-2 ring-signal-amber/60' : ''}`}
+        >
+          <CharacterPortrait name={c.name} faction={c.faction} rarity={c.rarity} portraitUrl={c.portraitUrl} size={portraitSize} />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            removeFromTeam(c.templateId);
+          }}
+          className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border border-void-600 bg-void-950 text-white/60 opacity-0 transition hover:border-signal-red/60 hover:text-signal-red group-hover:opacity-100"
+        >
+          <Icon name="x" size={11} />
+        </button>
+        <span className="font-mono text-[9px] text-white/60">Nv.{c.level}</span>
+        <div className="h-1 w-full overflow-hidden rounded-full bg-void-900">
+          <div className="h-full rounded-full bg-arcane-400" style={{ width: `${Math.round((c.xpIntoLevel / c.xpForNextLevel) * 100)}%` }} />
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -265,57 +344,29 @@ export function TeamPage({
             })}
           </div>
 
-          {/* Active team's members */}
-          <div className="flex flex-wrap gap-3 rounded-xl border border-void-600 bg-void-800/40 p-3">
-            {Array.from({ length: MAX_TEAM_MEMBERS }, (_, i) => activeTeamRoster[i]).map((c, i) =>
-              c ? (
-                <div
-                  key={c.templateId}
-                  className="group relative flex w-16 flex-col items-center gap-1"
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => handleDropOnSlot(i, e)}
-                >
-                  <button onClick={() => setDetailCharacter(c)} className="relative">
-                    <CharacterPortrait name={c.name} faction={c.faction} rarity={c.rarity} portraitUrl={c.portraitUrl} size={64} />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeFromTeam(c.templateId);
-                    }}
-                    className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border border-void-600 bg-void-950 text-white/60 opacity-0 transition hover:border-signal-red/60 hover:text-signal-red group-hover:opacity-100"
-                  >
-                    <Icon name="x" size={11} />
-                  </button>
-                  <span className="font-mono text-[9px] text-white/60">Nv.{c.level}</span>
-                  <div className="h-1 w-full overflow-hidden rounded-full bg-void-900">
-                    <div
-                      className="h-full rounded-full bg-arcane-400"
-                      style={{ width: `${Math.round((c.xpIntoLevel / c.xpForNextLevel) * 100)}%` }}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <button
-                  key={`empty-${i}`}
-                  onClick={() => setPickingSlotIndex((prev) => (prev === i ? null : i))}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => handleDropOnSlot(i, e)}
-                  className={`flex h-16 w-16 items-center justify-center rounded-xl border border-dashed transition ${
-                    pickingSlotIndex === i
-                      ? 'animate-pulse border-code-400 bg-code-500/10 text-code-300'
-                      : 'border-void-600 text-white/20 hover:border-void-500 hover:text-white/40'
-                  }`}
-                >
-                  <Icon name="plus" size={18} />
-                </button>
-              ),
-            )}
+          {/* Active team's members — slot 0 is the Vanguard, 1..4 the bench (see renderSlot). */}
+          <div className="flex flex-col gap-3 rounded-xl border border-void-600 bg-void-800/40 p-3 sm:flex-row sm:items-start sm:gap-4">
+            <div className="flex flex-col items-center gap-1.5">
+              <span className="flex items-center gap-1 font-display text-[9px] font-bold uppercase tracking-widest text-signal-amber">
+                <Icon name="swords" size={10} />
+                Vanguarda
+              </span>
+              {renderSlot(0)}
+            </div>
+
+            <div className="h-px w-full bg-void-600 sm:h-24 sm:w-px" />
+
+            <div className="flex flex-col gap-1.5">
+              <span className="font-display text-[9px] font-bold uppercase tracking-widest text-white/40">Banco</span>
+              <div className="flex flex-wrap gap-2">
+                {Array.from({ length: MAX_TEAM_MEMBERS - 1 }, (_, i) => renderSlot(i + 1))}
+              </div>
+            </div>
           </div>
           {pickingSlotIndex !== null && (
             <p className="-mt-2 flex items-center gap-1.5 text-[11px] text-code-300">
               <Icon name="sparkles" size={12} />
-              Escolha um personagem na lista à direita para preencher o slot.
+              Escolha um personagem na lista à direita para preencher {pickingSlotIndex === 0 ? 'a Vanguarda' : 'o slot'}.
             </p>
           )}
 
@@ -398,8 +449,9 @@ export function TeamPage({
                   {Array.from(new Set(activeTeamRoster.map((c) => c.mythology))).join(' · ')}
                 </p>
                 <p className="text-[11px] text-white/40">
-                  A ordem dos slots do time (à direita) é a ordem da fila de combate — o primeiro personagem do time é
-                  quem entra em combate primeiro. Arraste para reordenar.
+                  A ordem dos slots é a fila de combate: quem está na <span className="text-signal-amber">Vanguarda</span> luta
+                  até cair, e o banco entra na sequência em que está. Arraste um personagem para a Vanguarda para trocar quem
+                  começa.
                 </p>
               </>
             )}
