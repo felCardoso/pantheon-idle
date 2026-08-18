@@ -4,3 +4,8 @@ dist-ssr
 *.local
 .DS_Store
 *.tsbuildinfo
+
+# backend (FastAPI)
+backend/.venv
+backend/**/__pycache__
+backend/.env
