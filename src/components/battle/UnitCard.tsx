@@ -41,6 +41,10 @@ const FLOATER_STYLE: Record<FloatingText['kind'], string> = {
   crit: 'text-signal-red text-base sm:text-lg',
   heal: 'text-code-400',
   shield: 'text-signal-cyan',
+  // The quiet stand-in for the full-screen cast callout, which only plays once every
+  // FULL_CAST_INTERVAL_MS (see useBattleReplay) — a name, not a number, so it gets the
+  // arcane badge treatment rather than the +/- combat-text one.
+  ability: 'text-arcane-200 rounded-full border border-arcane-400/40 bg-void-950/80 px-1.5 py-px',
 };
 
 const FLOATER_PREFIX: Record<FloatingText['kind'], string> = {
@@ -48,6 +52,7 @@ const FLOATER_PREFIX: Record<FloatingText['kind'], string> = {
   crit: '-',
   heal: '+',
   shield: '+',
+  ability: '',
 };
 
 export function UnitCard({ unit, delay = 0, floatingTexts = [], attack = null, impactFlash = null, size = 'bench' }: UnitCardProps) {
@@ -136,8 +141,7 @@ export function UnitCard({ unit, delay = 0, floatingTexts = [], attack = null, i
             <span
               className={`animate-float-up block whitespace-nowrap font-mono text-[10px] font-bold sm:text-xs ${FLOATER_STYLE[f.kind]}`}
             >
-              {FLOATER_PREFIX[f.kind]}
-              {Math.round(f.amount)}
+              {f.label ?? `${FLOATER_PREFIX[f.kind]}${Math.round(f.amount)}`}
             </span>
           </span>
         ))}
