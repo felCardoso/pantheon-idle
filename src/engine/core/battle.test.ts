@@ -89,7 +89,7 @@ describe('runBattle — full Jurupari.iso integration smoke test', () => {
 });
 
 describe('runBattle — ICE reflection', () => {
-  it('reflects a fraction of the physical damage received back onto the attacker, logged independently of the attack entry', () => {
+  it('reflects a fraction of the damage received back onto the attacker, logged independently of the attack entry', () => {
     const allies = [makeCombatant({ name: 'Attacker', baseStats: { atk: 100, esq: 0, vel: 1 }, hp: 10000, maxHp: 10000 })];
     const enemies = [makeCombatant({ name: 'Defender', baseStats: { esq: 0, ice: 0.5, vel: 0 }, hp: 10000, maxHp: 10000 })];
 
@@ -102,6 +102,17 @@ describe('runBattle — ICE reflection', () => {
     expect(iceEntry.source).toBe('Defender');
     expect(iceEntry.target).toBe('Attacker');
     expect(iceEntry.amount).toBeCloseTo(attackEntry.result.finalDamage * 0.5);
+  });
+
+  it('scales with the size of the incoming hit — a bigger attack is punished harder', () => {
+    const run = (attackerAtk: number) => {
+      const allies = [makeCombatant({ name: 'Attacker', baseStats: { atk: attackerAtk, esq: 0, vel: 1 }, hp: 10 ** 7, maxHp: 10 ** 7 })];
+      const enemies = [makeCombatant({ name: 'Defender', baseStats: { esq: 0, ice: 0.2, vel: 0 }, hp: 10 ** 7, maxHp: 10 ** 7 })];
+      const result = runBattle(allies, enemies, { seed: 7 });
+      return result.log.find((e): e is Extract<typeof e, { kind: 'iceReflect' }> => e.kind === 'iceReflect')!.amount;
+    };
+
+    expect(run(1000)).toBeCloseTo(run(100) * 10);
   });
 
   it('still reflects even when the primary hit kills the defender — only the defender\'s own retaliation is cancelled by death', () => {

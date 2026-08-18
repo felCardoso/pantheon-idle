@@ -36,7 +36,7 @@ _Iniciam em `0` e só são alterados por Habilidades, Banco ou Módulos (`.dll`)
 | **DEF**  | **Firewall**  | Redução/Mitigação de dano em percentual. Ignora apenas dano físico/padrão.                                              |
 | **VEL**  | **Ping**      | Velocidade de Ataque. Define a frequência (Cooldown/Tick) com que o processo executa seus ataques básicos na Vanguarda. |
 | **ESQ**  | **Evasion**   | Chance percentual de desviar completamente de um pacote de dados (ataque inimigo).                                      |
-| **ESP**  | **ICE**       | Retaliação (Espinhos). Devolve automaticamente uma porcentagem da vida base ao receber dano.                            |
+| **ESP**  | **ICE**       | Retaliação (Espinhos). Devolve automaticamente ao atacante uma porcentagem do dano recebido.                            |
 
 ### Mecânica Transversal: Escudo (Shielding)
 

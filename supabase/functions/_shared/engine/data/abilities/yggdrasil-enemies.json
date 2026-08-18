@@ -1,44 +1,7 @@
 [
   {
-    "id": "curupira-lentidao-counter",
-    "name": "Pé-pra-Trás",
-    "scope": "active",
-    "trigger": "onCounter",
-    "chance": 0.25,
-    "effects": [
-      {
-        "type": "applyStatus",
-        "target": "attacker",
-        "status": "lag",
-        "magnitude": {
-          "kind": "percent",
-          "value": 0.2
-        },
-        "durationSeconds": 4
-      }
-    ]
-  },
-  {
-    "id": "caipora-enfraquecimento",
-    "name": "Assobio da Mata",
-    "scope": "active",
-    "trigger": "onAttack",
-    "effects": [
-      {
-        "type": "applyStatus",
-        "target": "defender",
-        "status": "throttling",
-        "magnitude": {
-          "kind": "percent",
-          "value": 0.15
-        },
-        "durationSeconds": 4
-      }
-    ]
-  },
-  {
-    "id": "script-kiddie-lentidao",
-    "name": "Script Kiddie — Ataque Básico",
+    "id": "draugr-lentidao",
+    "name": "Toque Gélido",
     "scope": "active",
     "trigger": "onAttack",
     "chance": 0.1,
@@ -56,8 +19,8 @@
     ]
   },
   {
-    "id": "firewall-turret-shield",
-    "name": "Posto Blindado",
+    "id": "valquiria-corrompida-shield",
+    "name": "Asas Corrompidas",
     "scope": "active",
     "trigger": "battleStart",
     "effects": [
@@ -72,8 +35,8 @@
     ]
   },
   {
-    "id": "corrupted-daemon-sangramento",
-    "name": "Corte Corrosivo",
+    "id": "lobo-selvagem-sangramento",
+    "name": "Presas Selvagens",
     "scope": "active",
     "trigger": "onAttack",
     "effects": [
@@ -92,8 +55,8 @@
     ]
   },
   {
-    "id": "anhanga-enfraquecimento",
-    "name": "Sussurro da Mata",
+    "id": "fenrir-enfraquecimento",
+    "name": "Uivo do Fim dos Tempos",
     "scope": "active",
     "trigger": "battleStart",
     "effects": [
@@ -110,8 +73,8 @@
     ]
   },
   {
-    "id": "anhanga-cura-virus",
-    "name": "Corrupção Restauradora",
+    "id": "fenrir-cura-sangramento",
+    "name": "Fome da Raiz",
     "scope": "active",
     "trigger": "onCriticalHit",
     "effects": [
@@ -126,11 +89,13 @@
       {
         "type": "applyStatus",
         "target": "defender",
-        "status": "trojan",
+        "status": "leak",
         "magnitude": {
-          "kind": "triggeringDamage"
+          "kind": "flat",
+          "value": 15
         },
-        "durationSeconds": "default"
+        "ignoresDef": true,
+        "durationSeconds": 6
       }
     ]
   }

@@ -2,7 +2,7 @@
   {
     "id": "odin-shield-team",
     "name": "Manto de Asgard",
-    "kind": "active",
+    "scope": "active",
     "trigger": "battleStart",
     "effects": [
       {
@@ -18,54 +18,54 @@
   {
     "id": "freya-regen-team",
     "name": "Bênção de Vanaheim",
-    "kind": "active",
+    "scope": "active",
     "trigger": "battleStart",
     "effects": [
       {
         "type": "applyStatus",
         "target": "allAllies",
         "status": "nanites",
-        "duration": "default",
         "magnitude": {
           "kind": "percentOfMaxHp",
           "percent": 0.03
-        }
+        },
+        "durationSeconds": "default"
       }
     ]
   },
   {
     "id": "thor-sangramento",
     "name": "Golpe do Trovão",
-    "kind": "active",
+    "scope": "active",
     "trigger": "onAttack",
     "effects": [
       {
         "type": "applyStatus",
         "target": "defender",
         "status": "leak",
-        "duration": 2,
         "magnitude": {
           "kind": "percentOfBaseAtk",
           "basePercent": 0.15
-        }
+        },
+        "durationSeconds": 4
       }
     ]
   },
   {
     "id": "ratatoskr-marcado",
     "name": "Fofoca da Copa",
-    "kind": "active",
+    "scope": "active",
     "trigger": "onAttack",
     "effects": [
       {
         "type": "applyStatus",
         "target": "defender",
         "status": "target",
-        "duration": "default",
         "magnitude": {
           "kind": "flat",
           "value": 0
-        }
+        },
+        "durationSeconds": "default"
       }
     ]
   }

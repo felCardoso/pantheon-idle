@@ -1,9 +1,12 @@
-import type { BattleLogEntry, Combatant } from './types';
-import { Rng } from './rng';
-import { CONSTANTS } from './loader';
-import { attackIntervalFor } from '../schema';
-import { resolveAttack } from './damage';
-import { absorbIntoShield, detachBenchStatuses, effectiveIce, effectiveVel, isStunned, tickStatuses } from './statusEffects';
+// AUTO-GENERATED from src/engine — DO NOT EDIT BY HAND.
+// Run `npm run sync:pvp-engine` after changing the engine.
+// See scripts/sync-pvp-engine.mjs for why this copy exists.
+import type { BattleLogEntry, Combatant } from './types.ts';
+import { Rng } from './rng.ts';
+import { CONSTANTS } from './loader.ts';
+import { attackIntervalFor } from '../schema.ts';
+import { resolveAttack } from './damage.ts';
+import { absorbIntoShield, detachBenchStatuses, effectiveIce, effectiveVel, isStunned, tickStatuses } from './statusEffects.ts';
 import {
   fireAbility,
   fireDeath as fireDeathTrigger,
@@ -13,7 +16,7 @@ import {
   maybeFireHalfHp as maybeFireHalfHpTrigger,
   maybeFireShieldBreak as maybeFireShieldBreakTrigger,
   type TriggerContext,
-} from './abilityEngine';
+} from './abilityEngine.ts';
 
 export interface BattleOptions {
   seed?: number;

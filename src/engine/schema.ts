@@ -17,16 +17,24 @@ export type Rarity = 'Alpha' | 'Beta' | 'Stable' | 'LTS' | 'Zero-Day';
 export const RARITY_RANK: Record<Rarity, number> = { Alpha: 0, Beta: 1, Stable: 2, LTS: 3, 'Zero-Day': 4 };
 
 /**
- * Lowest owned rarity that unlocks a character's passive ability.
+ * Lowest owned rarity that unlocks a character's passive ability —
+ * docs/combate.md v3.1 §3: "Desbloqueada automaticamente apenas para
+ * personagens Zero-Day".
  *
- * NOTE: docs/combate.md v3.1 §3 says passives are "desbloqueada automaticamente
- * apenas para personagens Zero-Day", which would be a change from LTS. Left at
- * LTS deliberately — this constant also drives the upgrade shop
- * (PASSIVE_MAX_LEVEL_BY_RARITY in src/data/abilityProgression.ts grants LTS
- * level 1 / Zero-Day level 2) and players who already bought a passive at LTS
- * would silently lose it. Flagged for a separate, migration-aware pass.
+ * Raised from LTS with no data migration needed: passive level 1 was always
+ * free and PASSIVE_MAX_LEVEL_BY_RARITY capped LTS at exactly 1, so the paid
+ * tier (level 2, 50k créditos) was never reachable below Zero-Day — nobody
+ * can have bought something this takes away. Stale `passive_level` rows on
+ * non-Zero-Day characters are simply ignored: the passive is re-gated by
+ * rarity at load time (see resolveCombatantAbilities in loader.ts), so the
+ * value lies dormant and becomes valid again if that character ever reaches
+ * Zero-Day.
+ *
+ * Not implemented: §3's second unlock path ("através das melhorias de
+ * personagem, quando ele sobe para a v2.0") — no character-versioning system
+ * exists yet.
  */
-export const PASSIVE_UNLOCK_RARITY: Rarity = 'LTS';
+export const PASSIVE_UNLOCK_RARITY: Rarity = 'Zero-Day';
 
 /**
  * The 8 named statuses from docs/combate.md v3.1 §4, plus the 5 generic
@@ -70,7 +78,7 @@ export interface BaseStats {
   vel: number;
   /** Evasion — chance to fully dodge an attack, e.g. 0.10 = 10%. Ability/rune-granted only. */
   esq: number;
-  /** ESP ("ICE" internally) — fraction of physical damage received that reflects back onto the attacker. Ability/rune-granted only. */
+  /** ESP ("ICE" internally) — thorns. Reflects this fraction of the incoming attack's damage back onto the attacker. Ability/rune-granted only. */
   ice: number;
 }
 

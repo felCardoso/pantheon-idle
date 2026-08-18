@@ -1,0 +1,69 @@
+{
+  "comuns": [
+    {
+      "id": "yokai-menor",
+      "name": "Yokai Menor.sh",
+      "faction": "Malware",
+      "baseStats": {
+        "hp": 200,
+        "atk": 30,
+        "def": 0,
+        "vel": 0.6,
+        "esq": 0.03,
+        "ice": 0
+      },
+      "activeOptions": [
+        "yokai-menor-lentidao"
+      ]
+    },
+    {
+      "id": "samurai-corrompido",
+      "name": "Samurai Corrompido.sh",
+      "faction": "Firewall",
+      "baseStats": {
+        "hp": 600,
+        "atk": 20,
+        "def": 0.3,
+        "vel": 0.4,
+        "esq": 0.02,
+        "ice": 0
+      },
+      "activeOptions": [
+        "samurai-corrompido-shield"
+      ]
+    },
+    {
+      "id": "kappa",
+      "name": "Kappa.sh",
+      "faction": "Malware",
+      "baseStats": {
+        "hp": 350,
+        "atk": 50,
+        "def": 0,
+        "vel": 0.7,
+        "esq": 0.04,
+        "ice": 0
+      },
+      "activeOptions": [
+        "kappa-veneno"
+      ]
+    }
+  ],
+  "boss": {
+    "id": "yamata-no-orochi",
+    "name": "Yamata-no-Orochi.exe",
+    "faction": null,
+    "baseStats": {
+      "hp": 12000,
+      "atk": 250,
+      "def": 0.5,
+      "vel": 0.95,
+      "esq": 0.06,
+      "ice": 0
+    },
+    "activeOptions": [
+      "orochi-veneno-aoe",
+      "orochi-cura-enfraquecimento"
+    ]
+  }
+}

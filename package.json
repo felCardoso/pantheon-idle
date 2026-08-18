@@ -7,9 +7,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "tsc --noEmit",
+    "lint": "tsc --noEmit && node scripts/sync-pvp-engine.mjs --check",
     "battle": "tsx src/engine/cli/runBattle.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "sync:pvp-engine": "node scripts/sync-pvp-engine.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",

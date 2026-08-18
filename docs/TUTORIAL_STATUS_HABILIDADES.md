@@ -292,6 +292,16 @@ Armadilhas comuns:
 - **DOT/HOT em `magnitude`.** O valor é **por segundo**, não por tick.
 - **Habilidade órfã.** Criar o JSON não basta; é preciso referenciá-la em `activeOptions`/`benchOptions`/`passiveAbilityId`.
 
-### Aviso: o motor está duplicado
+### A cópia do PvP é gerada, não editada
 
-`supabase/functions/_shared/engine/` é uma **cópia manual** do motor, usada pela Edge Function de PvP (roda em Deno). Mudanças estruturais em `src/engine/` precisam ser espelhadas lá, ou PvE e PvP passam a rodar regras diferentes. Unificar isso é uma tarefa de infra pendente.
+`supabase/functions/_shared/engine/` é uma **cópia gerada** de `src/engine/`, necessária porque a Edge Function de PvP roda em Deno e não consegue importar de `src/` no deploy.
+
+Depois de qualquer mudança no motor:
+
+```bash
+npm run sync:pvp-engine
+```
+
+O script (`scripts/sync-pvp-engine.mjs`) recria a árvore aplicando as duas diferenças do Deno: extensão `.ts` explícita nos imports e `with { type: 'json' }` nos JSON. **Nunca edite os arquivos gerados à mão** — eles têm um cabeçalho `AUTO-GENERATED` e serão sobrescritos.
+
+O `npm run lint` roda `--check` e falha se a cópia estiver defasada, então uma divergência entre PvE e PvP é pega antes do deploy.

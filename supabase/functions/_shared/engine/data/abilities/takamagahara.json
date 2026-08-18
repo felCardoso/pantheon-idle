@@ -2,25 +2,25 @@
   {
     "id": "amaterasu-regen-team",
     "name": "Luz Perpétua",
-    "kind": "active",
+    "scope": "active",
     "trigger": "battleStart",
     "effects": [
       {
         "type": "applyStatus",
         "target": "allAllies",
         "status": "nanites",
-        "duration": "default",
         "magnitude": {
           "kind": "percentOfMaxHp",
           "percent": 0.04
-        }
+        },
+        "durationSeconds": "default"
       }
     ]
   },
   {
     "id": "amaterasu-shield-team",
     "name": "Alvorada Radiante",
-    "kind": "active",
+    "scope": "active",
     "trigger": "battleStart",
     "effects": [
       {
@@ -36,7 +36,7 @@
   {
     "id": "amaterasu-reflexo-solar",
     "name": "Reflexo Solar",
-    "kind": "active",
+    "scope": "active",
     "trigger": "onCounter",
     "chance": 0.3,
     "effects": [
@@ -53,7 +53,7 @@
   {
     "id": "yokai-menor-lentidao",
     "name": "Sussurro Yokai",
-    "kind": "active",
+    "scope": "active",
     "trigger": "onAttack",
     "chance": 0.1,
     "effects": [
@@ -61,18 +61,18 @@
         "type": "applyStatus",
         "target": "defender",
         "status": "lag",
-        "duration": 2,
         "magnitude": {
           "kind": "percent",
           "value": 0.2
-        }
+        },
+        "durationSeconds": 4
       }
     ]
   },
   {
     "id": "samurai-corrompido-shield",
     "name": "Guarda de Bushido",
-    "kind": "active",
+    "scope": "active",
     "trigger": "battleStart",
     "effects": [
       {
@@ -88,45 +88,45 @@
   {
     "id": "kappa-veneno",
     "name": "Água Amaldiçoada",
-    "kind": "active",
+    "scope": "active",
     "trigger": "onAttack",
     "effects": [
       {
         "type": "applyStatus",
         "target": "defender",
         "status": "trojan",
-        "duration": 3,
         "magnitude": {
           "kind": "flat",
           "value": 15
         },
         "ignoresDef": true,
-        "stacks": true
+        "stacks": true,
+        "durationSeconds": 6
       }
     ]
   },
   {
     "id": "orochi-veneno-aoe",
     "name": "Hálito das Oito Cabeças",
-    "kind": "active",
+    "scope": "active",
     "trigger": "battleStart",
     "effects": [
       {
         "type": "applyStatus",
         "target": "allEnemies",
         "status": "trojan",
-        "duration": 3,
         "magnitude": {
           "kind": "flat",
           "value": 15
-        }
+        },
+        "durationSeconds": 6
       }
     ]
   },
   {
     "id": "orochi-cura-enfraquecimento",
     "name": "Regeneração Serpentina",
-    "kind": "active",
+    "scope": "active",
     "trigger": "onCriticalHit",
     "effects": [
       {
@@ -141,11 +141,11 @@
         "type": "applyStatus",
         "target": "defender",
         "status": "throttling",
-        "duration": 2,
         "magnitude": {
           "kind": "percent",
           "value": 0.15
-        }
+        },
+        "durationSeconds": 4
       }
     ]
   }

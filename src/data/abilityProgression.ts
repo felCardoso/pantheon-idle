@@ -15,14 +15,19 @@ export const ABILITY_MAX_LEVEL_BY_RARITY: Record<Rarity, number> = {
 };
 
 /**
- * The passive ability card itself is locked entirely below LTS (see
- * CharacterDetailModal) — 0 here means "locked", not "level 0 unlocked".
+ * The passive ability card is locked entirely below Zero-Day (docs/combate.md
+ * v3.1 §3, and see PASSIVE_UNLOCK_RARITY in engine/schema.ts) — 0 here means
+ * "locked", not "level 0 unlocked".
+ *
+ * LTS dropped from 1 to 0 alongside that change. No refund path is needed:
+ * level 1 has always been free, and level 2 (the only paid tier) already
+ * required Zero-Day, so nothing purchased is being revoked.
  */
 export const PASSIVE_MAX_LEVEL_BY_RARITY: Record<Rarity, number> = {
   Alpha: 0,
   Beta: 0,
   Stable: 0,
-  LTS: 1,
+  LTS: 0,
   'Zero-Day': 2,
 };
 

@@ -7,8 +7,8 @@
 // directory's files for the line-by-line origin of each copy).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.112.3';
 import { corsHeaders } from '../_shared/cors.ts';
-import { loadCharactersByIds, type OwnedCharacterEntry } from '../_shared/engine/loader.ts';
-import { runBattle } from '../_shared/engine/battle.ts';
+import { loadCharactersByIds, type OwnedCharacterEntry } from '../_shared/engine/core/loader.ts';
+import { runBattle } from '../_shared/engine/core/battle.ts';
 
 const K_FACTOR = 32;
 const REWARD_CREDITS_WIN = 30;

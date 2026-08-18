@@ -110,11 +110,15 @@ describe('loadCharactersByIds', () => {
     expect(medusa.activeAbilities.map((a) => a.id)).toEqual(['medusa-petrificar']);
   });
 
-  it('never equips a passive below the rarity gate, even when rarity is passed (no character has an authored passive yet, so this stays empty either way)', () => {
-    const [alpha] = loadCharactersByIds([{ id: 'medusa', xp: 0, rarity: 'Alpha' }]);
-    const [lts] = loadCharactersByIds([{ id: 'medusa', xp: 0, rarity: 'LTS' }]);
-    expect(alpha.activeAbilities.map((a) => a.id)).toEqual(['medusa-petrificar']);
-    expect(lts.activeAbilities.map((a) => a.id)).toEqual(['medusa-petrificar']);
+  it('never equips a passive below Zero-Day, and equipping the active is unaffected by rarity', () => {
+    // No character has an authored passiveAbilityId yet, so passiveAbilities is
+    // empty at every tier — this pins the gate's *shape* (rarity never leaks
+    // into the active slot) rather than a positive unlock, which needs content.
+    for (const rarity of ['Alpha', 'LTS', 'Zero-Day'] as const) {
+      const [medusa] = loadCharactersByIds([{ id: 'medusa', xp: 0, rarity }]);
+      expect(medusa.activeAbilities.map((a) => a.id)).toEqual(['medusa-petrificar']);
+      expect(medusa.passiveAbilities).toEqual([]);
+    }
   });
 });
 
