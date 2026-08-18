@@ -1,9 +1,10 @@
 import { UnitCard } from './UnitCard';
+import { AbilityCastOverlay } from './AbilityCastOverlay';
 import { Icon } from '../common/Icon';
 import { WORLD_BACKGROUND_BY_ID } from '../../data/engineDisplay';
 import { localFaseNumber } from '../../engine';
 import type { BattleUnit, StageInfo } from '../../types';
-import type { AbilityCastEvent, FloatingText, Reward } from '../../hooks/useBattleSimulation';
+import type { AbilityCastEvent, AttackAnimEvent, FloatingText, Reward } from '../../hooks/useBattleSimulation';
 
 interface BattleStageProps {
   allies: BattleUnit[];
@@ -17,8 +18,9 @@ interface BattleStageProps {
   lastReward: Reward | null;
   onNextBattle: () => void;
   floaters: FloatingText[];
-  /** Non-null while the darken-screen/name-slide/portrait callout for a just-used active ability should be showing. */
-  activeAbility: AbilityCastEvent | null;
+  /** At most one per side — a concurrent ally + enemy cast renders as a clash (both banners share one dim backdrop). */
+  activeAbilities: AbilityCastEvent[];
+  attackAnims: AttackAnimEvent[];
 }
 
 const WINNER_LABEL: Record<'allies' | 'enemies' | 'draw', string> = {
@@ -38,9 +40,20 @@ export function BattleStage({
   lastReward,
   onNextBattle,
   floaters,
-  activeAbility,
+  activeAbilities,
+  attackAnims,
 }: BattleStageProps) {
   const floatersFor = (unitId: string) => floaters.filter((f) => f.unitId === unitId);
+  // Newest event per unit only — a unit can't be mid-swing twice at once, and a fresh id is what
+  // restarts UnitCard's CSS animation (see its `key={attack?.id}`).
+  const attackFor = (unitId: string) => {
+    const event = [...attackAnims].reverse().find((a) => a.attackerId === unitId);
+    return event ? { id: event.id, tier: event.tier } : null;
+  };
+  const impactFor = (unitId: string) => {
+    const event = [...attackAnims].reverse().find((a) => a.defenderId === unitId && !a.dodged);
+    return event ? { id: event.id } : null;
+  };
   const backgroundArt = WORLD_BACKGROUND_BY_ID[stage.worldId];
 
   return (
@@ -114,7 +127,14 @@ export function BattleStage({
       <div className="absolute inset-x-0 bottom-6 z-10 flex items-end justify-center gap-2 overflow-x-auto px-2 sm:bottom-10 sm:gap-10 sm:px-3 md:gap-16">
         <div className="flex items-end gap-1.5 sm:gap-4">
           {allies.map((unit, i) => (
-            <UnitCard key={unit.id} unit={unit} delay={i * 220} floatingTexts={floatersFor(unit.id)} />
+            <UnitCard
+              key={unit.id}
+              unit={unit}
+              delay={i * 220}
+              floatingTexts={floatersFor(unit.id)}
+              attack={attackFor(unit.id)}
+              impactFlash={impactFor(unit.id)}
+            />
           ))}
         </div>
 
@@ -125,39 +145,19 @@ export function BattleStage({
 
         <div className="flex items-end gap-1.5 sm:gap-4">
           {enemies.map((unit, i) => (
-            <UnitCard key={unit.id} unit={unit} delay={i * 220 + 110} floatingTexts={floatersFor(unit.id)} />
+            <UnitCard
+              key={unit.id}
+              unit={unit}
+              delay={i * 220 + 110}
+              floatingTexts={floatersFor(unit.id)}
+              attack={attackFor(unit.id)}
+              impactFlash={impactFor(unit.id)}
+            />
           ))}
         </div>
       </div>
 
-      {activeAbility && (
-        <div key={activeAbility.id} className="absolute inset-0 z-[15] overflow-hidden">
-          <div className="absolute inset-0 animate-ability-cast-darken bg-void-950/75 opacity-0 backdrop-blur-[2px]" />
-          {activeAbility.portraitUrl && (
-            <img
-              src={activeAbility.portraitUrl}
-              alt=""
-              className={`absolute top-1/2 h-[65%] w-auto -translate-y-1/2 animate-ability-cast-portrait object-contain opacity-0 ${
-                activeAbility.isAlly ? 'left-[4%] sm:left-[10%]' : 'right-[4%] scale-x-[-1] sm:right-[10%]'
-              }`}
-            />
-          )}
-          <div className="relative flex h-full items-center justify-center px-4">
-            <div className="animate-ability-cast-text text-center opacity-0">
-              <p
-                className={`font-display text-[10px] font-bold uppercase tracking-[0.3em] sm:text-xs ${
-                  activeAbility.isAlly ? 'text-code-400' : 'text-signal-red'
-                }`}
-              >
-                {activeAbility.unitName}
-              </p>
-              <p className="font-display text-2xl font-black uppercase tracking-wide text-white text-glow-code sm:text-4xl">
-                {activeAbility.abilityName}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+      <AbilityCastOverlay activeAbilities={activeAbilities} />
 
       {finished && winner && (
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-void-950/70 backdrop-blur-sm">

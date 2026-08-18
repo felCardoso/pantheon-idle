@@ -68,6 +68,15 @@ export interface StageInfo {
 
 export type ChatTabId = 'global' | 'guild' | 'anuncios' | 'log';
 
+/**
+ * Only meaningful for tab: 'log' — which of the Log tab's independent filters
+ * ("Batalha" / "Vitórias" / "Derrota") this line belongs to. A draw is tagged
+ * 'result-draw' and shows whenever either result filter is on (docs request:
+ * "O log de empate deve sempre aparecer se Vitória ou Derrota estiverem
+ * selecionadas"). Chat messages on other tabs leave this unset.
+ */
+export type LogCategory = 'battle' | 'result-win' | 'result-loss' | 'result-draw';
+
 export interface ChatMessage {
   id: string;
   tab: ChatTabId;
@@ -75,6 +84,7 @@ export interface ChatMessage {
   text: string;
   time: string;
   tone?: 'default' | 'success' | 'danger' | 'system';
+  logCategory?: LogCategory;
 }
 
 export interface WikiPageMeta {

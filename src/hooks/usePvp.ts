@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { postApi } from '../lib/apiClient';
 import type { OwnedCharacter } from './useOwnedCharacters';
+import type { BattleLogEntry, Combatant } from '../engine';
 import type { Rarity } from '../types';
 
 export interface PvpOpponent {
@@ -15,6 +16,10 @@ export interface PvpAttackResult {
   ratingDelta: number;
   newRating: number;
   rewardCredits: number;
+  /** The fight itself, computed server-side (supabase/functions/pvp-attack) — feed straight into useBattleReplay to actually show it instead of just the outcome. */
+  log: BattleLogEntry[];
+  attackers: Combatant[];
+  defenders: Combatant[];
 }
 
 /** One row of the global PvP leaderboard (supabase/migrations/0018_pvp_ranking.sql's get_pvp_leaderboard). */

@@ -158,6 +158,12 @@ Deno.serve(async (req) => {
         ratingDelta: attackerDelta,
         newRating,
         rewardCredits: won ? REWARD_CREDITS_WIN : REWARD_CREDITS_LOSS,
+        // The fight itself, so the client can actually show it instead of just the outcome —
+        // same log/combatant shapes useBattleReplay already knows how to step through for PvE.
+        // Both rosters are small (<=5 a side), so this stays well within response-size budget.
+        log: result.log,
+        attackers,
+        defenders,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
