@@ -1,30 +1,12 @@
 import { PASSIVE_UNLOCK_RARITY, RARITY_RANK } from '../schema';
-import type { AbilityDefinition, CombatantData, CombatConstants, Rarity } from '../schema';
+import type { AbilityDefinition, CombatantData, Rarity } from '../schema';
 import type { Combatant } from './types';
 import { levelForXp, levelMultiplier } from './leveling';
 import type { WorldId } from './progression';
+import { CONSTANTS, WORLD_CONTENT } from '../data';
 
-import constantsJson from '../data/constants.json';
-import jurupariAbilities from '../data/abilities/jurupari.json';
-import jurupariCharacters from '../data/characters/jurupari.json';
-import jurupariEnemies from '../data/enemies/jurupari.json';
-import yggdrasilAbilities from '../data/abilities/yggdrasil.json';
-import yggdrasilCharacters from '../data/characters/yggdrasil.json';
-import yggdrasilEnemyAbilities from '../data/abilities/yggdrasil-enemies.json';
-import yggdrasilEnemies from '../data/enemies/yggdrasil.json';
-import olympusAbilities from '../data/abilities/olympus.json';
-import olympusCharacters from '../data/characters/olympus.json';
-import olympusEnemyAbilities from '../data/abilities/olympus-enemies.json';
-import olympusEnemies from '../data/enemies/olympus.json';
-import takamagaharaAbilities from '../data/abilities/takamagahara.json';
-import takamagaharaCharacters from '../data/characters/takamagahara.json';
-import takamagaharaEnemies from '../data/enemies/takamagahara.json';
-import duatAbilities from '../data/abilities/duat.json';
-import duatEnemies from '../data/enemies/duat.json';
-import orunAbilities from '../data/abilities/orun.json';
-import orunEnemies from '../data/enemies/orun.json';
-
-export const CONSTANTS = constantsJson as CombatConstants;
+// Re-exported so existing engine/UI call sites keep importing it from here.
+export { CONSTANTS };
 
 /**
  * Every playable ally character across all implemented mythologies, keyed by
@@ -34,12 +16,7 @@ export const CONSTANTS = constantsJson as CombatConstants;
  * mythology has ally characters yet (Duat/Orun have none so far; see
  * docs/personagens.md for the planned full 24-character roster).
  */
-const ALL_CHARACTERS = [
-  ...(jurupariCharacters as CombatantData[]),
-  ...(yggdrasilCharacters as CombatantData[]),
-  ...(olympusCharacters as CombatantData[]),
-  ...(takamagaharaCharacters as CombatantData[]),
-];
+const ALL_CHARACTERS: CombatantData[] = Object.values(WORLD_CONTENT).flatMap((w) => w.characters);
 
 const CHARACTER_REGISTRY: Record<string, CombatantData> = Object.fromEntries(ALL_CHARACTERS.map((c) => [c.id, c]));
 
@@ -61,16 +38,9 @@ export function characterIdsByMythology(): { mythology: string; ids: string[] }[
 }
 
 const ABILITY_REGISTRY: Record<string, AbilityDefinition> = Object.fromEntries(
-  [
-    ...(jurupariAbilities as AbilityDefinition[]),
-    ...(yggdrasilAbilities as AbilityDefinition[]),
-    ...(yggdrasilEnemyAbilities as AbilityDefinition[]),
-    ...(olympusAbilities as AbilityDefinition[]),
-    ...(olympusEnemyAbilities as AbilityDefinition[]),
-    ...(takamagaharaAbilities as AbilityDefinition[]),
-    ...(duatAbilities as AbilityDefinition[]),
-    ...(orunAbilities as AbilityDefinition[]),
-  ].map((a) => [a.id, a]),
+  Object.values(WORLD_CONTENT)
+    .flatMap((w) => w.abilities)
+    .map((a) => [a.id, a]),
 );
 
 function resolveAbilities(ids: string[]): AbilityDefinition[] {
@@ -253,7 +223,7 @@ export function loadCharactersByIds(entries: OwnedCharacterEntry[]): Combatant[]
 
 /** The original 4-character Jurupari.iso roster at level 0, still used by the CLI demo and existing tests. */
 export function loadJurupariAllies(): Combatant[] {
-  return loadCharactersByIds((jurupariCharacters as CombatantData[]).map((c) => ({ id: c.id, xp: 0 })));
+  return loadCharactersByIds(WORLD_CONTENT.jurupari.characters.map((c) => ({ id: c.id, xp: 0 })));
 }
 
 interface WorldEnemyData {
@@ -274,14 +244,9 @@ interface WorldEnemyData {
  * collision in one battle, the same reasoning that renamed Jurupari.iso's
  * "Caipora.sh"/"Curupira.sh" trash mobs once those became real allies.
  */
-const ENEMY_REGISTRY: Record<WorldId, WorldEnemyData> = {
-  jurupari: jurupariEnemies as WorldEnemyData,
-  duat: duatEnemies as WorldEnemyData,
-  orun: orunEnemies as WorldEnemyData,
-  takamagahara: takamagaharaEnemies as WorldEnemyData,
-  olympus: olympusEnemies as WorldEnemyData,
-  yggdrasil: yggdrasilEnemies as WorldEnemyData,
-};
+const ENEMY_REGISTRY = Object.fromEntries(
+  Object.entries(WORLD_CONTENT).map(([world, content]) => [world, content.enemies as WorldEnemyData]),
+) as Record<WorldId, WorldEnemyData>;
 
 /**
  * Builds a wave of `count` comuns enemies for the given world, cycling
