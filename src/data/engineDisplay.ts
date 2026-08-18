@@ -1,28 +1,31 @@
-import duatBg from "../assets/worlds/duat.png";
-import jurupariBg from "../assets/worlds/jurupari.png";
-import olympusBg from "../assets/worlds/olympus.png";
-import orunBg from "../assets/worlds/orun.png";
-import takamagaharaBg from "../assets/worlds/takamagahara.png";
-import yggdrasilBg from "../assets/worlds/yggrdasil.png";
+// Character/world art lives in public/assets (plain string URLs) rather than being
+// imported as modules — Next.js's bundler wraps imported images in a StaticImageData
+// object instead of the raw URL string these maps are typed/consumed as.
+const duatBg = "/assets/worlds/duat.png";
+const jurupariBg = "/assets/worlds/jurupari.png";
+const olympusBg = "/assets/worlds/olympus.png";
+const orunBg = "/assets/worlds/orun.png";
+const takamagaharaBg = "/assets/worlds/takamagahara.png";
+const yggdrasilBg = "/assets/worlds/yggrdasil.png";
 
-import amaterasuArt from "../assets/characters/amaterasu.png";
-import atenaArt from "../assets/characters/atena.png";
-import caiporaArt from "../assets/characters/caipora.png";
-import curupiraArt from "../assets/characters/curupira.png";
-import freyaArt from "../assets/characters/freya.png";
-import fujinArt from "../assets/characters/fujin.png";
-import hadesArt from "../assets/characters/hades.png";
-import herculesArt from "../assets/characters/hercules.png";
-import jurupariArt from "../assets/characters/jurupari.png";
-import kagutsuchiArt from "../assets/characters/kagutsuchi.png";
-import medusaArt from "../assets/characters/medusa.png";
-import minotauroArt from "../assets/characters/minotauro.png";
-import odinArt from "../assets/characters/odin.png";
-import raijinArt from "../assets/characters/raijin.png";
-import ratatoskrArt from "../assets/characters/ratatoskr.png";
-import saciArt from "../assets/characters/saci.png";
-import susanooArt from "../assets/characters/susanoo.png";
-import tsukoyomiArt from "../assets/characters/tsukoyomi.png";
+const amaterasuArt = "/assets/characters/amaterasu.png";
+const atenaArt = "/assets/characters/atena.png";
+const caiporaArt = "/assets/characters/caipora.png";
+const curupiraArt = "/assets/characters/curupira.png";
+const freyaArt = "/assets/characters/freya.png";
+const fujinArt = "/assets/characters/fujin.png";
+const hadesArt = "/assets/characters/hades.png";
+const herculesArt = "/assets/characters/hercules.png";
+const jurupariArt = "/assets/characters/jurupari.png";
+const kagutsuchiArt = "/assets/characters/kagutsuchi.png";
+const medusaArt = "/assets/characters/medusa.png";
+const minotauroArt = "/assets/characters/minotauro.png";
+const odinArt = "/assets/characters/odin.png";
+const raijinArt = "/assets/characters/raijin.png";
+const ratatoskrArt = "/assets/characters/ratatoskr.png";
+const saciArt = "/assets/characters/saci.png";
+const susanooArt = "/assets/characters/susanoo.png";
+const tsukoyomiArt = "/assets/characters/tsukoyomi.png";
 
 import type { Faction, Rarity } from "../types";
 
