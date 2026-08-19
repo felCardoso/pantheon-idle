@@ -5,6 +5,7 @@ import { StagePanel } from './layout/StagePanel';
 import { ChatPanel } from './layout/ChatPanel';
 import { BattleStage } from './battle/BattleStage';
 import { WorldMapModal } from './battle/WorldMapModal';
+import { PvpBattlePlayer } from './battle/PvpBattlePlayer';
 import { TeamPage } from './roster/TeamPage';
 import { CharactersPage } from './roster/CharactersPage';
 import { ShopPage } from './shop/ShopPage';
@@ -23,19 +24,14 @@ import { pvpRankTierFor } from '../data/pvpRank';
 import { MENU_ITEMS } from '../data/mock/menu';
 import { CHAT_MESSAGES } from '../data/mock/chat';
 import { useBattleSimulation } from '../hooks/useBattleSimulation';
-import {
-  CLUSTER_CREDIT_XP_BONUS_PERCENT,
-  usePlayerProgress,
-  VIP_CREDIT_XP_BONUS_PERCENT,
-  type TeamVisibility,
-} from '../hooks/usePlayerProgress';
+import { usePlayerProgress, type TeamVisibility } from '../hooks/usePlayerProgress';
 import { useOwnedCharacters, type FragmentStack, type OwnedCharacter } from '../hooks/useOwnedCharacters';
 import { usePlayerTeams } from '../hooks/usePlayerTeams';
 import { useProfile, type UpdateUsernameResult } from '../hooks/useProfile';
 import { useCluster } from '../hooks/useCluster';
-import { usePvp } from '../hooks/usePvp';
+import { usePvp, type PvpAttackResult } from '../hooks/usePvp';
 import { useMarket } from '../hooks/useMarket';
-import { selectedAbilityMapFrom, useCharacterProgression } from '../hooks/useCharacterProgression';
+import { useCharacterProgression } from '../hooks/useCharacterProgression';
 import type { ChatMessage, MenuItem, Rarity } from '../types';
 
 interface GameShellProps {
@@ -57,7 +53,6 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
     pvpTeamSlot,
     bannerPity,
     loading: progressLoading,
-    saveProgress,
     claimStarterBoost,
     spendTokens,
     setBytesFromServer,
@@ -92,16 +87,6 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
     );
   }
 
-  const bonusMultiplier = 1 + (vipActive ? VIP_CREDIT_XP_BONUS_PERCENT : 0) + (cluster.cluster ? CLUSTER_CREDIT_XP_BONUS_PERCENT : 0);
-
-  const pveTeam = teams.teams.find((t) => t.slot === pveTeamSlot);
-  const pveOwnedIds = new Set(pveTeam?.characterIds ?? []);
-  const pveResolvedCharacters = ownedCharacters.filter((c) => pveOwnedIds.has(c.characterId));
-  // Defensive fallback — battles always need at least 1 character (useBattleSimulation has "no
-  // fallback team"); this can only be empty during the brief window before a fresh account's
-  // teams finish initializing.
-  const pveCharacters = pveResolvedCharacters.length > 0 ? pveResolvedCharacters : ownedCharacters.slice(0, 5);
-
   return (
     <GameShellReady
       userId={userId}
@@ -115,12 +100,10 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
       initialCredits={progress.credits}
       initialXp={progress.xp}
       ownedCharacters={ownedCharacters}
-      pveCharacters={pveCharacters}
       fragments={fragments}
       addXp={addXp}
       sellFragment={sellFragment}
       refreshFragments={refreshFragments}
-      saveProgress={saveProgress}
       starterBoostClaimed={starterBoostClaimed}
       claimStarterBoost={claimStarterBoost}
       tokens={tokens}
@@ -136,7 +119,6 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
       vipExpiresAt={vipExpiresAt}
       purchaseVip={purchaseVip}
       claimDailyVipBonus={claimDailyVipBonus}
-      bonusMultiplier={bonusMultiplier}
       cluster={cluster}
       pvp={pvp}
       teams={teams}
@@ -163,13 +145,10 @@ interface GameShellReadyProps {
   initialCredits: number;
   initialXp: number;
   ownedCharacters: OwnedCharacter[];
-  /** Just the currently-selected PvE team's members (see GameShell's pveCharacters), what actually fights. */
-  pveCharacters: OwnedCharacter[];
   fragments: FragmentStack[];
   addXp: (amount: number) => void;
   sellFragment: (characterId: string, rarity: Rarity) => Promise<{ grantedBytes: number; bytes: number } | null>;
   refreshFragments: () => Promise<void>;
-  saveProgress: (next: { fase: number; estagio: number; credits: number; xp: number }) => void;
   starterBoostClaimed: boolean;
   claimStarterBoost: () => Promise<number | null>;
   tokens: number;
@@ -185,7 +164,6 @@ interface GameShellReadyProps {
   vipExpiresAt: string | null;
   purchaseVip: () => Promise<boolean>;
   claimDailyVipBonus: () => Promise<boolean>;
-  bonusMultiplier: number;
   cluster: ReturnType<typeof useCluster>;
   pvp: ReturnType<typeof usePvp>;
   teams: ReturnType<typeof usePlayerTeams>;
@@ -214,12 +192,10 @@ function GameShellReady({
   initialCredits,
   initialXp,
   ownedCharacters,
-  pveCharacters,
   fragments,
   addXp,
   sellFragment,
   refreshFragments,
-  saveProgress,
   starterBoostClaimed,
   claimStarterBoost,
   tokens,
@@ -235,7 +211,6 @@ function GameShellReady({
   vipExpiresAt,
   purchaseVip,
   claimDailyVipBonus,
-  bonusMultiplier,
   cluster,
   pvp,
   teams,
@@ -252,21 +227,17 @@ function GameShellReady({
   const [profileOpen, setProfileOpen] = useState(false);
   const [stageOpen, setStageOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  /** The rolled PvP encounter's resolved fight, once pvp.attack has run it. */
+  const [encounterBattle, setEncounterBattle] = useState<{ opponentName: string; result: PvpAttackResult } | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
-  const selectedAbilityByCharacterId = useMemo(
-    () => selectedAbilityMapFrom(characterProgression.progression),
-    [characterProgression.progression],
-  );
-
+  // Roster/abilities/bonuses aren't passed: app/api/battle/resolve reads them from the
+  // player's own rows, so the client can't misreport what it fought with or earned.
   const battle = useBattleSimulation({
-    initialOwnedCharacters: pveCharacters,
-    selectedAbilityByCharacterId,
     initialPosition: { fase: initialFase, estagio: initialEstagio },
     initialCredits,
     initialXp,
-    bonusMultiplier,
   });
   const clusterChatMessages = useMemo<ChatMessage[]>(
     () =>
@@ -322,23 +293,61 @@ function GameShellReady({
     [username, pvp.rating, battle.credits, battle.xp, tokens, bytes],
   );
 
-  const hasMounted = useRef(false);
+  // The server writes fase/estagio/credits/xp and every character's XP when it resolves a
+  // battle (lib/battle-resolve.ts), so there is nothing to persist from here any more — the
+  // client only mirrors what came back. Keeping the roster's XP display fresh is the one
+  // remaining job: apply the payout locally so the Team page doesn't lag a battle behind.
   const prevBattleXpRef = useRef(initialXp);
   useEffect(() => {
-    if (!hasMounted.current) {
-      hasMounted.current = true;
-      prevBattleXpRef.current = battle.xp;
-      return;
-    }
-    // frontierFase/frontierEstagio (not battle.stage.phase/stage) is the player's real saved
-    // position — replaying an earlier estágio via the mini-map moves the live-viewed stage
-    // without ever regressing this.
-    saveProgress({ fase: battle.frontierFase, estagio: battle.frontierEstagio, credits: battle.credits, xp: battle.xp });
-    // Every owned character fights together, so whatever XP the battle just paid out also levels them up.
     const gained = battle.xp - prevBattleXpRef.current;
     prevBattleXpRef.current = battle.xp;
     if (gained > 0) addXp(gained);
-  }, [battle.frontierFase, battle.frontierEstagio, battle.credits, battle.xp, saveProgress, addXp]);
+  }, [battle.xp, addXp]);
+
+  // Random PvP encounters (lib/battle-resolve.ts's rollPvpEncounter): the server decides a run
+  // has bumped into another player, and the fight goes through the same authoritative
+  // pvp-attack path as the opponent list's Atacar button.
+  const encounter = battle.pvpEncounter;
+  const clearPvpEncounter = battle.clearPvpEncounter;
+  // `pvp` is a fresh object every render, so the effect below re-runs constantly; without this
+  // guard a second attack could fire while the first is still in flight, charging the player
+  // two rating changes for one encounter.
+  const encounterInFlightRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!encounter || encounterBattle) return;
+    if (encounterInFlightRef.current === encounter.userId) return;
+    encounterInFlightRef.current = encounter.userId;
+    let cancelled = false;
+    (async () => {
+      const outcome = await pvp.attack(encounter);
+      if (cancelled) return;
+      if (!outcome.ok) {
+        // Nothing to show — drop the encounter and let the grind carry on.
+        setToast(outcome.message);
+        encounterInFlightRef.current = null;
+        clearPvpEncounter();
+        return;
+      }
+      setEncounterBattle({ opponentName: encounter.username, result: outcome.result });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [encounter, encounterBattle, pvp, clearPvpEncounter]);
+
+  function handleEncounterContinue() {
+    const finished = encounterBattle;
+    setEncounterBattle(null);
+    encounterInFlightRef.current = null;
+    clearPvpEncounter();
+    if (!finished) return;
+    battle.setWallet(battle.credits + finished.result.rewardCredits, battle.xp);
+    setToast(
+      finished.result.won
+        ? `PvP: vitória contra ${finished.opponentName}! +${finished.result.rewardCredits} créditos, ${finished.result.ratingDelta >= 0 ? '+' : ''}${finished.result.ratingDelta} rating.`
+        : `PvP: derrota para ${finished.opponentName}. ${finished.result.ratingDelta >= 0 ? '+' : ''}${finished.result.ratingDelta} rating.`,
+    );
+  }
 
   useEffect(() => {
     if (!toast) return;
@@ -537,6 +546,14 @@ function GameShellReady({
           frontier={{ fase: battle.frontierFase, estagio: battle.frontierEstagio }}
           onSelect={battle.playPosition}
           onClose={() => setMapOpen(false)}
+        />
+      )}
+      {encounterBattle && (
+        <PvpBattlePlayer
+          key={encounterBattle.opponentName + encounterBattle.result.newRating}
+          opponentName={encounterBattle.opponentName}
+          result={encounterBattle.result}
+          onContinue={handleEncounterContinue}
         />
       )}
       <Toast message={toast} />

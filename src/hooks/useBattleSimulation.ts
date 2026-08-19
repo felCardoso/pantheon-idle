@@ -1,102 +1,99 @@
-import { useCallback, useEffect, useReducer, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import {
   buildNameToId,
-  difficultyMultiplier,
-  enemyCountRange,
   ESTAGIOS_PER_FASE,
   FASES_PER_WORLD,
-  isBossStage,
-  loadCharactersByIds,
-  loadWorldBoss,
-  loadWorldComuns,
   localFaseNumber,
-  resolveProgression,
-  Rng,
-  runBattle,
-  teamSizeMultiplier,
   worldIdForFase,
   worldIndexForFase,
   type BattleLogEntry,
   type Combatant,
   type WorldPosition,
 } from '../engine';
+import { postApi } from '../lib/apiClient';
 import { WORLD_DISPLAY_BY_ID } from '../data/engineDisplay';
 import { toBattleUnits } from '../data/battleUnits';
 import { useBattleReplay, type AbilityCastEvent, type AttackAnimEvent, type FloatingText } from './useBattleReplay';
-import type { OwnedCharacter } from './useOwnedCharacters';
 import type { BattleUnit, ChatMessage, StageInfo } from '../types';
 
 export type { FloatingText, FloatingTextKind, AbilityCastEvent, AttackAnimEvent, AttackAnimTier } from './useBattleReplay';
 
+/**
+ * One already-resolved battle, exactly as app/api/battle/resolve computed it.
+ *
+ * The client no longer simulates PvE. The server runs the fight, decides the payout and
+ * commits it, then hands back the log — so `reward`/`creditsAfter`/`xpAfter` are known the
+ * moment the session arrives, and are merely *revealed* once the replay reaches the end.
+ * See lib/battle-resolve.ts for why this moved.
+ */
 interface BattleSession extends WorldPosition {
   seed: number;
   isBoss: boolean;
-  ownedCharacters: OwnedCharacter[];
   allies: Combatant[];
   enemies: Combatant[];
   log: BattleLogEntry[];
   nameToId: Record<string, string>;
-  /** Combined Root Access (+15%) / Cluster (+25%) reward multiplier in effect when this battle started — see usePlayerProgress.ts's VIP_CREDIT_XP_BONUS_PERCENT/CLUSTER_CREDIT_XP_BONUS_PERCENT. */
-  bonusMultiplier: number;
+  winner: 'allies' | 'enemies' | 'draw';
+  reward: Reward;
+  creditsAfter: number;
+  xpAfter: number;
+  /** Where the next battle should be fought, per the server's progression rules. */
+  nextPosition: WorldPosition;
 }
 
-/**
- * Enemies are calibrated against the original 4-character team; a player's
- * owned roster can now be smaller (a solo starter, until Invocação ships), so
- * scale enemy stats down proportionally on top of the per-estágio and
- * per-world difficulty. Non-boss waves also roll a random enemy count within
- * that estágio's enemyCountRange, using a separate Rng seeded off the
- * battle's own seed so the roll is deterministic (repeatBattle reproduces
- * it) without perturbing the battle simulation's own Rng sequence.
- */
-function createSession(
-  seed: number,
-  position: WorldPosition,
-  ownedCharacters: OwnedCharacter[],
-  bonusMultiplier: number,
-  selectedAbilityByCharacterId: Record<string, string>,
-): BattleSession {
-  const boss = isBossStage(position);
-  const worldId = worldIdForFase(position.fase);
-  const allies = loadCharactersByIds(
-    ownedCharacters.map((o) => ({ id: o.characterId, xp: o.xp, rarity: o.rarity, selectedAbilityId: selectedAbilityByCharacterId[o.characterId] })),
-  );
-  const sizeFactor = teamSizeMultiplier(ownedCharacters.length);
-  let enemies: Combatant[];
-  if (boss) {
-    // The boss only ever appears once per world (no intra-estágio scaling), but should still be
-    // that world's base multiplier harder than the previous world's boss — difficultyMultiplier at
-    // estágio 1 is exactly that base (no +5%-per-estágio component applied).
-    enemies = loadWorldBoss(worldId, sizeFactor * difficultyMultiplier({ fase: position.fase, estagio: 1 }));
-  } else {
-    const [min, max] = enemyCountRange(position.estagio);
-    const compositionRng = new Rng(seed);
-    const count = min + Math.floor(compositionRng.next() * (max - min + 1));
-    enemies = loadWorldComuns(worldId, count, difficultyMultiplier(position) * sizeFactor);
-  }
-  const result = runBattle(allies, enemies, { seed });
-  return { seed, ...position, isBoss: boss, ownedCharacters, allies, enemies, log: result.log, nameToId: buildNameToId(allies, enemies), bonusMultiplier };
+/** The shape app/api/battle/resolve returns — mirrors ResolveBattleResult in lib/battle-resolve.ts. */
+/** An opponent a battle rolled into — see lib/battle-resolve.ts's rollPvpEncounter. */
+export interface PvpEncounter {
+  userId: string;
+  username: string;
+  rating: number;
 }
 
-// The reward numbers below are the same across every world — a placeholder
-// until the real per-world economy (docs/mundos.md's "recompensas
-// específicas" per world) lands.
-const REWARDS: Record<'comuns' | 'boss', { win: { credits: number; xp: number }; lossOrDraw: { credits: number } }> = {
-  comuns: { win: { credits: 20, xp: 15 }, lossOrDraw: { credits: 5 } },
-  boss: { win: { credits: 80, xp: 40 }, lossOrDraw: { credits: 10 } },
-};
+interface ResolveBattleResponse {
+  seed: number;
+  position: WorldPosition;
+  isBoss: boolean;
+  winner: 'allies' | 'enemies' | 'draw';
+  log: BattleLogEntry[];
+  allies: Combatant[];
+  enemies: Combatant[];
+  reward: Reward;
+  credits: number;
+  xp: number;
+  nextPosition: WorldPosition;
+  frontier: WorldPosition;
+  recoveryWinsRemaining: number | null;
+  pvpEncounter: PvpEncounter | null;
+}
+
+function sessionFrom(response: ResolveBattleResponse): BattleSession {
+  return {
+    seed: response.seed,
+    fase: response.position.fase,
+    estagio: response.position.estagio,
+    isBoss: response.isBoss,
+    allies: response.allies,
+    enemies: response.enemies,
+    log: response.log,
+    nameToId: buildNameToId(response.allies, response.enemies),
+    winner: response.winner,
+    reward: response.reward,
+    creditsAfter: response.credits,
+    xpAfter: response.xp,
+    nextPosition: response.nextPosition,
+  };
+}
 
 export interface Reward {
   credits: number;
   xp: number;
 }
 
-/** Credits/XP earned for a battle's outcome — the single source both the log line and the running totals read from. Root Access/Cluster bonuses apply to both win and loss/draw payouts. */
-function rewardFor(winner: 'allies' | 'enemies' | 'draw', session: BattleSession): Reward {
-  const rewards = REWARDS[session.isBoss ? 'boss' : 'comuns'];
-  const base = winner === 'allies' ? rewards.win : { credits: rewards.lossOrDraw.credits, xp: 0 };
-  return { credits: Math.round(base.credits * session.bonusMultiplier), xp: Math.round(base.xp * session.bonusMultiplier) };
-}
+// Stable identities so useBattleReplay's memo/reset logic doesn't see a "new" empty battle on
+// every render during the window before the first server response arrives.
+const EMPTY_LOG: BattleLogEntry[] = [];
+const EMPTY_COMBATANTS: Combatant[] = [];
+const EMPTY_NAME_TO_ID: Record<string, string> = {};
 
 let chatIdCounter = 0;
 
@@ -121,7 +118,8 @@ function buildBattleSummary(winner: 'allies' | 'enemies' | 'draw', session: Batt
 }
 
 interface SessionState {
-  session: BattleSession;
+  /** Null until the first battle comes back from the server. */
+  session: BattleSession | null;
   /** Bumped on every new session — the replay hook's resetKey, so it knows to restart playback from t=0. */
   battleId: number;
   resultLogFeed: ChatMessage[];
@@ -137,33 +135,30 @@ interface SessionState {
    * resolveProgression for the full transition rules.
    */
   frontier: WorldPosition;
+  /** Where the next battle request should be fought — the server decides this from the last result. */
+  nextPosition: WorldPosition;
   /** Non-null while grinding back up after a retirar-se-ao-perder retreat — see progression.ts's resolveProgression. */
   recoveryWinsRemaining: number | null;
 }
 
 type SessionAction =
   | { type: 'reset'; session: BattleSession; frontier: WorldPosition; recoveryWinsRemaining: number | null }
-  | { type: 'battleEnd'; winner: 'allies' | 'enemies' | 'draw' }
+  | { type: 'battleEnd' }
   | { type: 'adjustCredits'; delta: number }
   | { type: 'setWallet'; credits: number; xp: number };
 
-function buildInitialSession(
-  seed: number,
-  position: WorldPosition,
-  ownedCharacters: OwnedCharacter[],
-  initialCredits: number,
-  initialXp: number,
-  bonusMultiplier: number,
-  selectedAbilityByCharacterId: Record<string, string>,
-): SessionState {
+function buildInitialSession(position: WorldPosition, initialCredits: number, initialXp: number): SessionState {
   return {
-    session: createSession(seed, position, ownedCharacters, bonusMultiplier, selectedAbilityByCharacterId),
+    session: null,
     battleId: 0,
     resultLogFeed: [],
     totalCredits: initialCredits,
     totalXp: initialXp,
     lastReward: null,
     frontier: position,
+    // Where the next requested battle should be fought — the saved position until the server
+    // says otherwise.
+    nextPosition: position,
     recoveryWinsRemaining: null,
   };
 }
@@ -180,16 +175,20 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
         totalXp: state.totalXp,
         lastReward: null,
         frontier: action.frontier,
+        nextPosition: action.session.nextPosition,
         recoveryWinsRemaining: action.recoveryWinsRemaining,
       };
     case 'battleEnd': {
-      const reward = rewardFor(action.winner, state.session);
+      // The server already committed this payout when it resolved the battle; reaching the end
+      // of the replay is only when the player gets to *see* it.
+      const session = state.session;
+      if (!session) return state;
       return {
         ...state,
-        resultLogFeed: [...state.resultLogFeed, buildBattleSummary(action.winner, state.session, reward)],
-        totalCredits: state.totalCredits + reward.credits,
-        totalXp: state.totalXp + reward.xp,
-        lastReward: reward,
+        resultLogFeed: [...state.resultLogFeed, buildBattleSummary(session.winner, session, session.reward)],
+        totalCredits: session.creditsAfter,
+        totalXp: session.xpAfter,
+        lastReward: session.reward,
       };
     }
     case 'adjustCredits':
@@ -199,11 +198,12 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
   }
 }
 
+/**
+ * Roster, ability picks and reward bonuses are deliberately absent: the server reads all three
+ * from the player's own rows when it resolves a battle, so passing them from here would be both
+ * redundant and untrustworthy. See lib/battle-resolve.ts.
+ */
 export interface UseBattleSimulationOptions {
-  /** The player's owned characters (id + xp) — who actually fights. Always required; there's no fallback team anymore. */
-  initialOwnedCharacters: OwnedCharacter[];
-  /** Keyed by characterId — the player's equipped active ability, from useCharacterProgression. Missing entries fall back to activeOptions[0] (see loader.ts's resolveCombatantAbilities). Read fresh on every new battle, same as bonusMultiplier. */
-  selectedAbilityByCharacterId?: Record<string, string>;
   /** Milliseconds between revealed log entries while playing. */
   tickMs?: number;
   /** Pause after Vitória!/Derrota before auto-advancing to the next attempt. */
@@ -213,8 +213,6 @@ export interface UseBattleSimulationOptions {
   /** Resume from a saved wallet instead of starting at 0. */
   initialCredits?: number;
   initialXp?: number;
-  /** Combined Root Access/Cluster reward multiplier (1 = no bonus) — read fresh on every new battle, not just at mount. */
-  bonusMultiplier?: number;
 }
 
 export interface BattleSimulation {
@@ -258,180 +256,151 @@ export interface BattleSimulation {
   playStage: (estagio: number) => void;
   /** Jumps to any already-reached position in any world (the world map), leaving frontier untouched. */
   playPosition: (position: WorldPosition) => void;
+  /** Set when a battle request failed (offline, session expired, position not unlocked). */
+  error: string | null;
+  /**
+   * Non-null once the battle on screen has finished and it rolled a PvP encounter. Auto-advance
+   * holds until `clearPvpEncounter` is called, so the PvP fight isn't cut off by the next PvE one.
+   */
+  pvpEncounter: PvpEncounter | null;
+  clearPvpEncounter: () => void;
 }
 
 export function useBattleSimulation(options: UseBattleSimulationOptions): BattleSimulation {
-  const {
-    initialOwnedCharacters,
-    selectedAbilityByCharacterId = {},
-    tickMs = 500,
-    autoAdvanceDelayMs = 1600,
-    initialPosition = { fase: 1, estagio: 1 },
-    initialCredits = 0,
-    initialXp = 0,
-    bonusMultiplier = 1,
-  } = options;
+  const { tickMs = 500, autoAdvanceDelayMs = 1600, initialPosition = { fase: 1, estagio: 1 }, initialCredits = 0, initialXp = 0 } = options;
   const [playing, setPlaying] = useState(true);
   // 'advance' (Avançar) or 'repeat' (Repetir estágio) — which resolveProgression rules apply on
   // each finish. Kept outside the reducer since it's UI-driven mode, not battle state.
   const [mode, setMode] = useState<'advance' | 'repeat'>('advance');
   const [retreatOnLoss, setRetreatOnLoss] = useState(true);
-  const [state, dispatch] = useReducer(sessionReducer, undefined, () =>
-    buildInitialSession(Date.now() >>> 0, initialPosition, initialOwnedCharacters, initialCredits, initialXp, bonusMultiplier, selectedAbilityByCharacterId),
-  );
+  const [state, dispatch] = useReducer(sessionReducer, undefined, () => buildInitialSession(initialPosition, initialCredits, initialXp));
+  const [error, setError] = useState<string | null>(null);
+  const [pendingEncounter, setPendingEncounter] = useState<PvpEncounter | null>(null);
 
-  const onBattleEnd = useCallback((winner: 'allies' | 'enemies' | 'draw') => dispatch({ type: 'battleEnd', winner }), []);
+  const onBattleEnd = useCallback(() => dispatch({ type: 'battleEnd' }), []);
   const replay = useBattleReplay({
-    log: state.session.log,
-    allies: state.session.allies,
-    enemies: state.session.enemies,
-    nameToId: state.session.nameToId,
+    log: state.session?.log ?? EMPTY_LOG,
+    allies: state.session?.allies ?? EMPTY_COMBATANTS,
+    enemies: state.session?.enemies ?? EMPTY_COMBATANTS,
+    nameToId: state.session?.nameToId ?? EMPTY_NAME_TO_ID,
     resetKey: state.battleId,
     playing,
     tickMs,
     onBattleEnd,
   });
 
-  // World progression — see progression.ts's resolveProgression for the full Avançar/Repetir/
-  // retirar-se-ao-perder rules this follows. Only while Auto is on.
-  // Uses the *current* initialOwnedCharacters (not state.session.ownedCharacters, which is
-  // frozen at whatever the previous battle started with) so XP earned since the last battle
-  // is reflected in the next one's stats, not just in the Team page display.
+  /**
+   * Asks the server for the next battle. The client sends only intent — advance or repeat, and
+   * which already-unlocked stage to fight — and the server decides the outcome, the payout and
+   * where the run goes next (lib/battle-resolve.ts).
+   *
+   * `inFlightRef` keeps the auto-advance loop from stacking requests if one is slow: a battle
+   * request is only ever issued when none is outstanding.
+   */
+  const inFlightRef = useRef(false);
+  const requestBattle = useCallback(
+    async (nextMode: 'advance' | 'repeat', position?: WorldPosition) => {
+      if (inFlightRef.current) return;
+      inFlightRef.current = true;
+      try {
+        const response = await postApi<ResolveBattleResponse>('/api/battle/resolve', {
+          mode: nextMode,
+          retreatOnLoss,
+          position,
+        });
+        setError(null);
+        setPendingEncounter(response.pvpEncounter);
+        dispatch({
+          type: 'reset',
+          session: sessionFrom(response),
+          frontier: response.frontier,
+          recoveryWinsRemaining: response.recoveryWinsRemaining,
+        });
+        setPlaying(true);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Não foi possível iniciar a batalha.');
+      } finally {
+        inFlightRef.current = false;
+      }
+    },
+    [retreatOnLoss],
+  );
+
+  // First battle of the session.
+  const started = useRef(false);
   useEffect(() => {
-    if (!replay.finished || !playing) return;
-    const position: WorldPosition = { fase: state.session.fase, estagio: state.session.estagio };
-    const won = replay.winner === 'allies';
-    const result = resolveProgression(
-      { position, frontier: state.frontier, recoveryWinsRemaining: state.recoveryWinsRemaining },
-      { mode, retreatOnLoss, won },
-    );
+    if (started.current) return;
+    started.current = true;
+    requestBattle('advance', initialPosition);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-advance: once the replay finishes, ask for the next battle. The server applies the
+  // Avançar/Repetir/retirar-se-ao-perder rules and told us where to fight next.
+  useEffect(() => {
+    if (!replay.finished || !playing || !state.session) return;
+    // A rolled PvP encounter interrupts the grind: hold the next PvE battle until the shell has
+    // played it out and cleared it.
+    if (pendingEncounter) return;
+    const nextPosition = state.nextPosition;
     const timer = setTimeout(() => {
-      dispatch({
-        type: 'reset',
-        session: createSession(Date.now() >>> 0, result.position, initialOwnedCharacters, bonusMultiplier, selectedAbilityByCharacterId),
-        frontier: result.frontier,
-        recoveryWinsRemaining: result.recoveryWinsRemaining,
-      });
+      requestBattle(mode, nextPosition);
     }, autoAdvanceDelayMs);
     return () => clearTimeout(timer);
-  }, [
-    replay.finished,
-    replay.winner,
-    state.session,
-    state.frontier,
-    state.recoveryWinsRemaining,
-    playing,
-    mode,
-    retreatOnLoss,
-    autoAdvanceDelayMs,
-    initialOwnedCharacters,
-    bonusMultiplier,
-    selectedAbilityByCharacterId,
-  ]);
+  }, [replay.finished, playing, state.session, state.nextPosition, mode, autoAdvanceDelayMs, requestBattle, pendingEncounter]);
 
   const startNewBattle = useCallback(() => {
-    // Already advancing — the auto-advance effect is already driving this; a redundant click
-    // shouldn't force an extra resolveProgression pass against whatever the battle's current
-    // (possibly mid-fight) winner happens to be.
-    if (mode === 'advance') return;
+    // Already advancing — the auto-advance effect is already driving this, so a redundant click
+    // shouldn't queue a second battle. The exception is a stalled run: if the last request
+    // failed, or none has landed yet, nothing is driving the loop and this is the retry.
+    if (mode === 'advance' && state.session && !error) return;
     setMode('advance');
-    const position: WorldPosition = { fase: state.session.fase, estagio: state.session.estagio };
-    const won = replay.winner === 'allies';
-    const result = resolveProgression(
-      { position, frontier: state.frontier, recoveryWinsRemaining: state.recoveryWinsRemaining },
-      { mode: 'advance', retreatOnLoss, won },
-    );
-    dispatch({
-      type: 'reset',
-      session: createSession(Date.now() >>> 0, result.position, initialOwnedCharacters, bonusMultiplier, selectedAbilityByCharacterId),
-      frontier: result.frontier,
-      recoveryWinsRemaining: result.recoveryWinsRemaining,
-    });
-    setPlaying(true);
-  }, [
-    mode,
-    state.session.fase,
-    state.session.estagio,
-    replay.winner,
-    state.frontier,
-    state.recoveryWinsRemaining,
-    retreatOnLoss,
-    initialOwnedCharacters,
-    bonusMultiplier,
-    selectedAbilityByCharacterId,
-  ]);
+    requestBattle('advance', state.nextPosition);
+  }, [mode, state.session, error, state.nextPosition, requestBattle]);
 
   const repeatBattle = useCallback(() => {
     // Already repeating — nothing to change; avoids restarting the current battle mid-fight.
     if (mode === 'repeat') return;
     setMode('repeat');
-    const position: WorldPosition = { fase: state.session.fase, estagio: state.session.estagio };
-    const won = replay.winner === 'allies';
-    const result = resolveProgression(
-      { position, frontier: state.frontier, recoveryWinsRemaining: state.recoveryWinsRemaining },
-      { mode: 'repeat', retreatOnLoss, won },
-    );
-    // Reuse the exact same seed for a true instant-replay when nothing moved; a retreat lands on
-    // a different estágio entirely, so a fresh seed makes more sense there.
-    const seed = result.position.fase === position.fase && result.position.estagio === position.estagio ? state.session.seed : Date.now() >>> 0;
-    dispatch({
-      type: 'reset',
-      session: createSession(seed, result.position, initialOwnedCharacters, bonusMultiplier, selectedAbilityByCharacterId),
-      frontier: result.frontier,
-      recoveryWinsRemaining: result.recoveryWinsRemaining,
-    });
-    setPlaying(true);
-  }, [
-    mode,
-    state.session.fase,
-    state.session.estagio,
-    state.session.seed,
-    replay.winner,
-    state.frontier,
-    state.recoveryWinsRemaining,
-    retreatOnLoss,
-    initialOwnedCharacters,
-    bonusMultiplier,
-    selectedAbilityByCharacterId,
-  ]);
+    const current = state.session ? { fase: state.session.fase, estagio: state.session.estagio } : state.nextPosition;
+    requestBattle('repeat', current);
+  }, [mode, state.session, state.nextPosition, requestBattle]);
 
   const playPosition = useCallback(
     (position: WorldPosition) => {
-      dispatch({
-        type: 'reset',
-        session: createSession(Date.now() >>> 0, position, initialOwnedCharacters, bonusMultiplier, selectedAbilityByCharacterId),
-        frontier: state.frontier,
-        recoveryWinsRemaining: null,
-      });
-      setPlaying(true);
+      requestBattle(mode, position);
     },
-    [state.frontier, initialOwnedCharacters, bonusMultiplier, selectedAbilityByCharacterId],
+    [mode, requestBattle],
   );
 
   /** The mini-map's within-the-current-fase case of playPosition. */
   const playStage = useCallback(
-    (estagio: number) => playPosition({ fase: state.session.fase, estagio }),
-    [playPosition, state.session.fase],
+    (estagio: number) => playPosition({ fase: (state.session ?? state.nextPosition).fase, estagio }),
+    [playPosition, state.session, state.nextPosition],
   );
 
+  const clearPvpEncounter = useCallback(() => setPendingEncounter(null), []);
   const adjustCredits = useCallback((delta: number) => dispatch({ type: 'adjustCredits', delta }), []);
   const setWallet = useCallback((credits: number, xp: number) => dispatch({ type: 'setWallet', credits, xp }), []);
 
-  const stageWorldId = worldIdForFase(state.session.fase);
+  // Before the first server response there is no battle to show, but the HUD still needs a
+  // position to render — fall back to where the next battle will be fought.
+  const viewedPosition = state.session ? { fase: state.session.fase, estagio: state.session.estagio } : state.nextPosition;
+  const stageWorldId = worldIdForFase(viewedPosition.fase);
   const stageWorldDisplay = WORLD_DISPLAY_BY_ID[stageWorldId];
 
   return {
-    allies: toBattleUnits(state.session.allies, replay.replay, replay.replay.allyOrder, true),
-    enemies: toBattleUnits(state.session.enemies, replay.replay, replay.replay.enemyOrder, false),
+    allies: state.session ? toBattleUnits(state.session.allies, replay.replay, replay.replay.allyOrder, true) : [],
+    enemies: state.session ? toBattleUnits(state.session.enemies, replay.replay, replay.replay.enemyOrder, false) : [],
     stage: {
       worldId: stageWorldId,
       worldName: stageWorldDisplay.name,
       worldSubtitle: stageWorldDisplay.subtitle,
-      phase: state.session.fase,
-      stage: state.session.estagio,
+      phase: viewedPosition.fase,
+      stage: viewedPosition.estagio,
       // Each world's own last fase has a 6th slot for its boss, one past its 5 regular estágios.
-      totalStages: localFaseNumber(state.session.fase) === FASES_PER_WORLD ? ESTAGIOS_PER_FASE + 1 : ESTAGIOS_PER_FASE,
-      isBoss: state.session.isBoss,
+      totalStages: localFaseNumber(viewedPosition.fase) === FASES_PER_WORLD ? ESTAGIOS_PER_FASE + 1 : ESTAGIOS_PER_FASE,
+      isBoss: state.session?.isBoss ?? false,
       round: Math.floor(replay.replay.now),
     },
     logFeed: [...replay.abilityLogFeed, ...state.resultLogFeed],
@@ -457,5 +426,10 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     frontierEstagio: state.frontier.estagio,
     playStage,
     playPosition,
+    error,
+    // Only surfaced once the PvE fight on screen is over — interrupting mid-battle would cut the
+    // replay off halfway.
+    pvpEncounter: replay.finished ? pendingEncounter : null,
+    clearPvpEncounter,
   };
 }
