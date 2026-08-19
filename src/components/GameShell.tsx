@@ -30,6 +30,7 @@ import { usePlayerTeams } from '../hooks/usePlayerTeams';
 import { useProfile, type UpdateUsernameResult } from '../hooks/useProfile';
 import { useCluster } from '../hooks/useCluster';
 import { usePvp, type PvpAttackResult } from '../hooks/usePvp';
+import { usePlayerModules } from '../hooks/usePlayerModules';
 import { useMarket } from '../hooks/useMarket';
 import { useCharacterProgression } from '../hooks/useCharacterProgression';
 import type { ChatMessage, MenuItem, Rarity } from '../types';
@@ -56,6 +57,7 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
     claimStarterBoost,
     spendTokens,
     setBytesFromServer,
+    setTokensFromServer,
     setTeamVisibility,
     purchaseVip,
     claimDailyVipBonus,
@@ -110,6 +112,7 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
       spendTokens={spendTokens}
       bytes={bytes}
       setBytesFromServer={setBytesFromServer}
+      setTokensFromServer={setTokensFromServer}
       bannerPity={bannerPity}
       syncFromGachaResponse={syncFromGachaResponse}
       characterProgression={characterProgression}
@@ -147,7 +150,7 @@ interface GameShellReadyProps {
   ownedCharacters: OwnedCharacter[];
   fragments: FragmentStack[];
   applyBattleXp: (xpByCharacterId: Record<string, number>) => void;
-  sellFragment: (characterId: string, rarity: Rarity) => Promise<{ grantedBytes: number; bytes: number } | null>;
+  sellFragment: (characterId: string, rarity: Rarity, count?: number) => Promise<{ grantedBytes: number; bytes: number } | null>;
   refreshFragments: () => Promise<void>;
   starterBoostClaimed: boolean;
   claimStarterBoost: () => Promise<number | null>;
@@ -155,6 +158,7 @@ interface GameShellReadyProps {
   spendTokens: (amount: number) => Promise<boolean>;
   bytes: number;
   setBytesFromServer: (bytes: number) => void;
+  setTokensFromServer: (tokens: number) => void;
   bannerPity: number;
   syncFromGachaResponse: (next: { tokens: number; bannerPity: number; bannerGuaranteed: boolean }) => void;
   characterProgression: ReturnType<typeof useCharacterProgression>;
@@ -202,6 +206,7 @@ function GameShellReady({
   spendTokens,
   bytes,
   setBytesFromServer,
+  setTokensFromServer,
   bannerPity,
   syncFromGachaResponse,
   characterProgression,
@@ -227,6 +232,7 @@ function GameShellReady({
   const [profileOpen, setProfileOpen] = useState(false);
   const [stageOpen, setStageOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  const playerModules = usePlayerModules(userId);
   /** The rolled PvP encounter's resolved fight, once pvp.attack has run it. */
   const [encounterBattle, setEncounterBattle] = useState<{ opponentName: string; result: PvpAttackResult } | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
@@ -252,6 +258,27 @@ function GameShellReady({
   );
   const chatMessages = useMemo(() => [...CHAT_MESSAGES, ...battle.logFeed], [battle.logFeed]);
 
+  async function handleUpgradeBench(characterId: string) {
+    const nextCredits = await characterProgression.upgradeBench(characterId);
+    if (nextCredits === null) {
+      setToast(characterProgression.error ?? 'Não foi possível melhorar a habilidade de banco.');
+      return;
+    }
+    battle.setWallet(nextCredits, battle.xp);
+    setToast('Habilidade de banco melhorada!');
+  }
+
+  async function handleUpgradeVersion(characterId: string) {
+    const version = await characterProgression.upgradeVersion(characterId);
+    if (version === null) {
+      setToast(characterProgression.error ?? 'Não foi possível evoluir a versão.');
+      return;
+    }
+    // The route spent fragments, so the local inventory is now stale.
+    await refreshFragments();
+    setToast('Versão evoluída!');
+  }
+
   async function handleUpgradeAbility(characterId: string) {
     const nextCredits = await characterProgression.upgradeAbility(characterId);
     if (nextCredits === null) {
@@ -272,8 +299,8 @@ function GameShellReady({
     setToast('Passiva melhorada!');
   }
 
-  async function handleSellFragment(characterId: string, rarity: Rarity) {
-    const result = await sellFragment(characterId, rarity);
+  async function handleSellFragment(characterId: string, rarity: Rarity, count = 1) {
+    const result = await sellFragment(characterId, rarity, count);
     if (result) setBytesFromServer(result.bytes);
     return result;
   }
@@ -407,10 +434,15 @@ function GameShellReady({
           ) : activeMenuId === 'forge' ? (
             <UpgradesPage
               ownedCharacters={ownedCharacters}
+              fragments={fragments}
               progression={characterProgression.progression}
               credits={battle.credits}
+              modules={playerModules.modules}
               onUpgradeAbility={handleUpgradeAbility}
+              onUpgradeBench={handleUpgradeBench}
               onUpgradePassive={handleUpgradePassive}
+              onUpgradeVersion={handleUpgradeVersion}
+              onEquipModule={playerModules.equip}
             />
           ) : activeMenuId === 'shop' ? (
             <ShopPage
@@ -439,6 +471,8 @@ function GameShellReady({
               onSetWallet={battle.setWallet}
               onSyncGachaState={syncFromGachaResponse}
               onNewCharacter={teams.autoAddToTeam1}
+              onModulesChanged={playerModules.refresh}
+              onSetTokens={setTokensFromServer}
             />
           ) : activeMenuId === 'guild' ? (
             <ClusterPage userId={userId} cluster={cluster} bandwidth={0} onToast={setToast} />

@@ -21,6 +21,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
+  ChevronUp,
   Play,
   RotateCcw,
   FlagOff,
@@ -58,6 +59,7 @@ import {
   Unlock,
   ArrowUpCircle,
   Trophy,
+  Cpu,
   type LucideProps,
 } from 'lucide-react';
 import type { FC } from 'react';
@@ -85,6 +87,7 @@ const REGISTRY: Record<string, FC<LucideProps>> = {
   'chevron-left': ChevronLeft,
   'chevron-right': ChevronRight,
   'chevron-down': ChevronDown,
+  'chevron-up': ChevronUp,
   play: Play,
   'rotate-ccw': RotateCcw,
   'flag-off': FlagOff,
@@ -122,6 +125,7 @@ const REGISTRY: Record<string, FC<LucideProps>> = {
   unlock: Unlock,
   'arrow-up-circle': ArrowUpCircle,
   trophy: Trophy,
+  cpu: Cpu,
 };
 
 interface IconProps extends LucideProps {

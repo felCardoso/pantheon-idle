@@ -1,6 +1,7 @@
 import 'server-only';
 import { supabaseAdmin } from './supabase-admin';
 import { RARITY_RANK } from '../src/engine';
+import { FRAGMENTS_PER_DUPLICATE_BY_RARITY } from '../src/data/characterVersion';
 import type { Rarity } from '../src/types';
 
 export type AcquireOutcome = 'new' | 'upgraded' | 'duplicate';
@@ -44,7 +45,9 @@ export async function applyAcquire(
     } else {
       outcome = 'duplicate';
       const key = `${characterId}:${rarity}`;
-      const nextCount = (fragmentCountByKey.get(key) ?? 0) + 1;
+      // A duplicate yields fragments by the rarity that landed (1 Alpha ... 100 Zero-Day), so the
+      // version track rewards pulling *well*, not merely often — see data/characterVersion.ts.
+      const nextCount = (fragmentCountByKey.get(key) ?? 0) + FRAGMENTS_PER_DUPLICATE_BY_RARITY[rarity];
       fragmentCountByKey.set(key, nextCount);
       fragmentDeltas.set(key, { character_id: characterId, rarity, count: nextCount });
     }

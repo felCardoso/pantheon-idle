@@ -17,7 +17,7 @@ interface MarketPageProps {
   bytes: number;
   /** Reconciles battle.credits/xp with an authoritative response — see useBattleSimulation.ts's setWallet. */
   onSetWallet: (credits: number, xp: number) => void;
-  onSellFragment: (characterId: string, rarity: Rarity) => Promise<{ grantedBytes: number; bytes: number } | null>;
+  onSellFragment: (characterId: string, rarity: Rarity, count?: number) => Promise<{ grantedBytes: number; bytes: number } | null>;
   onRefreshFragments: () => Promise<void>;
   onToast: (message: string) => void;
 }
@@ -66,13 +66,13 @@ export function MarketPage({
     ? fragments.find((f) => f.characterId === publishTarget.characterId && f.rarity === publishTarget.rarity)?.count ?? 0
     : 0;
 
-  async function handleConvertFragment(characterId: string, rarity: Rarity) {
+  async function handleConvertFragment(characterId: string, rarity: Rarity, count: number) {
     const key = stackKey(characterId, rarity);
     if (convertingId) return;
     setConvertingId(key);
-    const result = await onSellFragment(characterId, rarity);
+    const result = await onSellFragment(characterId, rarity, count);
     setConvertingId(null);
-    if (result) onToast(`+${result.grantedBytes} bytes pela conversão do diagrama.`);
+    if (result) onToast(`+${result.grantedBytes} bytes pela conversão de ${count === 1 ? 'um diagrama' : `${count} diagramas`}.`);
     else onToast('Não foi possível converter o diagrama.');
   }
 
@@ -178,15 +178,27 @@ export function MarketPage({
                         </p>
                       </div>
                     </div>
-                    <button
-                      onClick={() => handleConvertFragment(f.characterId, f.rarity)}
-                      disabled={convertingId === key}
-                      className="flex shrink-0 items-center gap-1.5 rounded-lg border border-void-600 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-white/70 transition hover:border-signal-cyan/50 hover:text-signal-cyan disabled:opacity-50"
-                    >
-                      {convertingId === key && <Icon name="loader" size={12} className="animate-spin" />}
-                      <Icon name="binary" size={12} />
-                      Converter +{rate}
-                    </button>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <button
+                        onClick={() => handleConvertFragment(f.characterId, f.rarity, 1)}
+                        disabled={convertingId === key}
+                        className="flex shrink-0 items-center gap-1.5 rounded-lg border border-void-600 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-white/70 transition hover:border-signal-cyan/50 hover:text-signal-cyan disabled:opacity-50"
+                      >
+                        {convertingId === key && <Icon name="loader" size={12} className="animate-spin" />}
+                        <Icon name="binary" size={12} />
+                        Converter +{rate}
+                      </button>
+                      {f.count > 1 && (
+                        <button
+                          onClick={() => handleConvertFragment(f.characterId, f.rarity, f.count)}
+                          disabled={convertingId === key}
+                          title={`Converter os ${f.count} diagramas de uma vez`}
+                          className="shrink-0 rounded-lg border border-void-600 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-white/50 transition hover:border-signal-cyan/50 hover:text-signal-cyan disabled:opacity-50"
+                        >
+                          Tudo +{rate * f.count}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}

@@ -7,6 +7,9 @@ import { SummonReel } from './SummonReel';
 import { AnimatedBorderCard } from './AnimatedBorderCard';
 import { buildCompendium, currentShowcaseWeek, pickWeeklyBannerCharacter, RARITY_RANK, type GachaTier, type RosterCharacter } from '../../data/roster';
 import { BANNER_PULL_PRICE_TOKENS, COMMON_PULL_PRICE_CREDITS, IMPROVED_PULL_PRICE_TOKENS, BUNDLE_SIZE, bundlePrice } from '../../data/gachaPricing';
+import { MODULE_CAPSULE_BUNDLE, MODULE_CAPSULE_BUNDLE_COST_TOKENS, MODULE_CAPSULE_COST_TOKENS } from '../../data/playerEconomy';
+import { FRAGMENTS_PER_DUPLICATE_BY_RARITY } from '../../data/characterVersion';
+import { MODULE_BY_ID, describeModule, type ModuleRarity } from '../../data/modules';
 import { RARITY_COLOR } from '../../data/theme';
 import { BANNER_PITY_MAX } from '../../hooks/usePlayerProgress';
 import { postApi } from '../../lib/apiClient';
@@ -18,12 +21,20 @@ const REEL_LENGTH = 24;
 /** The banner's spotlighted character always displays at this rarity, independent of anything a pull actually rolls. */
 const BANNER_DISPLAY_RARITY: Rarity = 'Zero-Day';
 
+/** Módulo grades, mirroring upgrades/ModuleSlots.tsx so a rune reads the same in both screens. */
+const MODULE_GRADE_COLOR: Record<ModuleRarity, string> = { S: '#ffd029', A: '#c34aff', B: '#39a0ff', C: '#8b93a7' };
+
 interface GachaRollResponse {
   results: { characterId: string; rarity: Rarity; outcome: AcquireOutcome }[];
   credits: number;
   tokens: number;
   bannerPity: number;
   bannerGuaranteed: boolean;
+}
+
+interface ModuleRollResponse {
+  modules: { moduleId: string; rarity: ModuleRarity; slot: string }[];
+  tokens: number;
 }
 
 interface GachaClaimPityResponse {
@@ -45,6 +56,10 @@ interface GachaPageProps {
   onSyncGachaState: (next: { tokens: number; bannerPity: number; bannerGuaranteed: boolean }) => void;
   /** Called once per pull that resolved 'new' — adds the character to Time1 if it has room. */
   onNewCharacter: (characterId: string) => void;
+  /** Re-reads player_modules after a `.rar` capsule so Melhorias sees the new runes. */
+  onModulesChanged: () => void;
+  /** Syncs the token balance a `.rar` capsule debited, without touching banner pity. */
+  onSetTokens: (tokens: number) => void;
 }
 
 interface PullResult {
@@ -69,6 +84,8 @@ export function GachaPage({
   onSetWallet,
   onSyncGachaState,
   onNewCharacter,
+  onModulesChanged,
+  onSetTokens,
 }: GachaPageProps) {
   const [pulling, setPulling] = useState(false);
   const [reelItems, setReelItems] = useState<RosterCharacter[] | null>(null);
@@ -76,6 +93,8 @@ export function GachaPage({
   const [batchReveal, setBatchReveal] = useState<PullResult[] | null>(null);
   const [viewingBanner, setViewingBanner] = useState(false);
   const [claimingPity, setClaimingPity] = useState(false);
+  const [rollingModules, setRollingModules] = useState(false);
+  const [moduleReveal, setModuleReveal] = useState<ModuleRollResponse['modules'] | null>(null);
   const pendingRef = useRef<PullResult[]>([]);
 
   const compendium = buildCompendium();
@@ -154,6 +173,20 @@ export function GachaPage({
         ? `Diagrama Zero-Day de ${bannerCharacter.name} extraído — convertido em fragmento.`
         : `${bannerCharacter.name}.exe extraído com root access garantido!`,
     );
+  }
+
+  async function handleRollModules(count: number) {
+    if (rollingModules) return;
+    setRollingModules(true);
+    try {
+      const response = await postApi<ModuleRollResponse>('/api/modules/roll', { count });
+      onSetTokens(response.tokens);
+      setModuleReveal(response.modules);
+      onModulesChanged();
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : 'Falha ao abrir a cápsula.');
+    }
+    setRollingModules(false);
   }
 
   const revealInfo = reveal ? byId.get(reveal.characterId) : null;
@@ -315,6 +348,74 @@ export function GachaPage({
           </AnimatedBorderCard>
         </div>
 
+        {/* Cápsula `.rar` — Módulos */}
+        <AnimatedBorderCard accentColor="#ffa229">
+          <div className="flex flex-col gap-3 rounded-[10px] p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-signal-amber/30 bg-signal-amber/10">
+                <Icon name="cpu" size={20} className="text-signal-amber" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-display text-sm font-bold text-white">Cápsula `.rar` — Módulos</p>
+                <p className="text-xs text-white/50">
+                  1 módulo aleatório de grau C a S. Equipe-os em Melhorias &gt; Módulos. Chefes de Mundo também soltam módulos (grau B+).
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => handleRollModules(1)}
+                disabled={rollingModules || tokens < MODULE_CAPSULE_COST_TOKENS}
+                className="flex items-center gap-1.5 rounded-lg bg-signal-amber px-3 py-2 font-display text-xs font-bold uppercase tracking-wide text-void-950 transition hover:bg-signal-amber/80 disabled:opacity-50"
+              >
+                {rollingModules && <Icon name="loader" size={13} className="animate-spin" />}
+                1x <Icon name="gem" size={12} /> {MODULE_CAPSULE_COST_TOKENS}
+              </button>
+              <button
+                onClick={() => handleRollModules(MODULE_CAPSULE_BUNDLE)}
+                disabled={rollingModules || tokens < MODULE_CAPSULE_BUNDLE_COST_TOKENS}
+                className="flex items-center gap-1.5 rounded-lg border border-signal-amber/50 px-3 py-2 font-display text-xs font-bold uppercase tracking-wide text-signal-amber transition hover:bg-signal-amber/10 disabled:opacity-50"
+              >
+                {MODULE_CAPSULE_BUNDLE}x <Icon name="gem" size={12} /> {MODULE_CAPSULE_BUNDLE_COST_TOKENS}
+              </button>
+            </div>
+          </div>
+        </AnimatedBorderCard>
+
+        {moduleReveal && (
+          <div className="rounded-xl border border-signal-amber/30 bg-signal-amber/5 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="font-display text-sm font-bold text-white">
+                {moduleReveal.length === 1 ? 'Módulo extraído!' : `${moduleReveal.length} módulos extraídos!`}
+              </p>
+              <button onClick={() => setModuleReveal(null)} className="shrink-0 rounded-lg p-1.5 text-white/40 transition hover:text-white/70">
+                <Icon name="x" size={16} />
+              </button>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {moduleReveal.map((m, i) => {
+                const definition = MODULE_BY_ID[m.moduleId];
+                if (!definition) return null;
+                const color = MODULE_GRADE_COLOR[m.rarity] ?? '#8b93a7';
+                return (
+                  <div key={`${m.moduleId}-${i}`} className="flex items-start gap-2 rounded-lg border border-void-600 bg-void-900/50 p-2">
+                    <span
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded font-mono text-[11px] font-bold"
+                      style={{ color, border: `1px solid ${color}66` }}
+                    >
+                      {m.rarity}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-bold text-white">{definition.name}</p>
+                      <p className="text-[11px] text-white/50">{describeModule(definition, m.rarity)}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {reelItems && <SummonReel items={reelItems} onComplete={handleReelComplete} />}
 
         {revealDisplay && reveal && (
@@ -332,7 +433,9 @@ export function GachaPage({
                 <span className="truncate text-xs text-white/70">{revealDisplay.name}</span>
                 <RosterChips faction={revealDisplay.faction} rarity={revealDisplay.rarity} />
               </div>
-              {reveal.outcome === 'duplicate' && <p className="mt-1 text-[11px] text-white/50">Convertido em +1 diagrama.</p>}
+              {reveal.outcome === 'duplicate' && (
+                <p className="mt-1 text-[11px] text-white/50">Convertido em +{FRAGMENTS_PER_DUPLICATE_BY_RARITY[reveal.rarity]} diagramas.</p>
+              )}
               {reveal.outcome === 'upgraded' && <p className="mt-1 text-[11px] text-white/50">Nível de personagem resetado — habilidades preservadas.</p>}
             </div>
             <button onClick={() => setReveal(null)} className="shrink-0 rounded-lg p-1.5 text-white/40 transition hover:text-white/70">
@@ -353,7 +456,7 @@ export function GachaPage({
               {batchReveal.map((r, i) => {
                 const info = byId.get(r.characterId);
                 if (!info) return null;
-                const badgeLabel = r.outcome === 'new' ? 'novo' : r.outcome === 'upgraded' ? 'up!' : '+1';
+                const badgeLabel = r.outcome === 'new' ? 'novo' : r.outcome === 'upgraded' ? 'up!' : `+${FRAGMENTS_PER_DUPLICATE_BY_RARITY[r.rarity]}`;
                 return (
                   <div key={`${r.characterId}-${i}`} className="flex flex-col items-center gap-1">
                     <div className="relative">

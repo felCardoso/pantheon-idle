@@ -32,10 +32,10 @@ export interface UseOwnedCharactersResult {
   /** Grants the same XP amount to every currently-owned character — the whole owned roster fights together, so everyone who fought earns it. */
   /** Mirrors a resolved battle's XP into local state, per character id — see applyBattleXp. */
   applyBattleXp: (xpByCharacterId: Record<string, number>) => void;
-  /** Sells 1 fragment of characterId at the given rarity for Bytes via /api/characters/sell-fragment
-   * — returns the grant + new Bytes total (for the caller's usePlayerProgress.setBytesFromServer),
-   * or null if it failed (nothing to sell). */
-  sellFragment: (characterId: string, rarity: Rarity) => Promise<{ grantedBytes: number; bytes: number } | null>;
+  /** Sells `count` fragments (default 1) of characterId at the given rarity for Bytes via
+   * /api/characters/sell-fragment — returns the grant + new Bytes total (for the caller's
+   * usePlayerProgress.setBytesFromServer), or null if it failed (not enough to sell). */
+  sellFragment: (characterId: string, rarity: Rarity, count?: number) => Promise<{ grantedBytes: number; bytes: number } | null>;
   /** Re-queries character_fragments — call after a Mercado de Diagramas publish/cancel/purchase, since those mutate this row server-side via RPC. */
   refreshFragments: () => Promise<void>;
 }
@@ -152,16 +152,17 @@ export function useOwnedCharacters(userId: string | undefined): UseOwnedCharacte
   }, []);
 
   const sellFragment = useCallback(
-    async (characterId: string, rarity: Rarity): Promise<{ grantedBytes: number; bytes: number } | null> => {
+    async (characterId: string, rarity: Rarity, count = 1): Promise<{ grantedBytes: number; bytes: number } | null> => {
       if (!userId) return null;
       const key = fragmentKey(characterId, rarity);
       const current = fragmentsRef.current.get(key)?.count ?? 0;
-      if (current <= 0) return null;
+      if (current < count || count < 1) return null;
 
       try {
         const response = await postApi<{ grantedBytes: number; bytes: number; remainingCount: number }>('/api/characters/sell-fragment', {
           characterId,
           rarity,
+          count,
         });
         const nextMap = new Map(fragmentsRef.current);
         if (response.remainingCount <= 0) nextMap.delete(key);
