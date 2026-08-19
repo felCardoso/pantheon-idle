@@ -25,6 +25,7 @@ import {
   VIP_CREDIT_XP_BONUS_PERCENT,
 } from '../src/data/playerEconomy';
 import { supabaseAdmin } from './supabase-admin';
+import { BattleResolveError, type ResolveBattleRequest } from './battle-request';
 
 /**
  * Server-side PvE battle resolution.
@@ -46,13 +47,6 @@ const REWARDS: Record<'comuns' | 'boss', { win: { credits: number; xp: number };
   comuns: { win: { credits: 20, xp: 15 }, lossOrDraw: { credits: 5 } },
   boss: { win: { credits: 80, xp: 40 }, lossOrDraw: { credits: 10 } },
 };
-
-export interface ResolveBattleRequest {
-  mode: 'advance' | 'repeat';
-  retreatOnLoss: boolean;
-  /** Fight a specific already-unlocked stage (the world map) instead of the saved position. */
-  position?: WorldPosition;
-}
 
 /** An opponent the run just ran into — the client attacks them through the usual pvp-attack path. */
 export interface PvpEncounter {
@@ -78,32 +72,6 @@ export interface ResolveBattleResult {
   recoveryWinsRemaining: number | null;
   /** Non-null when this battle rolled a random PvP encounter — see rollPvpEncounter. */
   pvpEncounter: PvpEncounter | null;
-}
-
-export class BattleResolveError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-  ) {
-    super(message);
-  }
-}
-
-function isWorldPosition(value: unknown): value is WorldPosition {
-  const p = value as WorldPosition | undefined;
-  return !!p && Number.isInteger(p.fase) && Number.isInteger(p.estagio) && p.fase >= 1 && p.estagio >= 1;
-}
-
-export function parseResolveRequest(body: Record<string, unknown>): ResolveBattleRequest {
-  const mode = body.mode;
-  if (mode !== 'advance' && mode !== 'repeat') {
-    throw new BattleResolveError("mode must be 'advance' or 'repeat'", 400);
-  }
-  const position = body.position;
-  if (position !== undefined && !isWorldPosition(position)) {
-    throw new BattleResolveError('position must be { fase, estagio } of positive integers', 400);
-  }
-  return { mode, retreatOnLoss: body.retreatOnLoss === true, position: position as WorldPosition | undefined };
 }
 
 /**
@@ -139,7 +107,9 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
   const [{ data: progress, error: progressError }, { data: owned }, { data: abilityProgress }, { data: membership }] = await Promise.all([
     supabaseAdmin
       .from('player_progress')
-      .select('fase, estagio, credits, xp, pve_team_slot, vip_expires_at, recovery_wins_remaining, pve_battles_since_pvp')
+      .select(
+        'fase, estagio, credits, xp, pve_team_slot, vip_expires_at, recovery_wins_remaining, pve_battles_since_pvp, current_fase, current_estagio',
+      )
       .eq('user_id', userId)
       .maybeSingle(),
     supabaseAdmin.from('player_characters').select('character_id, xp, rarity').eq('user_id', userId),
@@ -161,7 +131,11 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
   // position is only honoured if it is at or before it, so the map can replay an earlier stage
   // but nobody can skip ahead to the boss's larger payout.
   const frontier: WorldPosition = { fase: progress.fase, estagio: progress.estagio };
-  const position = request.position ?? frontier;
+  // Where the player actually is, which can sit behind the frontier after a retreat or a map
+  // jump. Falls back to the frontier for rows written before migration 0024.
+  const savedPosition: WorldPosition =
+    progress.current_fase && progress.current_estagio ? { fase: progress.current_fase, estagio: progress.current_estagio } : frontier;
+  const position = request.position ?? savedPosition;
   if (comparePositions(position, frontier) > 0) {
     throw new BattleResolveError('Position not unlocked yet.', 403);
   }
@@ -235,6 +209,8 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
       fase: next.frontier.fase,
       estagio: next.frontier.estagio,
       recovery_wins_remaining: next.recoveryWinsRemaining,
+      current_fase: next.position.fase,
+      current_estagio: next.position.estagio,
       pve_battles_since_pvp: pvpEncounter ? 0 : battlesSinceLastPvp,
     })
     .eq('user_id', userId);

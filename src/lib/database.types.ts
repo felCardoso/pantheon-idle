@@ -27,6 +27,8 @@ export interface Database {
           banner_guaranteed: boolean;
           recovery_wins_remaining: number | null;
           pve_battles_since_pvp: number;
+          current_fase: number | null;
+          current_estagio: number | null;
           last_claim_at: string;
           updated_at: string;
         };
@@ -54,6 +56,8 @@ export interface Database {
           banner_guaranteed?: boolean;
           recovery_wins_remaining?: number | null;
           pve_battles_since_pvp?: number;
+          current_fase?: number | null;
+          current_estagio?: number | null;
           last_claim_at?: string;
           updated_at?: string;
         };
@@ -81,6 +85,8 @@ export interface Database {
           banner_guaranteed?: boolean;
           recovery_wins_remaining?: number | null;
           pve_battles_since_pvp?: number;
+          current_fase?: number | null;
+          current_estagio?: number | null;
           last_claim_at?: string;
           updated_at?: string;
         };

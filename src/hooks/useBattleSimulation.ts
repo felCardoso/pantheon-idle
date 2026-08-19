@@ -326,12 +326,14 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     [retreatOnLoss],
   );
 
-  // First battle of the session.
+  // First battle of the session. No position is sent: the server resumes from the saved
+  // current position, which can sit behind the frontier after a retreat (migration 0024).
+  // Sending the frontier here would silently undo a retreat on every reload.
   const started = useRef(false);
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    requestBattle('advance', initialPosition);
+    requestBattle('advance');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
