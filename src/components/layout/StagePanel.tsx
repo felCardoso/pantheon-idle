@@ -19,6 +19,8 @@ interface StagePanelProps {
   onRepeat: () => void;
   /** Jumps to replay a completed estágio within the currently-viewed fase (mini-map dot click). */
   onSelectStage: (estagio: number) => void;
+  /** Opens the full campaign map (every world, fase and onda) — the strip below only covers the current fase. */
+  onOpenMap: () => void;
 }
 
 export function StagePanel({
@@ -34,6 +36,7 @@ export function StagePanel({
   onAdvance,
   onRepeat,
   onSelectStage,
+  onOpenMap,
 }: StagePanelProps) {
   const position = { fase: stage.phase, estagio: stage.stage };
   const frontier = { fase: frontierFase, estagio: frontierEstagio };
@@ -158,6 +161,13 @@ export function StagePanel({
           >
             <Icon name="rotate-ccw" size={15} />
             Repetir estágio
+          </button>
+          <button
+            onClick={onOpenMap}
+            className="flex items-center justify-center gap-2 rounded-lg border border-arcane-400/40 py-2.5 font-display text-xs font-bold uppercase tracking-wide text-arcane-300 transition hover:border-arcane-400 hover:bg-arcane-500/10"
+          >
+            <Icon name="map" size={15} />
+            Mapa
           </button>
           <button
             onClick={onToggleRetreatOnLoss}

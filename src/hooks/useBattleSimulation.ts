@@ -256,6 +256,8 @@ export interface BattleSimulation {
   frontierEstagio: number;
   /** Jumps to replay a specific estágio within the currently-viewed fase (the mini-map), leaving frontier untouched. */
   playStage: (estagio: number) => void;
+  /** Jumps to any already-reached position in any world (the world map), leaving frontier untouched. */
+  playPosition: (position: WorldPosition) => void;
 }
 
 export function useBattleSimulation(options: UseBattleSimulationOptions): BattleSimulation {
@@ -393,17 +395,23 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     selectedAbilityByCharacterId,
   ]);
 
-  const playStage = useCallback(
-    (estagio: number) => {
+  const playPosition = useCallback(
+    (position: WorldPosition) => {
       dispatch({
         type: 'reset',
-        session: createSession(Date.now() >>> 0, { fase: state.session.fase, estagio }, initialOwnedCharacters, bonusMultiplier, selectedAbilityByCharacterId),
+        session: createSession(Date.now() >>> 0, position, initialOwnedCharacters, bonusMultiplier, selectedAbilityByCharacterId),
         frontier: state.frontier,
         recoveryWinsRemaining: null,
       });
       setPlaying(true);
     },
-    [state.session.fase, state.frontier, initialOwnedCharacters, bonusMultiplier, selectedAbilityByCharacterId],
+    [state.frontier, initialOwnedCharacters, bonusMultiplier, selectedAbilityByCharacterId],
+  );
+
+  /** The mini-map's within-the-current-fase case of playPosition. */
+  const playStage = useCallback(
+    (estagio: number) => playPosition({ fase: state.session.fase, estagio }),
+    [playPosition, state.session.fase],
   );
 
   const adjustCredits = useCallback((delta: number) => dispatch({ type: 'adjustCredits', delta }), []);
@@ -448,5 +456,6 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     frontierFase: state.frontier.fase,
     frontierEstagio: state.frontier.estagio,
     playStage,
+    playPosition,
   };
 }
