@@ -54,11 +54,11 @@
     "name": "Fenrir.exe",
     "faction": null,
     "baseStats": {
-      "hp": 12000,
-      "atk": 250,
-      "def": 0.5,
+      "hp": 2400,
+      "atk": 124,
+      "def": 0.2,
       "vel": 0.95,
-      "esq": 0.06,
+      "esq": 0.07,
       "ice": 0
     },
     "activeOptions": [

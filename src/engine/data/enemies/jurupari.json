@@ -54,10 +54,10 @@
     "name": "Anhangá.exe",
     "faction": null,
     "baseStats": {
-      "hp": 12000,
-      "atk": 250,
-      "def": 0.5,
-      "vel": 0.95,
+      "hp": 2000,
+      "atk": 112,
+      "def": 0.2,
+      "vel": 0.75,
       "esq": 0.06,
       "ice": 0
     },

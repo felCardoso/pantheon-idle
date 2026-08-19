@@ -54,11 +54,11 @@
     "name": "Typhon.exe",
     "faction": null,
     "baseStats": {
-      "hp": 12000,
-      "atk": 250,
-      "def": 0.5,
-      "vel": 0.95,
-      "esq": 0.06,
+      "hp": 2800,
+      "atk": 108,
+      "def": 0.22,
+      "vel": 0.7,
+      "esq": 0.05,
       "ice": 0
     },
     "activeOptions": [

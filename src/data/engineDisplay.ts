@@ -37,10 +37,39 @@ import type { Faction, Rarity } from "../types";
  * carried on the Combatant itself, not looked up by templateId.
  */
 export const ENEMY_LEVEL_BY_TEMPLATE_ID: Record<string, number> = {
+  // Climbs with the world's position in progression.ts's WORLD_IDS order, so a later world's
+  // enemies read as tougher on the card. Cosmetic only — actual difficulty is
+  // difficultyMultiplier's job. Worlds past Jurupari used to be missing here entirely, which
+  // showed every one of their enemies as "Nv.1".
   "script-kiddie": 12,
   "firewall-turret": 12,
   "corrupted-daemon": 12,
   anhanga: 60,
+  // Duat.iso
+  mumia: 24,
+  "chacal-guardiao": 24,
+  "serpente-nilo": 24,
+  set: 70,
+  // Orun.iso
+  "espirito-ancestral": 36,
+  "guardiao-mata": 36,
+  "tambor-guerra": 36,
+  ogum: 80,
+  // Takamagahara.iso
+  "yokai-menor": 48,
+  "samurai-corrompido": 48,
+  kappa: 48,
+  "yamata-no-orochi": 90,
+  // Olympus.iso
+  ciclope: 60,
+  "esqueleto-espartano": 60,
+  "hidra-menor": 60,
+  typhon: 100,
+  // Yggdrasil.iso
+  draugr: 72,
+  "valquiria-corrompida": 72,
+  "lobo-selvagem": 72,
+  fenrir: 110,
 };
 
 /**
