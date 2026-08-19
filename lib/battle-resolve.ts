@@ -1,4 +1,5 @@
 import 'server-only';
+import { randomInt } from 'node:crypto';
 import {
   comparePositions,
   difficultyMultiplier,
@@ -16,7 +17,13 @@ import {
   type Combatant,
   type WorldPosition,
 } from '../src/engine';
-import { CLUSTER_CREDIT_XP_BONUS_PERCENT, isVipActive, VIP_CREDIT_XP_BONUS_PERCENT } from '../src/data/playerEconomy';
+import {
+  CLUSTER_CREDIT_XP_BONUS_PERCENT,
+  isVipActive,
+  PVP_ENCOUNTER_CHANCE,
+  PVP_ENCOUNTER_MIN_BATTLES,
+  VIP_CREDIT_XP_BONUS_PERCENT,
+} from '../src/data/playerEconomy';
 import { supabaseAdmin } from './supabase-admin';
 
 /**
@@ -47,6 +54,13 @@ export interface ResolveBattleRequest {
   position?: WorldPosition;
 }
 
+/** An opponent the run just ran into — the client attacks them through the usual pvp-attack path. */
+export interface PvpEncounter {
+  userId: string;
+  username: string;
+  rating: number;
+}
+
 export interface ResolveBattleResult {
   seed: number;
   position: WorldPosition;
@@ -62,6 +76,8 @@ export interface ResolveBattleResult {
   nextPosition: WorldPosition;
   frontier: WorldPosition;
   recoveryWinsRemaining: number | null;
+  /** Non-null when this battle rolled a random PvP encounter — see rollPvpEncounter. */
+  pvpEncounter: PvpEncounter | null;
 }
 
 export class BattleResolveError extends Error {
@@ -90,11 +106,40 @@ export function parseResolveRequest(body: Record<string, unknown>): ResolveBattl
   return { mode, retreatOnLoss: body.retreatOnLoss === true, position: position as WorldPosition | undefined };
 }
 
+/**
+ * Rolls whether the run bumps into another player, and picks who.
+ *
+ * PvP used to happen only when someone opened the opponent list and clicked Atacar, so most of
+ * the ladder never moved. Now a run has to go PVP_ENCOUNTER_MIN_BATTLES battles without an
+ * encounter before one becomes possible at all, and each battle after that rolls
+ * PVP_ENCOUNTER_CHANCE.
+ *
+ * Rolled here rather than in the browser because the counter has to be tamper-proof in both
+ * directions: a client that owned it could farm encounters, or simply never trigger one.
+ * Returns null (no encounter) when nobody has a defense team saved yet.
+ */
+async function rollPvpEncounter(userId: string, battlesSinceLast: number): Promise<PvpEncounter | null> {
+  if (battlesSinceLast < PVP_ENCOUNTER_MIN_BATTLES) return null;
+  if (randomInt(0, 10_000) >= Math.round(PVP_ENCOUNTER_CHANCE * 10_000)) return null;
+
+  const { data: defenses } = await supabaseAdmin.from('pvp_defense_teams').select('user_id').neq('user_id', userId).limit(50);
+  const candidates = (defenses ?? []).map((d) => d.user_id);
+  if (candidates.length === 0) return null;
+
+  const opponentId = candidates[randomInt(0, candidates.length)];
+  const [{ data: profile }, { data: opponentProgress }] = await Promise.all([
+    supabaseAdmin.from('profiles').select('username').eq('user_id', opponentId).maybeSingle(),
+    supabaseAdmin.from('player_progress').select('pvp_rating').eq('user_id', opponentId).maybeSingle(),
+  ]);
+
+  return { userId: opponentId, username: profile?.username ?? 'Node', rating: opponentProgress?.pvp_rating ?? 1000 };
+}
+
 export async function resolveBattleForUser(userId: string, request: ResolveBattleRequest): Promise<ResolveBattleResult> {
   const [{ data: progress, error: progressError }, { data: owned }, { data: abilityProgress }, { data: membership }] = await Promise.all([
     supabaseAdmin
       .from('player_progress')
-      .select('fase, estagio, credits, xp, pve_team_slot, vip_expires_at, recovery_wins_remaining')
+      .select('fase, estagio, credits, xp, pve_team_slot, vip_expires_at, recovery_wins_remaining, pve_battles_since_pvp')
       .eq('user_id', userId)
       .maybeSingle(),
     supabaseAdmin.from('player_characters').select('character_id, xp, rarity').eq('user_id', userId),
@@ -177,6 +222,11 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
   const credits = progress.credits + reward.credits;
   const xp = progress.xp + reward.xp;
 
+  // The encounter counter advances on every PvE battle and resets only when one actually fires,
+  // so a run that never finds an opponent keeps rolling rather than stalling.
+  const battlesSinceLastPvp = (progress.pve_battles_since_pvp ?? 0) + 1;
+  const pvpEncounter = await rollPvpEncounter(userId, battlesSinceLastPvp);
+
   const { error: updateError } = await supabaseAdmin
     .from('player_progress')
     .update({
@@ -185,6 +235,7 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
       fase: next.frontier.fase,
       estagio: next.frontier.estagio,
       recovery_wins_remaining: next.recoveryWinsRemaining,
+      pve_battles_since_pvp: pvpEncounter ? 0 : battlesSinceLastPvp,
     })
     .eq('user_id', userId);
   if (updateError) throw new BattleResolveError(updateError.message, 500);
@@ -213,5 +264,6 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
     nextPosition: next.position,
     frontier: next.frontier,
     recoveryWinsRemaining: next.recoveryWinsRemaining,
+    pvpEncounter,
   };
 }

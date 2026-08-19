@@ -5,6 +5,7 @@ import { StagePanel } from './layout/StagePanel';
 import { ChatPanel } from './layout/ChatPanel';
 import { BattleStage } from './battle/BattleStage';
 import { WorldMapModal } from './battle/WorldMapModal';
+import { PvpBattlePlayer } from './battle/PvpBattlePlayer';
 import { TeamPage } from './roster/TeamPage';
 import { CharactersPage } from './roster/CharactersPage';
 import { ShopPage } from './shop/ShopPage';
@@ -28,7 +29,7 @@ import { useOwnedCharacters, type FragmentStack, type OwnedCharacter } from '../
 import { usePlayerTeams } from '../hooks/usePlayerTeams';
 import { useProfile, type UpdateUsernameResult } from '../hooks/useProfile';
 import { useCluster } from '../hooks/useCluster';
-import { usePvp } from '../hooks/usePvp';
+import { usePvp, type PvpAttackResult } from '../hooks/usePvp';
 import { useMarket } from '../hooks/useMarket';
 import { useCharacterProgression } from '../hooks/useCharacterProgression';
 import type { ChatMessage, MenuItem, Rarity } from '../types';
@@ -226,6 +227,8 @@ function GameShellReady({
   const [profileOpen, setProfileOpen] = useState(false);
   const [stageOpen, setStageOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  /** The rolled PvP encounter's resolved fight, once pvp.attack has run it. */
+  const [encounterBattle, setEncounterBattle] = useState<{ opponentName: string; result: PvpAttackResult } | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -300,6 +303,51 @@ function GameShellReady({
     prevBattleXpRef.current = battle.xp;
     if (gained > 0) addXp(gained);
   }, [battle.xp, addXp]);
+
+  // Random PvP encounters (lib/battle-resolve.ts's rollPvpEncounter): the server decides a run
+  // has bumped into another player, and the fight goes through the same authoritative
+  // pvp-attack path as the opponent list's Atacar button.
+  const encounter = battle.pvpEncounter;
+  const clearPvpEncounter = battle.clearPvpEncounter;
+  // `pvp` is a fresh object every render, so the effect below re-runs constantly; without this
+  // guard a second attack could fire while the first is still in flight, charging the player
+  // two rating changes for one encounter.
+  const encounterInFlightRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!encounter || encounterBattle) return;
+    if (encounterInFlightRef.current === encounter.userId) return;
+    encounterInFlightRef.current = encounter.userId;
+    let cancelled = false;
+    (async () => {
+      const outcome = await pvp.attack(encounter);
+      if (cancelled) return;
+      if (!outcome.ok) {
+        // Nothing to show — drop the encounter and let the grind carry on.
+        setToast(outcome.message);
+        encounterInFlightRef.current = null;
+        clearPvpEncounter();
+        return;
+      }
+      setEncounterBattle({ opponentName: encounter.username, result: outcome.result });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [encounter, encounterBattle, pvp, clearPvpEncounter]);
+
+  function handleEncounterContinue() {
+    const finished = encounterBattle;
+    setEncounterBattle(null);
+    encounterInFlightRef.current = null;
+    clearPvpEncounter();
+    if (!finished) return;
+    battle.setWallet(battle.credits + finished.result.rewardCredits, battle.xp);
+    setToast(
+      finished.result.won
+        ? `PvP: vitória contra ${finished.opponentName}! +${finished.result.rewardCredits} créditos, ${finished.result.ratingDelta >= 0 ? '+' : ''}${finished.result.ratingDelta} rating.`
+        : `PvP: derrota para ${finished.opponentName}. ${finished.result.ratingDelta >= 0 ? '+' : ''}${finished.result.ratingDelta} rating.`,
+    );
+  }
 
   useEffect(() => {
     if (!toast) return;
@@ -498,6 +546,14 @@ function GameShellReady({
           frontier={{ fase: battle.frontierFase, estagio: battle.frontierEstagio }}
           onSelect={battle.playPosition}
           onClose={() => setMapOpen(false)}
+        />
+      )}
+      {encounterBattle && (
+        <PvpBattlePlayer
+          key={encounterBattle.opponentName + encounterBattle.result.newRating}
+          opponentName={encounterBattle.opponentName}
+          result={encounterBattle.result}
+          onContinue={handleEncounterContinue}
         />
       )}
       <Toast message={toast} />

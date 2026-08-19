@@ -49,6 +49,15 @@ export const FRAGMENT_CONVERSION_BYTES_BY_RARITY: Record<import('../types').Rari
 /** Banner Semanal hard pity (docs/gdd.md section 10) — guaranteed claim of the spotlighted character every this-many banner pulls. */
 export const BANNER_PITY_MAX = 150;
 
+/**
+ * Random PvP encounters during the PvE grind: no encounter can fire until this many PvE
+ * battles have been fought since the last one, and from then on each battle rolls
+ * PVP_ENCOUNTER_CHANCE. Rolled server-side in lib/battle-resolve.ts — the counter is a
+ * player_progress column so the client can neither farm encounters nor dodge them.
+ */
+export const PVP_ENCOUNTER_MIN_BATTLES = 3;
+export const PVP_ENCOUNTER_CHANCE = 0.25;
+
 export function isVipActive(vipExpiresAt: string | null): boolean {
   return !!vipExpiresAt && new Date(vipExpiresAt).getTime() > Date.now();
 }

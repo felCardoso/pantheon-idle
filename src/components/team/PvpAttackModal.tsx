@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Icon } from '../common/Icon';
 import { pvpRankTierFor } from '../../data/pvpRank';
-import { usePvpBattle } from '../../hooks/usePvpBattle';
-import { PvpBattleStage } from '../battle/PvpBattleStage';
+import { PvpBattlePlayer } from '../battle/PvpBattlePlayer';
 import type { PvpAttackResult, PvpOpponent, UsePvpResult } from '../../hooks/usePvp';
 
 interface PvpAttackModalProps {
@@ -155,41 +154,13 @@ export function PvpAttackModal({ pvp, onRewardCredits, onToast, onClose }: PvpAt
       </div>
 
       {playingBattle && (
-        <PvpBattlePlayer key={playingBattle.opponent.userId + playingBattle.result.newRating} playingBattle={playingBattle} onContinue={handleBattleContinue} />
+        <PvpBattlePlayer
+          key={playingBattle.opponent.userId + playingBattle.result.newRating}
+          opponentName={playingBattle.opponent.username}
+          result={playingBattle.result}
+          onContinue={handleBattleContinue}
+        />
       )}
     </div>
-  );
-}
-
-/** Split out so usePvpBattle (a hook) only ever mounts while a fight is actually playing — PvpAttackModal itself may render with playingBattle null. */
-function PvpBattlePlayer({
-  playingBattle,
-  onContinue,
-}: {
-  playingBattle: { opponent: PvpOpponent; result: PvpAttackResult };
-  onContinue: () => void;
-}) {
-  const { opponent, result } = playingBattle;
-  const battle = usePvpBattle({
-    log: result.log,
-    attackers: result.attackers,
-    defenders: result.defenders,
-    battleKey: opponent.userId,
-    playing: true,
-  });
-
-  return (
-    <PvpBattleStage
-      attackerName="Você"
-      defenderName={opponent.username}
-      allies={battle.allies}
-      enemies={battle.enemies}
-      floaters={battle.floaters}
-      activeAbilities={battle.activeAbilities}
-      attackAnims={battle.attackAnims}
-      finished={battle.finished}
-      winner={battle.winner}
-      onContinue={onContinue}
-    />
   );
 }

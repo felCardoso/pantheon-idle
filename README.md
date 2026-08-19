@@ -38,7 +38,7 @@ A `service_role` ignora RLS e é usada apenas dentro de `app/api/**` (via `lib/s
 
 ### Banco
 
-Aplique as migrations de `supabase/migrations/` em ordem (`supabase db push`, ou colando no SQL Editor). São 21, numeradas e idempotentes onde possível.
+Aplique as migrations de `supabase/migrations/` em ordem (`supabase db push`, ou colando no SQL Editor). São 23, numeradas e idempotentes onde possível.
 
 ### Edge Functions
 
@@ -158,6 +158,8 @@ Só os *pools* (HP/ATK) escalam com a dificuldade. DEF é uma fração de mitiga
 ## PvP
 
 Assíncrono: você ataca o time de defesa salvo por outro jogador, e o defensor não precisa estar online.
+
+Há dois caminhos até uma luta: a lista de oponentes (botão Atacar) e **encontros aleatórios durante o grind de PvE**. Um run precisa passar `PVP_ENCOUNTER_MIN_BATTLES` (3) batalhas sem encontro para que um se torne possível; a partir daí cada batalha rola `PVP_ENCOUNTER_CHANCE` (25%). O sorteio e o contador ficam no servidor — um cliente que os controlasse poderia tanto farmar encontros quanto nunca disparar nenhum.
 
 **A batalha roda inteiramente no servidor** (`supabase/functions/pvp-attack`), com o mesmo engine determinístico do PvE. O resultado afeta o rating de uma pessoa real, então nada disso pode ser computado no navegador do atacante. O cliente só informa *quem* atacar; o roster do atacante é lido server-side das próprias linhas dele.
 

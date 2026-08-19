@@ -42,6 +42,13 @@ interface BattleSession extends WorldPosition {
 }
 
 /** The shape app/api/battle/resolve returns — mirrors ResolveBattleResult in lib/battle-resolve.ts. */
+/** An opponent a battle rolled into — see lib/battle-resolve.ts's rollPvpEncounter. */
+export interface PvpEncounter {
+  userId: string;
+  username: string;
+  rating: number;
+}
+
 interface ResolveBattleResponse {
   seed: number;
   position: WorldPosition;
@@ -56,6 +63,7 @@ interface ResolveBattleResponse {
   nextPosition: WorldPosition;
   frontier: WorldPosition;
   recoveryWinsRemaining: number | null;
+  pvpEncounter: PvpEncounter | null;
 }
 
 function sessionFrom(response: ResolveBattleResponse): BattleSession {
@@ -250,6 +258,12 @@ export interface BattleSimulation {
   playPosition: (position: WorldPosition) => void;
   /** Set when a battle request failed (offline, session expired, position not unlocked). */
   error: string | null;
+  /**
+   * Non-null once the battle on screen has finished and it rolled a PvP encounter. Auto-advance
+   * holds until `clearPvpEncounter` is called, so the PvP fight isn't cut off by the next PvE one.
+   */
+  pvpEncounter: PvpEncounter | null;
+  clearPvpEncounter: () => void;
 }
 
 export function useBattleSimulation(options: UseBattleSimulationOptions): BattleSimulation {
@@ -261,6 +275,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
   const [retreatOnLoss, setRetreatOnLoss] = useState(true);
   const [state, dispatch] = useReducer(sessionReducer, undefined, () => buildInitialSession(initialPosition, initialCredits, initialXp));
   const [error, setError] = useState<string | null>(null);
+  const [pendingEncounter, setPendingEncounter] = useState<PvpEncounter | null>(null);
 
   const onBattleEnd = useCallback(() => dispatch({ type: 'battleEnd' }), []);
   const replay = useBattleReplay({
@@ -294,6 +309,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
           position,
         });
         setError(null);
+        setPendingEncounter(response.pvpEncounter);
         dispatch({
           type: 'reset',
           session: sessionFrom(response),
@@ -323,12 +339,15 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
   // Avançar/Repetir/retirar-se-ao-perder rules and told us where to fight next.
   useEffect(() => {
     if (!replay.finished || !playing || !state.session) return;
+    // A rolled PvP encounter interrupts the grind: hold the next PvE battle until the shell has
+    // played it out and cleared it.
+    if (pendingEncounter) return;
     const nextPosition = state.nextPosition;
     const timer = setTimeout(() => {
       requestBattle(mode, nextPosition);
     }, autoAdvanceDelayMs);
     return () => clearTimeout(timer);
-  }, [replay.finished, playing, state.session, state.nextPosition, mode, autoAdvanceDelayMs, requestBattle]);
+  }, [replay.finished, playing, state.session, state.nextPosition, mode, autoAdvanceDelayMs, requestBattle, pendingEncounter]);
 
   const startNewBattle = useCallback(() => {
     // Already advancing — the auto-advance effect is already driving this, so a redundant click
@@ -360,6 +379,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     [playPosition, state.session, state.nextPosition],
   );
 
+  const clearPvpEncounter = useCallback(() => setPendingEncounter(null), []);
   const adjustCredits = useCallback((delta: number) => dispatch({ type: 'adjustCredits', delta }), []);
   const setWallet = useCallback((credits: number, xp: number) => dispatch({ type: 'setWallet', credits, xp }), []);
 
@@ -407,5 +427,9 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     playStage,
     playPosition,
     error,
+    // Only surfaced once the PvE fight on screen is over — interrupting mid-battle would cut the
+    // replay off halfway.
+    pvpEncounter: replay.finished ? pendingEncounter : null,
+    clearPvpEncounter,
   };
 }
