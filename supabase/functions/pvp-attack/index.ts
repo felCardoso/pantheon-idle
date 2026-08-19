@@ -15,6 +15,15 @@ const K_FACTOR = 32;
 const MAX_TEAM_MEMBERS = 5;
 const REWARD_CREDITS_WIN = 30;
 const REWARD_CREDITS_LOSS = 5;
+/**
+ * XP the winning side's fielded characters earn from a PvP battle.
+ *
+ * PvP paid no XP at all, so a defense team that differed from the PvE team never levelled —
+ * and once PvE stopped levelling the whole collection, it never levelled at all. Both sides are
+ * paid here: the attacker's PvP squad and, when the attack is repelled, the defenders. Only on a
+ * win, matching PvE, where a loss pays credits but no XP.
+ */
+const PVP_XP_WIN = 25;
 
 function expectedScore(a: number, b: number): number {
   return 1 / (1 + 10 ** ((b - a) / 400));
@@ -195,6 +204,29 @@ Deno.serve(async (req) => {
       });
     }
 
+    // XP for whichever side won, written with the service-role client because a repelled attack
+    // pays the *defender's* characters — another user's rows, which the caller's JWT can't touch.
+    const xpWinnerIds = won ? attackerEntries.map((e) => e.id) : defenderEntries.map((e) => e.id);
+    const xpWinnerUserId = won ? user.id : defenderId;
+    const xpEarnedByCharacterId: Record<string, number> = {};
+    if (xpWinnerIds.length > 0) {
+      const { data: winnerRows } = await admin
+        .from('player_characters')
+        .select('character_id, xp, rarity')
+        .eq('user_id', xpWinnerUserId)
+        .in('character_id', xpWinnerIds);
+      // A defender may have sold or never owned a character still named in their saved snapshot;
+      // only rows that actually exist are paid.
+      const rows = winnerRows ?? [];
+      if (rows.length > 0) {
+        await admin.from('player_characters').upsert(
+          rows.map((c) => ({ user_id: xpWinnerUserId, character_id: c.character_id, xp: c.xp + PVP_XP_WIN, rarity: c.rarity })),
+          { onConflict: 'user_id,character_id' },
+        );
+        for (const c of rows) xpEarnedByCharacterId[c.character_id] = PVP_XP_WIN;
+      }
+    }
+
     return new Response(
       JSON.stringify({
         won,
@@ -207,6 +239,9 @@ Deno.serve(async (req) => {
         log: result.log,
         attackers,
         defenders,
+        // Only populated when the caller won — a repelled attack pays the defender, whose roster
+        // this client has no business updating.
+        xpEarnedByCharacterId: won ? xpEarnedByCharacterId : {},
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );

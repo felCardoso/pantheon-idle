@@ -8,6 +8,8 @@ import { useEscapeToClose } from '../../hooks/useEscapeToClose';
 interface PvpAttackModalProps {
   pvp: UsePvpResult;
   onRewardCredits: (amount: number) => void;
+  /** Mirrors a won fight's XP into the roster display — the Edge Function already persisted it. */
+  onBattleXp: (xpByCharacterId: Record<string, number>) => void;
   onToast: (message: string) => void;
   onClose: () => void;
 }
@@ -18,7 +20,7 @@ interface PvpAttackModalProps {
  * is marked PvP there) — this modal is only the "find and attack someone"
  * surface, since Team no longer has a dedicated page to launch it from.
  */
-export function PvpAttackModal({ pvp, onRewardCredits, onToast, onClose }: PvpAttackModalProps) {
+export function PvpAttackModal({ pvp, onRewardCredits, onBattleXp, onToast, onClose }: PvpAttackModalProps) {
   const [opponents, setOpponents] = useState<PvpOpponent[]>([]);
   const [loadingOpponents, setLoadingOpponents] = useState(false);
   const [attacking, setAttacking] = useState<string | null>(null);
@@ -58,6 +60,7 @@ export function PvpAttackModal({ pvp, onRewardCredits, onToast, onClose }: PvpAt
     setPlayingBattle(null);
     setLastResult({ opponent, result });
     onRewardCredits(result.rewardCredits);
+    onBattleXp(result.xpEarnedByCharacterId);
     onToast(
       result.won
         ? `Vitória! +${result.rewardCredits} créditos, ${result.ratingDelta >= 0 ? '+' : ''}${result.ratingDelta} rating.`

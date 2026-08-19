@@ -153,7 +153,9 @@ O design (`docs/combate.md`) prevê 2 opções ativas e 2 de banco por personage
 
 Só os *pools* (HP/ATK) escalam com a dificuldade. DEF é uma fração de mitigação e VEL é uma taxa — escalar as duas junto fazia a dificuldade compor várias vezes por mundo. Elas ficam como escritas no JSON e definem o **arquétipo** do inimigo.
 
-**XP.** Só os personagens que entraram na batalha ganham XP — os cinco escalados, banco incluído, já que no Relay & Bench todos estão na luta. Quem fica no inventário não sobe de nível, então trocar de time tem custo real e o time de defesa do PvP fica para trás se divergir do de PvE.
+**XP.** Só quem entrou na batalha ganha XP — os cinco escalados, banco incluído, já que no Relay & Bench todos estão na luta. Quem fica no inventário não sobe de nível, então trocar de time tem custo real.
+
+Cada modo alimenta o seu time: uma vitória de PvE paga o time de PvE, e uma vitória de PvP paga o time de PvP — o do atacante quando ele vence, o de defesa quando o ataque é repelido. Um time de defesa que divirja do de PvE sobe de nível defendendo, não pegando carona no grind.
 
 **Chefes** são calibrados individualmente (canhão de vidro, muralha, rajada, desgaste) e escalam apenas pela base do mundo, nunca pelo passo intra-fase. O mapa permite rejogar qualquer mundo, fase e onda já alcançados.
 

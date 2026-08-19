@@ -341,6 +341,9 @@ function GameShellReady({
     clearPvpEncounter();
     if (!finished) return;
     battle.setWallet(battle.credits + finished.result.rewardCredits, battle.xp);
+    // A won PvP fight levels the squad that fought it, same as PvE — mirror it locally so the
+    // roster screens don't lag behind the write the Edge Function already made.
+    applyBattleXp(finished.result.xpEarnedByCharacterId);
     setToast(
       finished.result.won
         ? `PvP: vitória contra ${finished.opponentName}! +${finished.result.rewardCredits} créditos, ${finished.result.ratingDelta >= 0 ? '+' : ''}${finished.result.ratingDelta} rating.`
@@ -395,6 +398,7 @@ function GameShellReady({
               onSetPvpTeamSlot={setPvpTeamSlot}
               pvp={pvp}
               onRewardCredits={battle.adjustCredits}
+              onBattleXp={applyBattleXp}
               onToast={setToast}
               characterProgression={characterProgression}
             />

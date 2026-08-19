@@ -29,6 +29,8 @@ interface TeamPageProps {
   onSetPvpTeamSlot: (slot: number) => void;
   pvp: UsePvpResult;
   onRewardCredits: (amount: number) => void;
+  /** Mirrors a won PvP fight's XP into the roster display. */
+  onBattleXp: (xpByCharacterId: Record<string, number>) => void;
   onToast: (message: string) => void;
   characterProgression: UseCharacterProgressionResult;
 }
@@ -62,6 +64,7 @@ export function TeamPage({
   onSetPvpTeamSlot,
   pvp,
   onRewardCredits,
+  onBattleXp,
   onToast,
   characterProgression,
 }: TeamPageProps) {
@@ -561,7 +564,7 @@ export function TeamPage({
         </div>
       </div>
 
-      {attackModalOpen && <PvpAttackModal pvp={pvp} onRewardCredits={onRewardCredits} onToast={onToast} onClose={() => setAttackModalOpen(false)} />}
+      {attackModalOpen && <PvpAttackModal pvp={pvp} onRewardCredits={onRewardCredits} onBattleXp={onBattleXp} onToast={onToast} onClose={() => setAttackModalOpen(false)} />}
       {leaderboardOpen && <PvpLeaderboardModal pvp={pvp} userId={userId} onClose={() => setLeaderboardOpen(false)} />}
       {detailCharacter && (
         <CharacterDetailModal
