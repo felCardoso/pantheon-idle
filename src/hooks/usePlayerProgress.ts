@@ -44,9 +44,9 @@ export {
 export interface UsePlayerProgressResult {
   /** null while loading; falls back to DEFAULT_PROGRESS if the row/table isn't there yet. */
   progress: PlayerProgress | null;
-  /** Whether the one-time starter credit boost (Loja) has already been claimed. Kept separate from `progress`/`saveProgress` — it's a one-off action, not part of the fase/estagio/wallet sync loop. */
+  /** Whether the one-time starter credit boost (Loja) has already been claimed. */
   starterBoostClaimed: boolean;
-  /** The hard-currency balance (docs/gdd.md section 9) — real and persisted, spent on things like nickname changes. Kept separate from `progress`/`saveProgress` for the same reason as starterBoostClaimed: it only ever changes via explicit spend actions, never the battle-sync loop. */
+  /** The hard-currency balance (docs/gdd.md section 9) — real and persisted, spent on things like nickname changes. */
   tokens: number;
   /** Which team shows on the (future) public profile. */
   teamVisibility: TeamVisibility;
@@ -65,7 +65,6 @@ export interface UsePlayerProgressResult {
   loading: boolean;
   /** Non-null if the last load/save hit an error (e.g. the migration hasn't been run yet) — play continues, just unsaved. */
   error: string | null;
-  saveProgress: (next: PlayerProgress) => Promise<void>;
   /** Claims the one-time starter credit boost via /api/player/claim-starter-boost, which grants
    * the credits itself — returns the new credits total (for the caller's battle.setWallet) or
    * null if it failed/was already claimed. */
@@ -101,7 +100,12 @@ function isVipActive(vipExpiresAt: string | null): boolean {
   return !!vipExpiresAt && new Date(vipExpiresAt).getTime() > Date.now();
 }
 
-/** Loads (creating on first login) and persists a player's world position + wallet in `player_progress`. */
+/**
+ * Loads a player's world position + wallet from `player_progress` (creating the row on first
+ * login). It no longer *writes* fase/estagio/credits/xp: battles are resolved by
+ * app/api/battle/resolve, which persists the outcome itself, and migration 0022 revoked the
+ * client's update on this table entirely.
+ */
 export function usePlayerProgress(userId: string | undefined): UsePlayerProgressResult {
   const [progress, setProgress] = useState<PlayerProgress | null>(null);
   const [starterBoostClaimed, setStarterBoostClaimed] = useState(false);
@@ -210,24 +214,6 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
       cancelled = true;
     };
   }, [userId]);
-
-  // Battle-driven (fase/estagio/credits/xp from useBattleSimulation) — not migrated yet, since
-  // that means moving battle resolution itself server-side, a much larger change than the rest
-  // of this pass. See the conversation notes on this hook's callers.
-  //
-  // These four are the ONLY columns of player_progress a client may write: migration 0021
-  // narrowed the grant to them by column, so tokens, vip_expires_at, pvp_rating, last_claim_at
-  // and the rest are server-only. Adding a column here will fail at runtime with a permission
-  // error — route the write through an API endpoint (app/api/player/*) instead.
-  const saveProgress = useCallback(
-    async (next: PlayerProgress) => {
-      if (!userId) return;
-      setProgress(next);
-      const { error: upsertError } = await supabase.from('player_progress').upsert({ user_id: userId, ...next }, { onConflict: 'user_id' });
-      setError(upsertError ? upsertError.message : null);
-    },
-    [userId],
-  );
 
   const claimStarterBoost = useCallback(async (): Promise<number | null> => {
     if (!userId || starterBoostClaimed) return null;
@@ -367,7 +353,6 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
     pvpTeamSlot,
     loading,
     error,
-    saveProgress,
     claimStarterBoost,
     spendTokens,
     setTeamVisibility,

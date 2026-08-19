@@ -130,22 +130,19 @@ export function useOwnedCharacters(userId: string | undefined): UseOwnedCharacte
   // Battle-driven (every owned character levels up from battle rewards) — not migrated yet,
   // same reasoning as usePlayerProgress.ts's saveProgress: it means moving battle resolution
   // itself server-side, out of scope for this pass.
-  const addXp = useCallback(
-    (amount: number) => {
-      if (!userId || amount <= 0 || ownedRef.current.length === 0) return;
-      const next = ownedRef.current.map((c) => ({ ...c, xp: c.xp + amount }));
-      ownedRef.current = next;
-      setOwnedCharacters(next);
-      supabase
-        .from('player_characters')
-        .upsert(
-          next.map((c) => ({ user_id: userId, character_id: c.characterId, xp: c.xp, rarity: c.rarity })),
-          { onConflict: 'user_id,character_id' },
-        )
-        .then(({ error: upsertError }) => setError(upsertError ? upsertError.message : null));
-    },
-    [userId],
-  );
+  /**
+   * Reflects a battle's XP payout in local state only.
+   *
+   * The server already persisted it when it resolved the battle (lib/battle-resolve.ts), and
+   * migration 0022 revoked the client's write on player_characters entirely — this exists so
+   * the Team/Personagens screens don't show stale levels until the next refetch.
+   */
+  const addXp = useCallback((amount: number) => {
+    if (amount <= 0 || ownedRef.current.length === 0) return;
+    const next = ownedRef.current.map((c) => ({ ...c, xp: c.xp + amount }));
+    ownedRef.current = next;
+    setOwnedCharacters(next);
+  }, []);
 
   const sellFragment = useCallback(
     async (characterId: string, rarity: Rarity): Promise<{ grantedBytes: number; bytes: number } | null> => {

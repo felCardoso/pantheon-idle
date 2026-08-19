@@ -25,6 +25,7 @@ export interface Database {
           bytes: number;
           banner_pity: number;
           banner_guaranteed: boolean;
+          recovery_wins_remaining: number | null;
           last_claim_at: string;
           updated_at: string;
         };
@@ -50,6 +51,7 @@ export interface Database {
           bytes?: number;
           banner_pity?: number;
           banner_guaranteed?: boolean;
+          recovery_wins_remaining?: number | null;
           last_claim_at?: string;
           updated_at?: string;
         };
@@ -75,6 +77,7 @@ export interface Database {
           bytes?: number;
           banner_pity?: number;
           banner_guaranteed?: boolean;
+          recovery_wins_remaining?: number | null;
           last_claim_at?: string;
           updated_at?: string;
         };

@@ -100,7 +100,7 @@ export {
   worldIdForFase,
   worldIndexForFase,
 } from './core/progression';
-export type { WorldId, WorldPosition } from './core/progression';
+export type { ProgressionInput, ProgressionState, WorldId, WorldPosition } from './core/progression';
 
 // ---------------------------------------------------------------------------
 // Levelling + RNG.
