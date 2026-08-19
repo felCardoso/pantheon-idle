@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { loadCharactersByIds, loadJurupariAllies, loadJurupariBoss, loadJurupariComuns, loadWorldBoss, loadWorldComuns } from './loader';
+import {
+  ALL_CHARACTER_IDS,
+  loadCharactersByIds,
+  loadJurupariAllies,
+  loadJurupariBoss,
+  loadJurupariComuns,
+  loadWorldBoss,
+  loadWorldComuns,
+} from './loader';
 
 describe('loadJurupariAllies', () => {
   it('loads the 4 Jurupari.iso characters with the 4-person mythological synergy (+21%) folded into HP/ATK', () => {
@@ -207,5 +215,24 @@ describe('loadWorldComuns / loadWorldBoss', () => {
     expect(loadWorldBoss('takamagahara')[0].name).toBe('Yamata-no-Orochi.exe');
     expect(loadWorldBoss('olympus')[0].name).toBe('Typhon.exe'); // not "Medusa.exe" — collides with the ally character
     expect(loadWorldBoss('yggdrasil')[0].name).toBe('Fenrir.exe');
+  });
+});
+
+describe('content integrity', () => {
+  // resolveAbilities throws "Unknown ability id" at load time, so a typo in an activeOptions /
+  // benchOptions / passiveAbilityId entry doesn't fail here — it crashes whichever battle first
+  // tries to field that character. Catch it in CI instead.
+  it('never references an ability id that does not exist', () => {
+    for (const id of ALL_CHARACTER_IDS) {
+      expect(() => loadCharactersByIds([{ id, xp: 0 }]), `ally ${id}`).not.toThrow();
+    }
+    for (const worldId of ['jurupari', 'duat', 'orun', 'takamagahara', 'olympus', 'yggdrasil'] as const) {
+      expect(() => loadWorldComuns(worldId, 3), `${worldId} comuns`).not.toThrow();
+      expect(() => loadWorldBoss(worldId), `${worldId} boss`).not.toThrow();
+    }
+  });
+
+  it('gives every ally a unique id, so a team can never build two units that collide', () => {
+    expect(new Set(ALL_CHARACTER_IDS).size).toBe(ALL_CHARACTER_IDS.length);
   });
 });
