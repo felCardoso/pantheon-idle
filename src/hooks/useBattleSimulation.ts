@@ -258,6 +258,11 @@ export interface BattleSimulation {
   playPosition: (position: WorldPosition) => void;
   /** Set when a battle request failed (offline, session expired, position not unlocked). */
   error: string | null;
+  /** Re-requests the battle that failed, keeping the current Avançar/Repetir mode. */
+  retryBattle: () => void;
+  /** True until the first battle comes back from the server — battles are a round trip now, so
+   * the board would otherwise render empty with no explanation. */
+  loading: boolean;
   /**
    * Non-null once the battle on screen has finished and it rolled a PvP encounter. Auto-advance
    * holds until `clearPvpEncounter` is called, so the PvP fight isn't cut off by the next PvE one.
@@ -381,6 +386,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     [playPosition, state.session, state.nextPosition],
   );
 
+  const retryBattle = useCallback(() => requestBattle(mode, state.nextPosition), [requestBattle, mode, state.nextPosition]);
   const clearPvpEncounter = useCallback(() => setPendingEncounter(null), []);
   const adjustCredits = useCallback((delta: number) => dispatch({ type: 'adjustCredits', delta }), []);
   const setWallet = useCallback((credits: number, xp: number) => dispatch({ type: 'setWallet', credits, xp }), []);
@@ -429,6 +435,8 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     playStage,
     playPosition,
     error,
+    retryBattle,
+    loading: !state.session && !error,
     // Only surfaced once the PvE fight on screen is over — interrupting mid-battle would cut the
     // replay off halfway.
     pvpEncounter: replay.finished ? pendingEncounter : null,

@@ -466,6 +466,9 @@ function GameShellReady({
               floaters={battle.floaters}
               activeAbilities={battle.activeAbilities}
               attackAnims={battle.attackAnims}
+              error={battle.error}
+              onRetry={battle.retryBattle}
+              loading={battle.loading}
             />
           )}
         </div>
