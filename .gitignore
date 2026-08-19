@@ -4,3 +4,7 @@ next-env.d.ts
 *.local
 .DS_Store
 *.tsbuildinfo
+
+# Supabase CLI scratch state (project ref, cached CLI version) — rewritten on
+# every CLI command and specific to whoever ran it, not project configuration.
+supabase/.temp
