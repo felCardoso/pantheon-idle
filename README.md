@@ -169,11 +169,11 @@ A function devolve o log completo da batalha junto com o resultado, e o cliente 
 
 Toda escrita privilegiada passa por `app/api/**` com a `service_role`; o cliente escreve diretamente apenas o que lhe é permitido por coluna.
 
-- **RLS limita linhas, não colunas.** `player_progress` tem grants por coluna (migration 0021): o cliente escreve `fase`, `estagio`, `credits`, `xp` e nada mais. `tokens`, `vip_expires_at`, `pvp_rating`, `last_claim_at` e o pity do gacha são server-only.
+- **RLS limita linhas, não colunas.** Grants por coluna resolvem o que RLS não alcança. Depois da 0022 o cliente não escreve **nada** em `player_progress`, `player_characters` ou `character_fragments` — só insere a linha inicial de progresso no primeiro login.
 - **Compras são compare-and-swap.** Cada débito é condicionado ao saldo lido, então duas requisições simultâneas não gastam o mesmo saldo duas vezes.
 - **Funções `security definer`** derivam o ator de `auth.uid()`, nunca de um id vindo do cliente.
 
-> **Dívida conhecida:** `fase/estagio/credits/xp` ainda são auto-reportados pelo cliente, porque a resolução de batalha do PvE roda no navegador. Como o XP de `player_characters` alimenta o atacante no PvP, ainda é possível inflar os próprios personagens. Fechar isso exige mover a batalha de PvE para o servidor.
+- **PvE é resolvido no servidor.** `app/api/battle/resolve` lê roster, time, habilidades equipadas, posição e bônus das próprias linhas do jogador, roda o engine, decide a recompensa pela sua própria tabela e grava o resultado. O cliente manda só a intenção (avançar/repetir, e qual estágio já liberado) e recebe o log para reproduzir. Uma posição além da fronteira é rejeitada.
 
 ## Escrevendo conteúdo
 
