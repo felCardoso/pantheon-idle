@@ -73,7 +73,10 @@ const EFFECT_HANDLERS: HandlerMap = {
   },
 
   heal: (effect, target, ctx, rt) => {
-    const amount = Math.round(Math.min(resolveMagnitude(effect.magnitude, ctx, target), target.maxHp - target.hp));
+    // Heal efficiency is the *receiver's* module, not the caster's: the rune reads as "cura
+    // recebida", and a support healing a teammate shouldn't override that teammate's own kit.
+    const efficiency = 1 + target.modules.healEfficiencyPercent;
+    const amount = Math.round(Math.min(resolveMagnitude(effect.magnitude, ctx, target) * efficiency, target.maxHp - target.hp));
     target.hp += amount;
     ctx.log({ at: ctx.now, kind: 'heal', target: target.name, amount, source: ctx.self.name });
     if (amount > 0) {

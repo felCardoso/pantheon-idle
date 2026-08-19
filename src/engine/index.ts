@@ -52,6 +52,11 @@ export { runBattle } from './core/battle';
 export type { BattleOptions, BattleResult } from './core/battle';
 
 export type { AttackResult, BattleLogEntry, Combatant, StatusEffectInstance } from './core/types';
+
+// Equipment bonuses — a flat bag of already-resolved numbers. The engine deliberately knows
+// nothing about runes, rarities or slots; src/data/modules.ts owns all of that and hands this in.
+export { NO_MODULE_BONUSES, mergeModuleBonuses } from './core/modules';
+export type { ModuleBonuses } from './core/modules';
 export { isAlive } from './core/types';
 
 /**

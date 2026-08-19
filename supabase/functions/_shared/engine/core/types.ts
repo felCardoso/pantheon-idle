@@ -2,6 +2,7 @@
 // Run `npm run sync:pvp-engine` after changing the engine.
 // See scripts/sync-pvp-engine.mjs for why this copy exists.
 import type { AbilityDefinition, BaseStats, Faction, StatusType } from '../schema.ts';
+import type { ModuleBonuses } from './modules.ts';
 
 export interface StatusEffectInstance {
   status: StatusType;
@@ -62,6 +63,12 @@ export interface Combatant {
   abilityCooldownRemaining: Record<string, number>;
   /** True while this unit is its side's index-0 Vanguard. */
   isVanguard: boolean;
+  /** Equipment bonuses, already summed across every equipped slot (see core/modules.ts). */
+  modules: ModuleBonuses;
+  /** Set once a reviveOncePercent module has fired, so it can't fire twice in one battle. */
+  revived: boolean;
+  /** Seconds until the next periodic cleanse, while cleanseIntervalSeconds is set. */
+  cleanseCooldownRemaining: number;
 }
 
 export function isAlive(c: Combatant): boolean {
@@ -112,6 +119,10 @@ export type BattleLogEntry = { at: number } & (
   /** ICE reflection: `source` is the defender whose ICE fired, `target` is the original attacker taking it back. */
   | { kind: 'iceReflect'; source: string; target: string; amount: number; shieldAbsorbed: number; hpDamage: number; targetDied: boolean }
   | { kind: 'death'; unit: string }
+  /** A reviveOncePercent module pulled its bearer back up instead of letting it die. */
+  | { kind: 'moduleRevive'; unit: string; hp: number }
+  /** A periodicCleanse module stripped the Vanguard's debuffs. */
+  | { kind: 'moduleCleanse'; unit: string; statuses: StatusType[] }
   /** System Overload tick (docs/combate.md v3.1 §6). */
   | { kind: 'overload'; percent: number; damages: { target: string; amount: number }[] }
   | { kind: 'battleEnd'; winner: 'allies' | 'enemies' | 'draw'; reason: 'elimination' | 'timeLimit' }

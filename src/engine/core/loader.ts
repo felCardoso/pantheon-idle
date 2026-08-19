@@ -4,6 +4,7 @@ import type { Combatant } from './types';
 import { levelForXp, levelMultiplier } from './leveling';
 import type { WorldId } from './progression';
 import { ALL_ABILITIES, ALL_CHARACTER_DATA, CONSTANTS, WORLD_ENEMIES } from '../data';
+import { NO_MODULE_BONUSES, type ModuleBonuses } from './modules';
 
 // Re-exported so existing engine/UI call sites keep importing it from here.
 export { CONSTANTS };
@@ -136,10 +137,13 @@ function buildCombatant(
   rarity?: Rarity,
   selectedAbilityId?: string,
   selectedBenchAbilityId?: string,
+  modules: ModuleBonuses = NO_MODULE_BONUSES,
 ): Combatant {
+  // Equipment multiplies on top of synergy/level/difficulty rather than being folded into them,
+  // so a rune's "+5% de vida" reads as 5% of what the character already has.
   const scale = (1 + synergyBonus) * statMultiplier;
-  const hp = Math.round(data.baseStats.hp * scale);
-  const atk = Math.round(data.baseStats.atk * scale);
+  const hp = Math.round(data.baseStats.hp * scale * (1 + modules.maxHpPercent));
+  const atk = Math.round(data.baseStats.atk * scale * (1 + modules.attackPercent));
   // DEF/VEL/ESQ/ICE are never scaled — for allies because they're ability-granted build
   // choices rather than generic growing stats (schema.ts), and for enemies because scaling
   // them made world difficulty compound several times over instead of once.
@@ -153,13 +157,15 @@ function buildCombatant(
   // worlds at any level. DEF/VEL/ESQ now stay exactly as authored, so they read as that
   // enemy's archetype (a bulwark, a flurry attacker) and world difficulty comes from the
   // pools alone.
-  const def = data.baseStats.def;
+  // Module DEF/ICE/ESQ are added, not multiplied: they're fractions, and a character's own base
+  // is 0 for allies, so a multiplier would leave every defensive rune doing nothing.
+  const def = data.baseStats.def + modules.defense;
   // VEL is a rate, not a pool: it is NOT rounded (unlike the old INI, which was an
   // ordering key) because attackIntervalFor() reads it as a continuous multiplier —
   // rounding would collapse every enemy speed tier below 1.0 down to 0.
   const vel = data.baseStats.vel;
-  const esq = data.baseStats.esq;
-  const ice = data.baseStats.ice ?? 0;
+  const esq = data.baseStats.esq + modules.dodge;
+  const ice = (data.baseStats.ice ?? 0) + modules.thorns;
 
   const abilities = resolveCombatantAbilities(data, isAlly, rarity, selectedAbilityId, selectedBenchAbilityId);
 
@@ -174,7 +180,7 @@ function buildCombatant(
     base: { hp, atk, def, vel, esq, ice },
     maxHp: hp,
     hp,
-    shield: 0,
+    shield: Math.round(hp * modules.initialShieldPercent),
     statuses: [],
     activeAbilities: abilities.active,
     benchAbilities: abilities.bench,
@@ -184,6 +190,9 @@ function buildCombatant(
     attackCooldownRemaining: 0,
     abilityCooldownRemaining: {},
     isVanguard: false,
+    modules,
+    revived: false,
+    cleanseCooldownRemaining: modules.cleanseIntervalSeconds ?? 0,
   };
 }
 
@@ -193,6 +202,8 @@ export interface OwnedCharacterEntry {
   xp: number;
   /** The card's current best owned rarity — gates whether its passive is active (see resolveCombatantAbilities). Omitted = passive locked, same as browsing an unowned character. */
   rarity?: Rarity;
+  /** Already-summed equipment bonuses for this character (see core/modules.ts). */
+  modules?: ModuleBonuses;
   /** The player's equipped active ability id — falls back to the character's first activeOptions entry if omitted or not actually one of its options. */
   selectedAbilityId?: string;
 }
@@ -208,10 +219,10 @@ export interface OwnedCharacterEntry {
  * once (no duplicate/star-up support yet).
  */
 export function loadCharactersByIds(entries: OwnedCharacterEntry[]): Combatant[] {
-  const dataByEntry = entries.map(({ id, xp, rarity, selectedAbilityId }) => {
+  const dataByEntry = entries.map(({ id, xp, rarity, selectedAbilityId, modules }) => {
     const data = CHARACTER_REGISTRY[id];
     if (!data) throw new Error(`Unknown character id: ${id}`);
-    return { data, xp, rarity, selectedAbilityId };
+    return { data, xp, rarity, selectedAbilityId, modules };
   });
 
   const countByMythology = new Map<string, number>();
@@ -220,11 +231,11 @@ export function loadCharactersByIds(entries: OwnedCharacterEntry[]): Combatant[]
     countByMythology.set(key, (countByMythology.get(key) ?? 0) + 1);
   }
 
-  return dataByEntry.map(({ data, xp, rarity, selectedAbilityId }) => {
+  return dataByEntry.map(({ data, xp, rarity, selectedAbilityId, modules }) => {
     const key = data.mythology ?? 'Desconhecida';
     const synergyBonus = synergyBonusFor(countByMythology.get(key)!);
     const level = levelForXp(xp);
-    return buildCombatant(data, true, synergyBonus, levelMultiplier(level), undefined, level, rarity, selectedAbilityId);
+    return buildCombatant(data, true, synergyBonus, levelMultiplier(level), undefined, level, rarity, selectedAbilityId, undefined, modules);
   });
 }
 
