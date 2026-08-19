@@ -147,8 +147,11 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
 
   // The PvE team the player selected, falling back to whatever they own — mirrors GameShell's
   // own fallback for the window before a fresh account's teams finish initializing.
-  const teamIds = ((teamRow?.characters as unknown as string[] | null) ?? []).filter((id) => ownedById.has(id));
-  const roster = (teamIds.length > 0 ? teamIds : (owned ?? []).map((c) => c.character_id).slice(0, 5))
+  // Deduped on read as well as on write (app/api/teams/save): rows saved before that guard
+  // existed can still carry a repeated id, which would build two Combatants sharing an id and
+  // double-count the mythology synergy.
+  const teamIds = [...new Set(((teamRow?.characters as unknown as string[] | null) ?? []).filter((id) => ownedById.has(id)))];
+  const roster = (teamIds.length > 0 ? teamIds : [...new Set((owned ?? []).map((c) => c.character_id))].slice(0, 5))
     .map((id) => ownedById.get(id)!)
     .filter(Boolean);
   if (roster.length === 0) {

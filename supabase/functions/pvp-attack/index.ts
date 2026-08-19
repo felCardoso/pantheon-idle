@@ -115,9 +115,14 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     const ownedById = new Map((attackerChars ?? []).map((c) => [c.character_id, c]));
+    // Deduped: a repeated id would build two Combatants sharing an id and count twice toward
+    // the mythology synergy bonus, so a single owned character could field as five.
     const teamIds = (attackerTeamRow?.characters as unknown as string[] | null) ?? [];
-    const selectedIds = teamIds.filter((id) => ownedById.has(id));
-    const attackerIds = (selectedIds.length > 0 ? selectedIds : (attackerChars ?? []).map((c) => c.character_id)).slice(0, MAX_TEAM_MEMBERS);
+    const selectedIds = [...new Set(teamIds.filter((id) => ownedById.has(id)))];
+    const attackerIds = (selectedIds.length > 0 ? selectedIds : [...new Set((attackerChars ?? []).map((c) => c.character_id))]).slice(
+      0,
+      MAX_TEAM_MEMBERS,
+    );
 
     const attackerEntries: OwnedCharacterEntry[] = attackerIds.map((id) => {
       const c = ownedById.get(id)!;
@@ -143,9 +148,11 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    // Capped at read time as well as by pvp_defense_teams' own constraint (migration
-    // 0020), since rows written before that constraint existed can still be oversized.
-    const defenderEntries: OwnedCharacterEntry[] = defenderSnapshot.slice(0, MAX_TEAM_MEMBERS).map((c) => ({
+    // Capped and deduped at read time as well as by pvp_defense_teams' own constraint and the
+    // save route's guard (migration 0020), since snapshots written before those existed can
+    // still be oversized or repeat a character.
+    const uniqueDefenders = [...new Map(defenderSnapshot.map((c) => [c.characterId, c])).values()];
+    const defenderEntries: OwnedCharacterEntry[] = uniqueDefenders.slice(0, MAX_TEAM_MEMBERS).map((c) => ({
       id: c.characterId,
       xp: c.xp,
       rarity: c.rarity as OwnedCharacterEntry['rarity'],
