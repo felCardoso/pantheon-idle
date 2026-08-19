@@ -30,7 +30,8 @@ export interface UseOwnedCharactersResult {
   error: string | null;
   claimStarter: (characterId: string) => Promise<void>;
   /** Grants the same XP amount to every currently-owned character — the whole owned roster fights together, so everyone who fought earns it. */
-  addXp: (amount: number) => void;
+  /** Mirrors a resolved battle's XP into local state, per character id — see applyBattleXp. */
+  applyBattleXp: (xpByCharacterId: Record<string, number>) => void;
   /** Sells 1 fragment of characterId at the given rarity for Bytes via /api/characters/sell-fragment
    * — returns the grant + new Bytes total (for the caller's usePlayerProgress.setBytesFromServer),
    * or null if it failed (nothing to sell). */
@@ -51,7 +52,7 @@ export function useOwnedCharacters(userId: string | undefined): UseOwnedCharacte
   const [error, setError] = useState<string | null>(null);
 
   // Mirrors of the state above, written synchronously wherever the state is written — see
-  // addXp's own comment for why (battle-driven, unrelated to the routes below, kept as-is).
+  // applyBattleXp's own comment for why (battle-driven, unrelated to the routes below).
   const ownedRef = useRef<OwnedCharacter[]>([]);
   const fragmentsRef = useRef<Map<string, FragmentStack>>(new Map());
 
@@ -131,15 +132,21 @@ export function useOwnedCharacters(userId: string | undefined): UseOwnedCharacte
   // same reasoning as usePlayerProgress.ts's saveProgress: it means moving battle resolution
   // itself server-side, out of scope for this pass.
   /**
-   * Reflects a battle's XP payout in local state only.
+   * Reflects a battle's XP payout in local state only, for exactly the characters that earned it.
    *
-   * The server already persisted it when it resolved the battle (lib/battle-resolve.ts), and
-   * migration 0022 revoked the client's write on player_characters entirely — this exists so
-   * the Team/Personagens screens don't show stale levels until the next refetch.
+   * The server already persisted this when it resolved the battle (lib/battle-resolve.ts), and
+   * migration 0022 revoked the client's write on player_characters entirely — this exists so the
+   * Team/Personagens screens don't show stale levels until the next refetch. It takes a per-id
+   * map rather than one amount because only the fielded team earns XP, so spreading a single
+   * number across the whole roster would show levels the database doesn't have.
    */
-  const addXp = useCallback((amount: number) => {
-    if (amount <= 0 || ownedRef.current.length === 0) return;
-    const next = ownedRef.current.map((c) => ({ ...c, xp: c.xp + amount }));
+  const applyBattleXp = useCallback((xpByCharacterId: Record<string, number>) => {
+    const ids = Object.keys(xpByCharacterId);
+    if (ids.length === 0 || ownedRef.current.length === 0) return;
+    const next = ownedRef.current.map((c) => {
+      const gained = xpByCharacterId[c.characterId] ?? 0;
+      return gained > 0 ? { ...c, xp: c.xp + gained } : c;
+    });
     ownedRef.current = next;
     setOwnedCharacters(next);
   }, []);
@@ -186,5 +193,5 @@ export function useOwnedCharacters(userId: string | undefined): UseOwnedCharacte
     syncFragments(next);
   }, [userId]);
 
-  return { ownedCharacters, fragments, loading, error, claimStarter, addXp, sellFragment, refreshFragments };
+  return { ownedCharacters, fragments, loading, error, claimStarter, applyBattleXp, sellFragment, refreshFragments };
 }

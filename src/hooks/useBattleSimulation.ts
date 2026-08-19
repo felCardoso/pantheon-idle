@@ -37,6 +37,8 @@ interface BattleSession extends WorldPosition {
   reward: Reward;
   creditsAfter: number;
   xpAfter: number;
+  /** XP this battle granted per character id — only the ones that fought. */
+  xpEarnedByCharacterId: Record<string, number>;
   /** Where the next battle should be fought, per the server's progression rules. */
   nextPosition: WorldPosition;
 }
@@ -64,6 +66,7 @@ interface ResolveBattleResponse {
   frontier: WorldPosition;
   recoveryWinsRemaining: number | null;
   pvpEncounter: PvpEncounter | null;
+  xpEarnedByCharacterId: Record<string, number>;
 }
 
 function sessionFrom(response: ResolveBattleResponse): BattleSession {
@@ -80,6 +83,7 @@ function sessionFrom(response: ResolveBattleResponse): BattleSession {
     reward: response.reward,
     creditsAfter: response.credits,
     xpAfter: response.xp,
+    xpEarnedByCharacterId: response.xpEarnedByCharacterId,
     nextPosition: response.nextPosition,
   };
 }
@@ -127,6 +131,7 @@ interface SessionState {
   totalXp: number;
   /** Credits/XP earned from this specific battle — set once it ends, shown on the winner overlay. */
   lastReward: Reward | null;
+  lastXpByCharacterId: Record<string, number>;
   /**
    * The player's real saved progress — the highest position ever reached.
    * Distinct from `session.fase/estagio` (what's currently on screen), and
@@ -155,6 +160,7 @@ function buildInitialSession(position: WorldPosition, initialCredits: number, in
     totalCredits: initialCredits,
     totalXp: initialXp,
     lastReward: null,
+    lastXpByCharacterId: {},
     frontier: position,
     // Where the next requested battle should be fought — the saved position until the server
     // says otherwise.
@@ -174,6 +180,7 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
         totalCredits: state.totalCredits,
         totalXp: state.totalXp,
         lastReward: null,
+        lastXpByCharacterId: {},
         frontier: action.frontier,
         nextPosition: action.session.nextPosition,
         recoveryWinsRemaining: action.recoveryWinsRemaining,
@@ -189,6 +196,7 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
         totalCredits: session.creditsAfter,
         totalXp: session.xpAfter,
         lastReward: session.reward,
+        lastXpByCharacterId: session.xpEarnedByCharacterId,
       };
     }
     case 'adjustCredits':
@@ -229,6 +237,8 @@ export interface BattleSimulation {
   xp: number;
   /** Créditos/XP earned from the battle that just finished, for the winner overlay — null until one ends. */
   lastReward: Reward | null;
+  /** XP the finished battle granted, per character id — only the ones that fought. */
+  lastXpByCharacterId: Record<string, number>;
   playing: boolean;
   finished: boolean;
   winner: 'allies' | 'enemies' | 'draw' | null;
@@ -418,6 +428,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     credits: state.totalCredits,
     xp: state.totalXp,
     lastReward: state.lastReward,
+    lastXpByCharacterId: state.lastXpByCharacterId,
     playing,
     finished: replay.finished,
     winner: replay.winner,

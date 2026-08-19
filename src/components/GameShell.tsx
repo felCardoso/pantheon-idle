@@ -64,7 +64,7 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
     setPvpTeamSlot,
     syncFromGachaResponse,
   } = usePlayerProgress(userId);
-  const { ownedCharacters, fragments, loading: ownedLoading, claimStarter, addXp, sellFragment, refreshFragments } = useOwnedCharacters(userId);
+  const { ownedCharacters, fragments, loading: ownedLoading, claimStarter, applyBattleXp, sellFragment, refreshFragments } = useOwnedCharacters(userId);
   const { username, avatarCharacterId, loading: profileLoading, updateUsername, updateAvatar } = useProfile(userId);
   const cluster = useCluster(userId);
   const pvp = usePvp(userId);
@@ -101,7 +101,7 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
       initialXp={progress.xp}
       ownedCharacters={ownedCharacters}
       fragments={fragments}
-      addXp={addXp}
+      applyBattleXp={applyBattleXp}
       sellFragment={sellFragment}
       refreshFragments={refreshFragments}
       starterBoostClaimed={starterBoostClaimed}
@@ -146,7 +146,7 @@ interface GameShellReadyProps {
   initialXp: number;
   ownedCharacters: OwnedCharacter[];
   fragments: FragmentStack[];
-  addXp: (amount: number) => void;
+  applyBattleXp: (xpByCharacterId: Record<string, number>) => void;
   sellFragment: (characterId: string, rarity: Rarity) => Promise<{ grantedBytes: number; bytes: number } | null>;
   refreshFragments: () => Promise<void>;
   starterBoostClaimed: boolean;
@@ -193,7 +193,7 @@ function GameShellReady({
   initialXp,
   ownedCharacters,
   fragments,
-  addXp,
+  applyBattleXp,
   sellFragment,
   refreshFragments,
   starterBoostClaimed,
@@ -293,16 +293,15 @@ function GameShellReady({
     [username, pvp.rating, battle.credits, battle.xp, tokens, bytes],
   );
 
-  // The server writes fase/estagio/credits/xp and every character's XP when it resolves a
-  // battle (lib/battle-resolve.ts), so there is nothing to persist from here any more — the
-  // client only mirrors what came back. Keeping the roster's XP display fresh is the one
-  // remaining job: apply the payout locally so the Team page doesn't lag a battle behind.
-  const prevBattleXpRef = useRef(initialXp);
+  // The server writes progress, the wallet and the fighters' XP when it resolves a battle
+  // (lib/battle-resolve.ts), so there is nothing to persist from here any more — the client only
+  // mirrors what came back, so the Team page doesn't lag a battle behind. Keyed by character id
+  // because only the fielded team earns XP; spreading one number across the roster would show
+  // levels the database doesn't have.
+  const lastXpByCharacterId = battle.lastXpByCharacterId;
   useEffect(() => {
-    const gained = battle.xp - prevBattleXpRef.current;
-    prevBattleXpRef.current = battle.xp;
-    if (gained > 0) addXp(gained);
-  }, [battle.xp, addXp]);
+    applyBattleXp(lastXpByCharacterId);
+  }, [lastXpByCharacterId, applyBattleXp]);
 
   // Random PvP encounters (lib/battle-resolve.ts's rollPvpEncounter): the server decides a run
   // has bumped into another player, and the fight goes through the same authoritative

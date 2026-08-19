@@ -72,6 +72,9 @@ export interface ResolveBattleResult {
   recoveryWinsRemaining: number | null;
   /** Non-null when this battle rolled a random PvP encounter — see rollPvpEncounter. */
   pvpEncounter: PvpEncounter | null;
+  /** XP granted per character id — only the ones that fought. Lets the client update the roster
+   * display without refetching, and without inventing who earned what. */
+  xpEarnedByCharacterId: Record<string, number>;
 }
 
 /**
@@ -220,14 +223,18 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
     .eq('user_id', userId);
   if (updateError) throw new BattleResolveError(updateError.message, 500);
 
-  // Every owned character fights together, so a win levels the whole roster — same rule the
-  // client used to apply, now applied where it can't be forged.
-  if (reward.xp > 0 && (owned ?? []).length > 0) {
+  // Only the characters that actually fought earn XP — the five fielded for this battle, bench
+  // included, since Relay & Bench has all of them in the fight. The whole collection used to
+  // level off every win, which meant a character sitting in the inventory gained exactly as much
+  // as the one carrying the run, and swapping your team cost nothing.
+  const xpEarnedByCharacterId: Record<string, number> = {};
+  if (reward.xp > 0) {
     const { error: xpError } = await supabaseAdmin.from('player_characters').upsert(
-      (owned ?? []).map((c) => ({ user_id: userId, character_id: c.character_id, xp: c.xp + reward.xp, rarity: c.rarity })),
+      roster.map((c) => ({ user_id: userId, character_id: c.character_id, xp: c.xp + reward.xp, rarity: c.rarity })),
       { onConflict: 'user_id,character_id' },
     );
     if (xpError) throw new BattleResolveError(xpError.message, 500);
+    for (const c of roster) xpEarnedByCharacterId[c.character_id] = reward.xp;
   }
 
   return {
@@ -245,5 +252,6 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
     frontier: next.frontier,
     recoveryWinsRemaining: next.recoveryWinsRemaining,
     pvpEncounter,
+    xpEarnedByCharacterId,
   };
 }
