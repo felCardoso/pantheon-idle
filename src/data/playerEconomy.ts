@@ -55,6 +55,12 @@ export const BANNER_PITY_MAX = 150;
  * PVP_ENCOUNTER_CHANCE. Rolled server-side in lib/battle-resolve.ts — the counter is a
  * player_progress column so the client can neither farm encounters nor dodge them.
  */
+/** `.rar` capsule (docs/gdd.md section 8) — the token price of a Módulo pull. The bundle is
+ * priced at 9x for 10, the same "one free" shape the character gacha uses. */
+export const MODULE_CAPSULE_COST_TOKENS = 60;
+export const MODULE_CAPSULE_BUNDLE = 10;
+export const MODULE_CAPSULE_BUNDLE_COST_TOKENS = MODULE_CAPSULE_COST_TOKENS * 9;
+
 export const PVP_ENCOUNTER_MIN_BATTLES = 3;
 export const PVP_ENCOUNTER_CHANCE = 0.25;
 

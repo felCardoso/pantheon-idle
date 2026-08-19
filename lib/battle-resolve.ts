@@ -25,6 +25,8 @@ import {
   VIP_CREDIT_XP_BONUS_PERCENT,
 } from '../src/data/playerEconomy';
 import { supabaseAdmin } from './supabase-admin';
+import { bonusesFromModules, equippedByCharacter } from '../src/data/moduleBonuses';
+import { grantModules, rollModules, type GrantedModule } from './module-grants';
 import { BattleResolveError, type ResolveBattleRequest } from './battle-request';
 
 /**
@@ -75,6 +77,8 @@ export interface ResolveBattleResult {
   /** XP granted per character id — only the ones that fought. Lets the client update the roster
    * display without refetching, and without inventing who earned what. */
   xpEarnedByCharacterId: Record<string, number>;
+  /** Módulos dropped by this battle. Only a won boss fight ever pays one. */
+  modulesEarned: GrantedModule[];
 }
 
 /**
@@ -111,8 +115,14 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
   // slot needs pve_team_slot — but a player has at most five team rows, so reading them all and
   // picking in memory turns a second round trip into part of the first. Battles are the game's
   // hottest path now that each one is a request.
-  const [{ data: progress, error: progressError }, { data: owned }, { data: abilityProgress }, { data: membership }, { data: teamRows }] =
-    await Promise.all([
+  const [
+    { data: progress, error: progressError },
+    { data: owned },
+    { data: abilityProgress },
+    { data: membership },
+    { data: teamRows },
+    { data: moduleRows },
+  ] = await Promise.all([
     supabaseAdmin
       .from('player_progress')
       .select(
@@ -124,6 +134,7 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
     supabaseAdmin.from('character_ability_progress').select('character_id, selected_ability_id').eq('user_id', userId),
     supabaseAdmin.from('cluster_members').select('cluster_id').eq('user_id', userId).maybeSingle(),
     supabaseAdmin.from('player_teams').select('slot, characters').eq('user_id', userId),
+    supabaseAdmin.from('player_modules').select('module_id, rarity, equipped_on').eq('user_id', userId).not('equipped_on', 'is', null),
   ]);
 
   if (progressError) throw new BattleResolveError(progressError.message, 500);
@@ -162,10 +173,14 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
     throw new BattleResolveError('No characters to fight with.', 400);
   }
 
+  // Equipped runes become plain stat/behaviour totals here — the engine never learns what a rune is.
+  const modulesByCharacter = equippedByCharacter(moduleRows ?? []);
+
   const allies = loadCharactersByIds(
     roster.map((c) => ({
       id: c.character_id,
       xp: c.xp,
+      modules: bonusesFromModules(modulesByCharacter[c.character_id] ?? []),
       rarity: c.rarity as Parameters<typeof loadCharactersByIds>[0][number]['rarity'],
       selectedAbilityId: selectedAbilityByCharacterId[c.character_id],
     })),
@@ -237,6 +252,21 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
     for (const c of roster) xpEarnedByCharacterId[c.character_id] = reward.xp;
   }
 
+  // Beating a world boss drops a rune. Bosses are the campaign's milestones and there are only
+  // six of them, so this is a rare, memorable payout rather than a grind faucet — hence the
+  // better grade table (see module-grants.ts).
+  let modulesEarned: GrantedModule[] = [];
+  if (won && boss) {
+    modulesEarned = rollModules(1, 'boss');
+    try {
+      await grantModules(userId, modulesEarned);
+    } catch {
+      // A failed rune grant must not void a hard-won boss kill: the credits, XP and progression
+      // above are already committed, so drop the drop and let the battle stand.
+      modulesEarned = [];
+    }
+  }
+
   return {
     seed,
     position,
@@ -253,5 +283,6 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
     recoveryWinsRemaining: next.recoveryWinsRemaining,
     pvpEncounter,
     xpEarnedByCharacterId,
+    modulesEarned,
   };
 }
