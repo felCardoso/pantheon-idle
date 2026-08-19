@@ -155,33 +155,50 @@ describe('loadJurupariComuns / loadJurupariBoss', () => {
   it('loads Anhangá.exe with its calibrated stats', () => {
     const [boss] = loadJurupariBoss();
     expect(boss.name).toBe('Anhangá.exe');
-    expect(boss.maxHp).toBe(12000);
-    expect(boss.base.atk).toBe(250);
-    expect(boss.base.def).toBe(0.5);
+    expect(boss.maxHp).toBe(2000);
+    expect(boss.base.atk).toBe(112);
+    expect(boss.base.def).toBe(0.2);
   });
 
-  it('scales comuns stats by the given multiplier (per-estágio scaling)', () => {
+  it('scales only the pools (HP/ATK) by the given multiplier, never DEF/VEL/ESQ', () => {
+    // Difficulty has to scale once, not several times over: DEF is a mitigation fraction and
+    // VEL a rate, so multiplying them alongside HP/ATK compounded a world's step into a far
+    // steeper jump than its multiplier implied. They now stay exactly as authored.
     const scaled = loadJurupariComuns(3, 1.2); // estágio 5 of a fase (+20%)
     const boitata = scaled.find((c) => c.name === 'Boitatá.sh')!;
     expect(boitata.maxHp).toBe(Math.round(600 * 1.2));
-    expect(boitata.base.def).toBeCloseTo(0.3 * 1.2);
+    expect(boitata.base.def).toBeCloseTo(0.3);
+    expect(boitata.base.vel).toBeCloseTo(0.4);
   });
 
   it('scales the boss by an optional multiplier too (team-size scaling)', () => {
     const [boss] = loadJurupariBoss(0.25);
-    expect(boss.maxHp).toBe(Math.round(12000 * 0.25));
+    expect(boss.maxHp).toBe(Math.round(2000 * 0.25));
   });
 });
 
 describe('loadWorldComuns / loadWorldBoss', () => {
-  it('loads every world\'s comuns/boss at the exact same calibrated baseline as Jurupari (all difficulty scaling comes from the statMultiplier, not hand-tuned per-world stats)', () => {
+  it('loads every world\'s comuns at the same calibrated baseline (world difficulty comes from the statMultiplier, not hand-tuned comuns stats)', () => {
     for (const worldId of ['jurupari', 'duat', 'orun', 'takamagahara', 'olympus', 'yggdrasil'] as const) {
-      const comuns = loadWorldComuns(worldId, 3);
-      expect(comuns.map((c) => c.maxHp)).toEqual([200, 600, 350]);
-      const [boss] = loadWorldBoss(worldId);
-      expect(boss.maxHp).toBe(12000);
-      expect(boss.base.atk).toBe(250);
+      expect(loadWorldComuns(worldId, 3).map((c) => c.maxHp)).toEqual([200, 600, 350]);
     }
+  });
+
+  it('gives each world\'s boss its own stat profile, so the six fights do not all play the same', () => {
+    // Unlike the comuns, bosses are individually calibrated: they were once six copies of one
+    // placeholder block (12000 HP / 250 ATK / 0.5 DEF), which no roster could out-damage inside
+    // the 50s limit at any level. Each is now its own archetype, sized against real player DPS.
+    const profiles = ['jurupari', 'duat', 'orun', 'takamagahara', 'olympus', 'yggdrasil'].map((w) => {
+      const [boss] = loadWorldBoss(w as Parameters<typeof loadWorldBoss>[0]);
+      return { hp: boss.maxHp, atk: boss.base.atk, def: boss.base.def, vel: boss.base.vel };
+    });
+    // Every boss sits in a band a levelled team can actually chew through.
+    for (const p of profiles) {
+      expect(p.hp).toBeGreaterThanOrEqual(1500);
+      expect(p.hp).toBeLessThanOrEqual(3000);
+    }
+    // ...and no two share the same shape.
+    expect(new Set(profiles.map((p) => `${p.hp}/${p.atk}/${p.def}/${p.vel}`)).size).toBe(profiles.length);
   });
 
   it('gives each world its own themed names, distinct from every other world and from the ally roster', () => {

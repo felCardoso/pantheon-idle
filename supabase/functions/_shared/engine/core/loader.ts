@@ -143,18 +143,26 @@ function buildCombatant(
   const scale = (1 + synergyBonus) * statMultiplier;
   const hp = Math.round(data.baseStats.hp * scale);
   const atk = Math.round(data.baseStats.atk * scale);
-  // Allies: DEF/VEL/ESQ/ICE are ability-granted build choices, not generic growing stats
-  // (schema.ts) — never scaled by level/synergy, always exactly whatever the character's kit
-  // grants (today always 0, until kits that grant them exist). Enemies are untouched by that
-  // rule — their DEF/VEL/ESQ scaling by statMultiplier is world/estágio difficulty tuning, a
-  // separate, pre-existing mechanic (progression.ts's difficultyMultiplier).
-  const def = isAlly ? data.baseStats.def : data.baseStats.def * statMultiplier;
+  // DEF/VEL/ESQ/ICE are never scaled — for allies because they're ability-granted build
+  // choices rather than generic growing stats (schema.ts), and for enemies because scaling
+  // them made world difficulty compound several times over instead of once.
+  //
+  // They used to be multiplied by statMultiplier for enemies. HP and ATK are pools and
+  // per-hit output, so scaling those raises difficulty linearly; DEF is a mitigation
+  // *fraction* and VEL is a *rate*. Scaling all four at once meant a world-6 boss (x1.76
+  // world, x1.25 team-size) simultaneously had 2.2x the HP, hit 2.2x harder, attacked 2.2x
+  // more often, and absorbed 44% of incoming damage instead of 20% — a combined jump far
+  // steeper than the multiplier suggests, and the reason no roster could clear the later
+  // worlds at any level. DEF/VEL/ESQ now stay exactly as authored, so they read as that
+  // enemy's archetype (a bulwark, a flurry attacker) and world difficulty comes from the
+  // pools alone.
+  const def = data.baseStats.def;
   // VEL is a rate, not a pool: it is NOT rounded (unlike the old INI, which was an
   // ordering key) because attackIntervalFor() reads it as a continuous multiplier —
   // rounding would collapse every enemy speed tier below 1.0 down to 0.
-  const vel = isAlly ? data.baseStats.vel : data.baseStats.vel * statMultiplier;
-  const esq = isAlly ? data.baseStats.esq : data.baseStats.esq * statMultiplier;
-  const ice = isAlly ? data.baseStats.ice : (data.baseStats.ice ?? 0) * statMultiplier;
+  const vel = data.baseStats.vel;
+  const esq = data.baseStats.esq;
+  const ice = data.baseStats.ice ?? 0;
 
   const abilities = resolveCombatantAbilities(data, isAlly, rarity, selectedAbilityId, selectedBenchAbilityId);
 

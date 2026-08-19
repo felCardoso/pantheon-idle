@@ -18,13 +18,29 @@ export function AbilityCastOverlay({ activeAbilities }: AbilityCastOverlayProps)
       {activeAbilities.map((activeAbility) => (
         <div key={activeAbility.id} className="absolute inset-0">
           {activeAbility.portraitUrl && (
-            <img
-              src={activeAbility.portraitUrl}
-              alt=""
-              className={`absolute top-1/2 h-[65%] w-auto -translate-y-1/2 animate-ability-cast-portrait object-contain opacity-0 ${
-                activeAbility.isAlly ? 'left-[4%] sm:left-[10%]' : 'right-[4%] scale-x-[-1] sm:right-[10%]'
+            // Positioning lives on this wrapper, not on the animated element: the keyframes set
+            // `transform` outright, which would otherwise wipe out the -translate-y-1/2 that
+            // centres the portrait (and the enemy side's mirror).
+            <div
+              className={`absolute top-1/2 h-[52%] -translate-y-1/2 ${
+                activeAbility.isAlly ? 'left-[4%] sm:left-[10%]' : 'right-[4%] sm:right-[10%]'
               }`}
-            />
+            >
+              <div
+                className={`h-full animate-ability-cast-portrait overflow-hidden rounded-xl border-2 bg-void-950/60 opacity-0 backdrop-blur-sm ${
+                  activeAbility.isAlly ? 'border-code-400/70' : 'border-signal-red/70'
+                }`}
+                style={{
+                  boxShadow: `0 0 24px -6px color-mix(in srgb, var(${activeAbility.isAlly ? '--color-code-500' : '--color-signal-red'}) 50%, transparent)`,
+                }}
+              >
+                <img
+                  src={activeAbility.portraitUrl}
+                  alt=""
+                  className={`h-full w-auto object-contain ${activeAbility.isAlly ? '' : 'scale-x-[-1]'}`}
+                />
+              </div>
+            </div>
           )}
           <div
             className={`relative flex h-full items-center px-4 ${

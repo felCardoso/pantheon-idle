@@ -35,8 +35,17 @@ const BOSS_ESTAGIO = ESTAGIOS_PER_FASE + 1;
 /** +5% per estágio within a fase (0%, 5%, 10%, 15%, 20% across estágios 1-5). */
 const PER_ESTAGIO_SCALING_STEP = 0.05;
 
-/** Each world's Estágio 1 baseline is 30% harder than the previous world's, per the launch-order design. */
-const WORLD_DIFFICULTY_STEP = 1.3;
+/**
+ * Each world's Estágio 1 baseline is this much harder than the previous world's.
+ *
+ * This has to stay inside the player's own power curve, which is the binding constraint:
+ * a character gains +2% per level (leveling.ts) and a full same-mythology team adds +32%
+ * synergy, so even a level-60 roster is only ~2.9x its starting power. The previous 1.3
+ * step compounded to 1.3^5 = 3.7x by the sixth world — past that ceiling — which made
+ * every world from the third on unwinnable no matter how long a player ground. At 1.12 the
+ * sixth world lands at 1.76x, which a lightly-ground roster can actually meet.
+ */
+const WORLD_DIFFICULTY_STEP = 1.12;
 
 export interface WorldPosition {
   fase: number;

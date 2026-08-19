@@ -54,11 +54,11 @@
     "name": "Ogum.exe",
     "faction": null,
     "baseStats": {
-      "hp": 12000,
-      "atk": 250,
-      "def": 0.5,
-      "vel": 0.95,
-      "esq": 0.06,
+      "hp": 2500,
+      "atk": 100,
+      "def": 0.3,
+      "vel": 0.6,
+      "esq": 0.04,
       "ice": 0
     },
     "activeOptions": [

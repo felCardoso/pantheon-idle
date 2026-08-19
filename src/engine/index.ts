@@ -88,6 +88,8 @@ export type { OwnedCharacterEntry } from './core/loader';
 export {
   ESTAGIOS_PER_FASE,
   FASES_PER_WORLD,
+  TOTAL_FASES,
+  WORLD_IDS,
   comparePositions,
   difficultyMultiplier,
   enemyCountRange,

@@ -14,7 +14,7 @@ import type { ChatMessage } from '../types';
  * reports the result) so the two never carry two copies of this logic.
  */
 
-export type FloatingTextKind = 'damage' | 'crit' | 'heal' | 'shield';
+export type FloatingTextKind = 'damage' | 'crit' | 'heal' | 'shield' | 'ability';
 
 export interface FloatingText {
   id: string;
@@ -22,6 +22,8 @@ export interface FloatingText {
   amount: number;
   kind: FloatingTextKind;
   createdAt: number;
+  /** Set instead of `amount` for the 'ability' kind — the ability's name, shown above the caster. */
+  label?: string;
 }
 
 /** How long a floating number stays on screen before being pruned. */
@@ -77,6 +79,14 @@ function attackTierFor(intervalSeconds: number | null): AttackAnimTier {
 
 /** If no animation has been visible on screen for this long, the next Vanguard to attack forces its equipped ability's cast callout as a flourish — keeps a slow-cadence fight from ever reading as frozen. */
 const IDLE_WATCHDOG_MS = 10_000;
+
+/**
+ * Minimum gap between two full-screen cast callouts. Abilities fire far more often than this in
+ * a busy fight, and dimming the screen for every one of them buries the battle it is meant to
+ * punctuate. Casts inside the gap still show — as an 'ability' floater naming the ability over
+ * the caster's card, which reads at a glance without taking the screen over.
+ */
+const FULL_CAST_INTERVAL_MS = 10_000;
 
 /** What floating numbers (if any) a log entry should spawn, keyed by target unit id. */
 function floatersFor(entry: BattleLogEntry, nameToId: Record<string, string>): Omit<FloatingText, 'id' | 'createdAt'>[] {
@@ -146,6 +156,8 @@ interface ReplayPlaybackState {
   lastVisibleAnimAt: number;
   /** Which side(s) are owed a forced cast callout on their Vanguard's next attack, per the idle watchdog. */
   forcedCastSides: { allies: boolean; enemies: boolean };
+  /** Wall-clock ms of the last full-screen cast callout — gates the next one, see FULL_CAST_INTERVAL_MS. */
+  lastFullCastAt: number;
 }
 
 type Action = { type: 'reset'; log: BattleLogEntry[]; allies: Combatant[]; enemies: Combatant[]; nameToId: Record<string, string> } | { type: 'tick' } | { type: 'pruneFloaters' } | { type: 'pruneAbilities' } | { type: 'pruneAttackAnims' };
@@ -184,6 +196,8 @@ function buildFreshState(log: BattleLogEntry[], allies: Combatant[], enemies: Co
     lastAttackAtByUnit: {},
     lastVisibleAnimAt: Date.now(),
     forcedCastSides: { allies: false, enemies: false },
+    // 0 rather than Date.now() so the battle's first ability still gets the full callout.
+    lastFullCastAt: 0,
   };
 }
 
@@ -245,6 +259,7 @@ function reducer(state: ReplayPlaybackState, action: Action): ReplayPlaybackStat
   let activeAbilities = state.activeAbilities;
   let attackAnims = state.attackAnims;
   let lastAttackAtByUnit = state.lastAttackAtByUnit;
+  let lastFullCastAt = state.lastFullCastAt;
   let visibleAnimation = false;
 
   const newFloaters = floatersFor(entry, state.nameToId)
@@ -259,8 +274,23 @@ function reducer(state: ReplayPlaybackState, action: Action): ReplayPlaybackStat
     const unit = findCombatant(entry.unit, state.nameToId, state.allies, state.enemies);
     if (unit) {
       const isAllySide = state.allyIds.has(unit.id);
-      const castEvent = castEventFrom(unit, entry.abilityName, now, isAllySide);
-      activeAbilities = withActiveAbility(activeAbilities, castEvent);
+      // Only one cast in every FULL_CAST_INTERVAL_MS earns the screen-dimming callout; the rest
+      // are announced by a floating ability name over the caster instead.
+      if (now - lastFullCastAt >= FULL_CAST_INTERVAL_MS) {
+        const castEvent = castEventFrom(unit, entry.abilityName, now, isAllySide);
+        activeAbilities = withActiveAbility(activeAbilities, castEvent);
+        lastFullCastAt = now;
+      } else {
+        floaterIdCounter += 1;
+        newFloaters.push({
+          id: `floater-${floaterIdCounter}`,
+          unitId: unit.id,
+          amount: 0,
+          kind: 'ability',
+          label: entry.abilityName,
+          createdAt: now,
+        });
+      }
       forcedCastSides = { ...forcedCastSides, [isAllySide ? 'allies' : 'enemies']: false };
       visibleAnimation = true;
       const ability = findAbilityById(unit, entry.abilityId);
@@ -304,7 +334,11 @@ function reducer(state: ReplayPlaybackState, action: Action): ReplayPlaybackStat
     if (forcedCastSides[side]) {
       const flourish = attacker.activeAbilities[0];
       if (flourish) {
+        // The watchdog only trips after IDLE_WATCHDOG_MS of nothing, which is the same gap the
+        // full callout is throttled to, so this never fights FULL_CAST_INTERVAL_MS — but it does
+        // count as one, so a real cast right after doesn't immediately dim the screen again.
         activeAbilities = withActiveAbility(activeAbilities, castEventFrom(attacker, flourish.name, now, isAllySide));
+        lastFullCastAt = now;
       }
       forcedCastSides = { ...forcedCastSides, [side]: false };
     }
@@ -326,6 +360,7 @@ function reducer(state: ReplayPlaybackState, action: Action): ReplayPlaybackStat
     lastAttackAtByUnit,
     lastVisibleAnimAt: visibleAnimation ? now : state.lastVisibleAnimAt,
     forcedCastSides,
+    lastFullCastAt,
   };
 }
 

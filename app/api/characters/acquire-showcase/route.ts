@@ -36,6 +36,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Créditos insuficientes.' }, { status: 400 });
     }
 
+    // Charge before granting, as a compare-and-swap on the balance just read: two concurrent
+    // purchases would otherwise both pass the check above and both grant a character for one
+    // payment. Debiting first means a later failure costs credits rather than duplicating the
+    // character.
+    const nextCredits = progress.credits - SHOWCASE_CHARACTER_PRICE_CREDITS;
+    const { data: charged, error: chargeError } = await supabaseAdmin
+      .from('player_progress')
+      .update({ credits: nextCredits })
+      .eq('user_id', userId)
+      .eq('credits', progress.credits)
+      .select('user_id');
+    if (chargeError) return NextResponse.json({ error: chargeError.message }, { status: 500 });
+    if (!charged || charged.length === 0) {
+      return NextResponse.json({ error: 'Saldo alterado durante a compra — tente de novo.' }, { status: 409 });
+    }
+
     let ownedByCharacterId, fragmentCountByKey;
     try {
       ({ ownedByCharacterId, fragmentCountByKey } = await loadOwnershipState(userId));
@@ -49,10 +65,6 @@ export async function POST(req: Request) {
     } catch (err) {
       return NextResponse.json({ error: (err as Error).message }, { status: 500 });
     }
-
-    const nextCredits = progress.credits - SHOWCASE_CHARACTER_PRICE_CREDITS;
-    const { error: updateError } = await supabaseAdmin.from('player_progress').update({ credits: nextCredits }).eq('user_id', userId);
-    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
 
     return NextResponse.json({ result: results[0], credits: nextCredits });
   });

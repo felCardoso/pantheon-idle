@@ -54,11 +54,11 @@
     "name": "Yamata-no-Orochi.exe",
     "faction": null,
     "baseStats": {
-      "hp": 12000,
-      "atk": 250,
-      "def": 0.5,
-      "vel": 0.95,
-      "esq": 0.06,
+      "hp": 2100,
+      "atk": 88,
+      "def": 0.18,
+      "vel": 1.1,
+      "esq": 0.08,
       "ice": 0
     },
     "activeOptions": [

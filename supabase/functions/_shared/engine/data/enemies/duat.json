@@ -54,10 +54,10 @@
     "name": "Set.exe",
     "faction": null,
     "baseStats": {
-      "hp": 12000,
-      "atk": 250,
-      "def": 0.5,
-      "vel": 0.95,
+      "hp": 1750,
+      "atk": 132,
+      "def": 0.15,
+      "vel": 0.75,
       "esq": 0.06,
       "ice": 0
     },

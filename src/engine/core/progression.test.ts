@@ -137,16 +137,27 @@ describe('difficultyMultiplier', () => {
     expect(difficultyMultiplier({ fase: 2, estagio: 3 })).toBeCloseTo(difficultyMultiplier({ fase: 9, estagio: 3 }));
   });
 
-  it('is 30% higher at a new world\'s estágio 1 than the previous world\'s estágio 1', () => {
+  it('is 12% higher at a new world\'s estágio 1 than the previous world\'s estágio 1', () => {
     const jurupariBase = difficultyMultiplier({ fase: 1, estagio: 1 });
     const duatBase = difficultyMultiplier({ fase: FASES_PER_WORLD + 1, estagio: 1 });
-    expect(duatBase).toBeCloseTo(jurupariBase * 1.3);
+    expect(duatBase).toBeCloseTo(jurupariBase * 1.12);
   });
 
-  it('compounds the 30%-per-world step across every world crossed, always relative to Jurupari\'s estágio 1 baseline', () => {
+  it('compounds the per-world step across every world crossed, always relative to Jurupari\'s estágio 1 baseline', () => {
     const jurupariBase = difficultyMultiplier({ fase: 1, estagio: 1 });
     const orunBase = difficultyMultiplier({ fase: FASES_PER_WORLD * 2 + 1, estagio: 1 });
-    expect(orunBase).toBeCloseTo(jurupariBase * 1.3 * 1.3);
+    expect(orunBase).toBeCloseTo(jurupariBase * 1.12 * 1.12);
+  });
+
+  it('keeps the whole campaign inside the power curve a levelled roster can reach', () => {
+    // A character gains +2%/level and a full same-mythology team +32% synergy, so even a
+    // level-60 roster is only ~2.9x its starting power. The last world's baseline has to stay
+    // under that or the campaign is unwinnable however long a player grinds — which is exactly
+    // what the old 1.3 step (1.3^5 = 3.7x) did.
+    const first = difficultyMultiplier({ fase: 1, estagio: 1 });
+    const lastWorld = difficultyMultiplier({ fase: FASES_PER_WORLD * 5 + 1, estagio: 1 });
+    const level60TeamPower = (1 + 60 * 0.02) * 1.32;
+    expect(lastWorld / first).toBeLessThan(level60TeamPower);
   });
 
   it('still layers the intra-world +5%-per-estágio step on top of a later world\'s higher base', () => {

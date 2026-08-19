@@ -4,6 +4,7 @@ import { SideMenu } from './layout/SideMenu';
 import { StagePanel } from './layout/StagePanel';
 import { ChatPanel } from './layout/ChatPanel';
 import { BattleStage } from './battle/BattleStage';
+import { WorldMapModal } from './battle/WorldMapModal';
 import { TeamPage } from './roster/TeamPage';
 import { CharactersPage } from './roster/CharactersPage';
 import { ShopPage } from './shop/ShopPage';
@@ -250,6 +251,7 @@ function GameShellReady({
   const [wikiOpen, setWikiOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [stageOpen, setStageOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -473,6 +475,7 @@ function GameShellReady({
             onAdvance={battle.startNewBattle}
             onRepeat={battle.repeatBattle}
             onSelectStage={battle.playStage}
+            onOpenMap={() => setMapOpen(true)}
           />
           <ChatPanel
             messages={chatMessages}
@@ -526,6 +529,14 @@ function GameShellReady({
           pvpWins={pvp.wins}
           pvpLosses={pvp.losses}
           pvpDefenseTeam={pvp.defenseTeam}
+        />
+      )}
+      {mapOpen && (
+        <WorldMapModal
+          current={{ fase: battle.stage.phase, estagio: battle.stage.stage }}
+          frontier={{ fase: battle.frontierFase, estagio: battle.frontierEstagio }}
+          onSelect={battle.playPosition}
+          onClose={() => setMapOpen(false)}
         />
       )}
       <Toast message={toast} />
