@@ -104,7 +104,12 @@ async function rollPvpEncounter(userId: string, battlesSinceLast: number): Promi
 }
 
 export async function resolveBattleForUser(userId: string, request: ResolveBattleRequest): Promise<ResolveBattleResult> {
-  const [{ data: progress, error: progressError }, { data: owned }, { data: abilityProgress }, { data: membership }] = await Promise.all([
+  // All five reads go out together. The team used to be fetched afterwards because picking the
+  // slot needs pve_team_slot — but a player has at most five team rows, so reading them all and
+  // picking in memory turns a second round trip into part of the first. Battles are the game's
+  // hottest path now that each one is a request.
+  const [{ data: progress, error: progressError }, { data: owned }, { data: abilityProgress }, { data: membership }, { data: teamRows }] =
+    await Promise.all([
     supabaseAdmin
       .from('player_progress')
       .select(
@@ -115,17 +120,13 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
     supabaseAdmin.from('player_characters').select('character_id, xp, rarity').eq('user_id', userId),
     supabaseAdmin.from('character_ability_progress').select('character_id, selected_ability_id').eq('user_id', userId),
     supabaseAdmin.from('cluster_members').select('cluster_id').eq('user_id', userId).maybeSingle(),
+    supabaseAdmin.from('player_teams').select('slot, characters').eq('user_id', userId),
   ]);
 
   if (progressError) throw new BattleResolveError(progressError.message, 500);
   if (!progress) throw new BattleResolveError('player_progress row not found — log into the game at least once first', 404);
 
-  const { data: teamRow } = await supabaseAdmin
-    .from('player_teams')
-    .select('characters')
-    .eq('user_id', userId)
-    .eq('slot', progress.pve_team_slot ?? 1)
-    .maybeSingle();
+  const teamRow = (teamRows ?? []).find((t) => t.slot === (progress.pve_team_slot ?? 1));
 
   // The saved fase/estagio is the *frontier* — the furthest point ever reached. A requested
   // position is only honoured if it is at or before it, so the map can replay an earlier stage
