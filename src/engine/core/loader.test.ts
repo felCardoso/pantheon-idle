@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { AbilityEffect } from '../schema';
 import {
   ALL_CHARACTER_IDS,
   loadCharactersByIds,
@@ -118,15 +119,54 @@ describe('loadCharactersByIds', () => {
     expect(medusa.activeAbilities.map((a) => a.id)).toEqual(['medusa-petrificar']);
   });
 
-  it('never equips a passive below Zero-Day, and equipping the active is unaffected by rarity', () => {
-    // No character has an authored passiveAbilityId yet, so passiveAbilities is
-    // empty at every tier — this pins the gate's *shape* (rarity never leaks
-    // into the active slot) rather than a positive unlock, which needs content.
-    for (const rarity of ['Alpha', 'LTS', 'Zero-Day'] as const) {
+  it('equips the passive only at Zero-Day, and never lets rarity touch the active slot', () => {
+    for (const rarity of ['Alpha', 'Stable', 'LTS'] as const) {
       const [medusa] = loadCharactersByIds([{ id: 'medusa', xp: 0, rarity }]);
       expect(medusa.activeAbilities.map((a) => a.id)).toEqual(['medusa-petrificar']);
       expect(medusa.passiveAbilities).toEqual([]);
     }
+    const [zeroDay] = loadCharactersByIds([{ id: 'medusa', xp: 0, rarity: 'Zero-Day' }]);
+    expect(zeroDay.activeAbilities.map((a) => a.id)).toEqual(['medusa-petrificar']);
+    expect(zeroDay.passiveAbilities.map((a) => a.id)).toEqual(['medusa-passiva-escamas']);
+  });
+
+  it('unlocks the passive at v2.0 regardless of rarity — the second of the two paths in §3', () => {
+    const [atV19] = loadCharactersByIds([{ id: 'medusa', xp: 0, rarity: 'Alpha', version: 19 }]);
+    expect(atV19.passiveAbilities).toEqual([]);
+
+    const [atV20] = loadCharactersByIds([{ id: 'medusa', xp: 0, rarity: 'Alpha', version: 20 }]);
+    expect(atV20.passiveAbilities.map((a) => a.id)).toEqual(['medusa-passiva-escamas']);
+  });
+
+  /** First effect's magnitude — every ability touched below has one (only `dispel` doesn't). */
+  const magnitudeOf = (ability: { effects: AbilityEffect[] }) => {
+    const effect = ability.effects[0];
+    if (effect.type === 'dispel') throw new Error('expected an effect with a magnitude');
+    return effect.magnitude;
+  };
+
+  it('scales an ability\'s magnitudes by its bought level, per scope', () => {
+    const [base] = loadCharactersByIds([{ id: 'caipora', xp: 0 }]);
+    const [levelled] = loadCharactersByIds([{ id: 'caipora', xp: 0, levels: { active: 3 } }]);
+
+    // Caipora's active applies Throttling at 15%; level 3 is +30% on that magnitude.
+    const baseMagnitude = magnitudeOf(base.activeAbilities[0]);
+    const levelledMagnitude = magnitudeOf(levelled.activeAbilities[0]);
+    expect(baseMagnitude).toEqual({ kind: 'percent', value: 0.15 });
+    expect(levelledMagnitude).toEqual({ kind: 'percent', value: 0.15 * 1.3 });
+
+    // A level bought on one scope must not leak into another.
+    const [benchLevelled] = loadCharactersByIds([{ id: 'caipora', xp: 0, levels: { bench: 5 } }]);
+    expect(magnitudeOf(benchLevelled.activeAbilities[0])).toEqual(baseMagnitude);
+    expect(magnitudeOf(benchLevelled.benchAbilities[0])).toEqual({ kind: 'percent', value: 0.1 * 1.6 });
+  });
+
+  it('leaves the shared ability definition untouched when one owner levels it up', () => {
+    // The registry is a module-level singleton: mutating a definition in place would have
+    // levelled that ability for every character in the battle, and for every later battle.
+    loadCharactersByIds([{ id: 'caipora', xp: 0, levels: { active: 5 } }]);
+    const [fresh] = loadCharactersByIds([{ id: 'caipora', xp: 0 }]);
+    expect(magnitudeOf(fresh.activeAbilities[0])).toEqual({ kind: 'percent', value: 0.15 });
   });
 });
 

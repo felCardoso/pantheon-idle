@@ -62,5 +62,6 @@ export function totalFragmentsToMaxVersion(): number {
   return Object.values(VERSION_UPGRADE_COST_FRAGMENTS).reduce((sum, cost) => sum + cost, 0);
 }
 
-/** The version at which a character's passive ability becomes purchasable at all. */
-export const PASSIVE_UNLOCK_VERSION = 20;
+/** The version at which a character's passive ability becomes purchasable at all. Defined in
+ * engine/schema.ts (loader.ts gates the passive on it too); re-exported here for the UI/API. */
+export { PASSIVE_UNLOCK_VERSION } from '../engine';

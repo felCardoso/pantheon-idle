@@ -131,7 +131,10 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
       .eq('user_id', userId)
       .maybeSingle(),
     supabaseAdmin.from('player_characters').select('character_id, xp, rarity').eq('user_id', userId),
-    supabaseAdmin.from('character_ability_progress').select('character_id, selected_ability_id').eq('user_id', userId),
+    supabaseAdmin
+      .from('character_ability_progress')
+      .select('character_id, selected_ability_id, character_version, ability_level, bench_level, passive_level')
+      .eq('user_id', userId),
     supabaseAdmin.from('cluster_members').select('cluster_id').eq('user_id', userId).maybeSingle(),
     supabaseAdmin.from('player_teams').select('slot, characters').eq('user_id', userId),
     supabaseAdmin.from('player_modules').select('module_id, rarity, equipped_on').eq('user_id', userId).not('equipped_on', 'is', null),
@@ -159,6 +162,17 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
   const selectedAbilityByCharacterId = Object.fromEntries(
     (abilityProgress ?? []).filter((p) => p.selected_ability_id).map((p) => [p.character_id, p.selected_ability_id as string]),
   );
+  // Version is the passive's second unlock path (engine/schema.ts's PASSIVE_UNLOCK_VERSION), so it
+  // has to reach the loader or a v2.0 character would pay for a passive that never fires.
+  const versionByCharacterId = Object.fromEntries((abilityProgress ?? []).map((p) => [p.character_id, p.character_version as number]));
+  // Bought ability levels. Without these the Upgrades screen sells nothing: the levels were being
+  // stored and charged for, then never handed to the engine.
+  const levelsByCharacterId = Object.fromEntries(
+    (abilityProgress ?? []).map((p) => [
+      p.character_id,
+      { active: p.ability_level as number, bench: p.bench_level as number, passive: p.passive_level as number },
+    ]),
+  );
 
   // The PvE team the player selected, falling back to whatever they own — mirrors GameShell's
   // own fallback for the window before a fresh account's teams finish initializing.
@@ -182,6 +196,8 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
       xp: c.xp,
       modules: bonusesFromModules(modulesByCharacter[c.character_id] ?? []),
       rarity: c.rarity as Parameters<typeof loadCharactersByIds>[0][number]['rarity'],
+      version: versionByCharacterId[c.character_id],
+      levels: levelsByCharacterId[c.character_id],
       selectedAbilityId: selectedAbilityByCharacterId[c.character_id],
     })),
   );

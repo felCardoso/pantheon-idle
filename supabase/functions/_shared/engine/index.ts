@@ -46,7 +46,7 @@ export type {
   TargetSelector,
 } from './schema.ts';
 
-export { PASSIVE_UNLOCK_RARITY, RARITY_RANK, attackIntervalFor } from './schema.ts';
+export { PASSIVE_UNLOCK_RARITY, PASSIVE_UNLOCK_VERSION, RARITY_RANK, attackIntervalFor } from './schema.ts';
 
 // ---------------------------------------------------------------------------
 // Simulation — run a battle, then replay its log at the view's own pace.

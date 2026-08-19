@@ -100,9 +100,13 @@ Deno.serve(async (req) => {
       { data: defenderProgress },
       { data: attackerModules },
       { data: defenderModules },
+      { data: defenderAbilityProgress },
     ] = await Promise.all([
       supabase.from('player_characters').select('character_id, xp, rarity').eq('user_id', user.id),
-      supabase.from('character_ability_progress').select('character_id, selected_ability_id').eq('user_id', user.id),
+      supabase
+        .from('character_ability_progress')
+        .select('character_id, selected_ability_id, character_version, ability_level, bench_level, passive_level')
+        .eq('user_id', user.id),
       supabase.from('player_progress').select('pvp_rating, pvp_team_slot').eq('user_id', user.id).maybeSingle(),
       supabase.from('pvp_defense_teams').select('characters').eq('user_id', defenderId).maybeSingle(),
       supabase.from('player_progress').select('pvp_rating').eq('user_id', defenderId).maybeSingle(),
@@ -112,6 +116,10 @@ Deno.serve(async (req) => {
       // roster fight at two different strengths depending on the mode.
       supabase.from('player_modules').select('module_id, rarity, equipped_on').eq('user_id', user.id).not('equipped_on', 'is', null),
       admin.from('player_modules').select('module_id, rarity, equipped_on').eq('user_id', defenderId).not('equipped_on', 'is', null),
+      // Versions likewise: the defense snapshot predates the version axis and carries no version
+      // field, so the defender's live progress rows are the only source. character_ability_progress
+      // is owner-only under RLS, hence the admin client.
+      admin.from('character_ability_progress').select('character_id, character_version, ability_level, bench_level, passive_level').eq('user_id', defenderId),
     ]);
 
     if (attackerCharsError) {
@@ -124,6 +132,17 @@ Deno.serve(async (req) => {
     const attackerSelectedAbilityByCharacterId = Object.fromEntries(
       (attackerAbilityProgress ?? []).filter((p) => p.selected_ability_id).map((p) => [p.character_id, p.selected_ability_id as string]),
     );
+    // Version unlocks the passive at any rarity (PASSIVE_UNLOCK_VERSION), so it has to reach the
+    // loader here too or a v2.0 character would fight without the passive they paid for.
+    const attackerVersionByCharacterId = Object.fromEntries(
+      (attackerAbilityProgress ?? []).map((p) => [p.character_id, p.character_version as number]),
+    );
+    // Bought ability levels, for both sides — PvE applies them (lib/battle-resolve.ts), so PvP has
+    // to as well or the same character fights at two different strengths.
+    const levelsOf = (rows: { character_id: string; ability_level: number; bench_level: number; passive_level: number }[] | null) =>
+      Object.fromEntries((rows ?? []).map((p) => [p.character_id, { active: p.ability_level, bench: p.bench_level, passive: p.passive_level }]));
+    const attackerLevels = levelsOf(attackerAbilityProgress);
+    const defenderLevels = levelsOf(defenderAbilityProgress);
     // Attack with the squad the player selected for PvP, not their whole collection.
     // Reading every player_characters row meant someone who owned 16 characters
     // attacked with all 16 against a defense capped at 5 (docs/gdd.md section 5:
@@ -148,6 +167,9 @@ Deno.serve(async (req) => {
       MAX_TEAM_MEMBERS,
     );
 
+    const defenderVersionByCharacterId = Object.fromEntries(
+      (defenderAbilityProgress ?? []).map((p) => [p.character_id, p.character_version as number]),
+    );
     const attackerModulesByCharacter = equippedByCharacter(attackerModules ?? []);
     const defenderModulesByCharacter = equippedByCharacter(defenderModules ?? []);
 
@@ -158,6 +180,8 @@ Deno.serve(async (req) => {
         xp: c.xp,
         rarity: c.rarity,
         selectedAbilityId: attackerSelectedAbilityByCharacterId[c.character_id],
+        version: attackerVersionByCharacterId[c.character_id],
+        levels: attackerLevels[c.character_id],
         modules: bonusesFromModules(attackerModulesByCharacter[c.character_id] ?? []),
       };
     });
@@ -185,6 +209,8 @@ Deno.serve(async (req) => {
       xp: c.xp,
       rarity: c.rarity as OwnedCharacterEntry['rarity'],
       selectedAbilityId: c.selectedAbilityId,
+      version: defenderVersionByCharacterId[c.characterId],
+      levels: defenderLevels[c.characterId],
       modules: bonusesFromModules(defenderModulesByCharacter[c.characterId] ?? []),
     }));
 
