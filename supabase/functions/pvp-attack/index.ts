@@ -8,6 +8,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.112.3';
 import { corsHeaders } from '../_shared/cors.ts';
 import { loadCharactersByIds, type OwnedCharacterEntry } from '../_shared/engine/core/loader.ts';
+import { bonusesFromModules, equippedByCharacter } from '../_shared/data/moduleBonuses.ts';
 import { runBattle } from '../_shared/engine/core/battle.ts';
 
 const K_FACTOR = 32;
@@ -82,6 +83,12 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Service-role client. Used for exactly two things: reading the defender's equipped modules
+    // (player_modules is owner-only under RLS, and the attacker legitimately needs to know what
+    // they are fighting) and the privileged write further down — see the comment there. Every
+    // other read below goes through the caller's own JWT, so RLS is unchanged.
+    const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+
     // Attacker's roster (and its ability selections) are fetched server-side
     // from their own rows, never trusted from the request body — the only
     // thing the client supplies is who to attack.
@@ -91,12 +98,20 @@ Deno.serve(async (req) => {
       { data: attackerProgress },
       { data: defenseRow },
       { data: defenderProgress },
+      { data: attackerModules },
+      { data: defenderModules },
     ] = await Promise.all([
       supabase.from('player_characters').select('character_id, xp, rarity').eq('user_id', user.id),
       supabase.from('character_ability_progress').select('character_id, selected_ability_id').eq('user_id', user.id),
       supabase.from('player_progress').select('pvp_rating, pvp_team_slot').eq('user_id', user.id).maybeSingle(),
       supabase.from('pvp_defense_teams').select('characters').eq('user_id', defenderId).maybeSingle(),
       supabase.from('player_progress').select('pvp_rating').eq('user_id', defenderId).maybeSingle(),
+      // Equipped runes, for both sides. Read live rather than from the defense snapshot: a rune
+      // the defender equipped after saving their team should still protect them, and PvE already
+      // applies modules (lib/battle-resolve.ts), so leaving them out here would make the same
+      // roster fight at two different strengths depending on the mode.
+      supabase.from('player_modules').select('module_id, rarity, equipped_on').eq('user_id', user.id).not('equipped_on', 'is', null),
+      admin.from('player_modules').select('module_id, rarity, equipped_on').eq('user_id', defenderId).not('equipped_on', 'is', null),
     ]);
 
     if (attackerCharsError) {
@@ -133,6 +148,9 @@ Deno.serve(async (req) => {
       MAX_TEAM_MEMBERS,
     );
 
+    const attackerModulesByCharacter = equippedByCharacter(attackerModules ?? []);
+    const defenderModulesByCharacter = equippedByCharacter(defenderModules ?? []);
+
     const attackerEntries: OwnedCharacterEntry[] = attackerIds.map((id) => {
       const c = ownedById.get(id)!;
       return {
@@ -140,6 +158,7 @@ Deno.serve(async (req) => {
         xp: c.xp,
         rarity: c.rarity,
         selectedAbilityId: attackerSelectedAbilityByCharacterId[c.character_id],
+        modules: bonusesFromModules(attackerModulesByCharacter[c.character_id] ?? []),
       };
     });
     if (attackerEntries.length === 0) {
@@ -166,6 +185,7 @@ Deno.serve(async (req) => {
       xp: c.xp,
       rarity: c.rarity as OwnedCharacterEntry['rarity'],
       selectedAbilityId: c.selectedAbilityId,
+      modules: bonusesFromModules(defenderModulesByCharacter[c.characterId] ?? []),
     }));
 
     const attackerRating = attackerProgress?.pvp_rating ?? 1000;
@@ -186,9 +206,7 @@ Deno.serve(async (req) => {
     // caller's JWT so that resolve_pvp_attack can be revoked from `authenticated`
     // entirely (migration 0020) — otherwise any logged-in player could call the
     // RPC directly from the browser and hand themselves whatever rating they
-    // liked, which would make computing the battle here pointless. Every read
-    // above still uses the caller's own JWT, so RLS is unchanged.
-    const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    // liked, which would make computing the battle here pointless.
     const { error: rpcError } = await admin.rpc('resolve_pvp_attack', {
       p_attacker_id: user.id,
       p_defender_id: defenderId,

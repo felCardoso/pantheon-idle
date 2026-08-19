@@ -31,6 +31,7 @@ import { useProfile, type UpdateUsernameResult } from '../hooks/useProfile';
 import { useCluster } from '../hooks/useCluster';
 import { usePvp, type PvpAttackResult } from '../hooks/usePvp';
 import { usePlayerModules } from '../hooks/usePlayerModules';
+import { MODULE_BY_ID } from '../data/modules';
 import { useMarket } from '../hooks/useMarket';
 import { useCharacterProgression } from '../hooks/useCharacterProgression';
 import type { ChatMessage, MenuItem, Rarity } from '../types';
@@ -329,6 +330,18 @@ function GameShellReady({
   useEffect(() => {
     applyBattleXp(lastXpByCharacterId);
   }, [lastXpByCharacterId, applyBattleXp]);
+
+  // Boss módulo drops. The server already inserted the rows (lib/battle-resolve.ts); this only
+  // tells the player it happened and re-reads the inventory so Melhorias sees the new rune
+  // without a reload.
+  const lastModulesEarned = battle.lastModulesEarned;
+  const refreshModules = playerModules.refresh;
+  useEffect(() => {
+    if (lastModulesEarned.length === 0) return;
+    const names = lastModulesEarned.map((m) => `${MODULE_BY_ID[m.moduleId]?.name ?? m.moduleId} [${m.rarity}]`).join(', ');
+    setToast(`Chefe derrotado — módulo obtido: ${names}`);
+    refreshModules();
+  }, [lastModulesEarned, refreshModules]);
 
   // Random PvP encounters (lib/battle-resolve.ts's rollPvpEncounter): the server decides a run
   // has bumped into another player, and the fight goes through the same authoritative

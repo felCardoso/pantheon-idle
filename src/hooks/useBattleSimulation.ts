@@ -39,8 +39,17 @@ interface BattleSession extends WorldPosition {
   xpAfter: number;
   /** XP this battle granted per character id — only the ones that fought. */
   xpEarnedByCharacterId: Record<string, number>;
+  /** Módulos a boss kill dropped — empty for every other battle. */
+  modulesEarned: EarnedModule[];
   /** Where the next battle should be fought, per the server's progression rules. */
   nextPosition: WorldPosition;
+}
+
+/** One rune a boss dropped, as lib/module-grants.ts granted it. */
+export interface EarnedModule {
+  moduleId: string;
+  rarity: string;
+  slot: string;
 }
 
 /** The shape app/api/battle/resolve returns — mirrors ResolveBattleResult in lib/battle-resolve.ts. */
@@ -67,6 +76,7 @@ interface ResolveBattleResponse {
   recoveryWinsRemaining: number | null;
   pvpEncounter: PvpEncounter | null;
   xpEarnedByCharacterId: Record<string, number>;
+  modulesEarned: EarnedModule[];
 }
 
 function sessionFrom(response: ResolveBattleResponse): BattleSession {
@@ -84,6 +94,7 @@ function sessionFrom(response: ResolveBattleResponse): BattleSession {
     creditsAfter: response.credits,
     xpAfter: response.xp,
     xpEarnedByCharacterId: response.xpEarnedByCharacterId,
+    modulesEarned: response.modulesEarned ?? [],
     nextPosition: response.nextPosition,
   };
 }
@@ -98,6 +109,7 @@ export interface Reward {
 const EMPTY_LOG: BattleLogEntry[] = [];
 const EMPTY_COMBATANTS: Combatant[] = [];
 const EMPTY_NAME_TO_ID: Record<string, string> = {};
+const EMPTY_MODULES: EarnedModule[] = [];
 
 let chatIdCounter = 0;
 
@@ -132,6 +144,7 @@ interface SessionState {
   /** Credits/XP earned from this specific battle — set once it ends, shown on the winner overlay. */
   lastReward: Reward | null;
   lastXpByCharacterId: Record<string, number>;
+  lastModulesEarned: EarnedModule[];
   /**
    * The player's real saved progress — the highest position ever reached.
    * Distinct from `session.fase/estagio` (what's currently on screen), and
@@ -161,6 +174,7 @@ function buildInitialSession(position: WorldPosition, initialCredits: number, in
     totalXp: initialXp,
     lastReward: null,
     lastXpByCharacterId: {},
+    lastModulesEarned: EMPTY_MODULES,
     frontier: position,
     // Where the next requested battle should be fought — the saved position until the server
     // says otherwise.
@@ -181,6 +195,7 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
         totalXp: state.totalXp,
         lastReward: null,
         lastXpByCharacterId: {},
+        lastModulesEarned: EMPTY_MODULES,
         frontier: action.frontier,
         nextPosition: action.session.nextPosition,
         recoveryWinsRemaining: action.recoveryWinsRemaining,
@@ -197,6 +212,7 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
         totalXp: session.xpAfter,
         lastReward: session.reward,
         lastXpByCharacterId: session.xpEarnedByCharacterId,
+        lastModulesEarned: session.modulesEarned,
       };
     }
     case 'adjustCredits':
@@ -239,6 +255,8 @@ export interface BattleSimulation {
   lastReward: Reward | null;
   /** XP the finished battle granted, per character id — only the ones that fought. */
   lastXpByCharacterId: Record<string, number>;
+  /** Módulos the finished battle dropped — non-empty only after a won boss fight. */
+  lastModulesEarned: EarnedModule[];
   playing: boolean;
   finished: boolean;
   winner: 'allies' | 'enemies' | 'draw' | null;
@@ -429,6 +447,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     xp: state.totalXp,
     lastReward: state.lastReward,
     lastXpByCharacterId: state.lastXpByCharacterId,
+    lastModulesEarned: state.lastModulesEarned,
     playing,
     finished: replay.finished,
     winner: replay.winner,

@@ -1,19 +1,18 @@
 import { useEffect, useMemo, useState, type DragEvent } from 'react';
 import { CharacterPortrait } from './CharacterPortrait';
 import { CharacterDetailModal } from './CharacterDetailModal';
+import { CharacterSelectorPanel } from './CharacterSelectorPanel';
 import { Icon } from '../common/Icon';
 import { PvpAttackModal } from '../team/PvpAttackModal';
 import { PvpLeaderboardModal } from '../team/PvpLeaderboardModal';
 import { buildOwnedRoster, characterPower, type RosterCharacter } from '../../data/roster';
 import { CONSTANTS } from '../../engine';
-import { RARITY_COLOR } from '../../data/theme';
 import type { OwnedCharacter } from '../../hooks/useOwnedCharacters';
 import type { TeamSlot, UsePlayerTeamsResult } from '../../hooks/usePlayerTeams';
 import { MAX_TEAM_MEMBERS } from '../../hooks/usePlayerTeams';
 import { TEAM_SLOT_COST_TOKENS } from '../../hooks/usePlayerProgress';
 import type { UsePvpResult } from '../../hooks/usePvp';
 import { selectedAbilityMapFrom, type UseCharacterProgressionResult } from '../../hooks/useCharacterProgression';
-import type { Rarity } from '../../types';
 
 interface TeamPageProps {
   userId: string;
@@ -34,10 +33,6 @@ interface TeamPageProps {
   onToast: (message: string) => void;
   characterProgression: UseCharacterProgressionResult;
 }
-
-const RARITY_ORDER: Record<Rarity, number> = { 'Zero-Day': 0, LTS: 1, Stable: 2, Beta: 3, Alpha: 4 };
-const RARITIES: Rarity[] = ['Alpha', 'Beta', 'Stable', 'LTS', 'Zero-Day'];
-type SortKey = 'rarity' | 'level' | 'name';
 
 function resolveTeamMembers(team: TeamSlot, owned: OwnedCharacter[]): OwnedCharacter[] {
   const byId = new Map(owned.map((o) => [o.characterId, o]));
@@ -76,10 +71,6 @@ export function TeamPage({
   /** Set by clicking an empty team slot — the next selector-card click (or drop) fills that exact position instead of toggling add/remove. */
   const [pickingSlotIndex, setPickingSlotIndex] = useState<number | null>(null);
   const [detailCharacter, setDetailCharacter] = useState<RosterCharacter | null>(null);
-  const [search, setSearch] = useState('');
-  const [rarityFilter, setRarityFilter] = useState<Rarity | 'all'>('all');
-  const [mythologyFilter, setMythologyFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<SortKey>('rarity');
 
   const effectiveUnlockedSlots = vipActive ? 5 : unlockedTeamSlots;
   const activeTeam = teams.teams.find((t) => t.slot === activeSlot) ?? teams.teams[0];
@@ -90,18 +81,6 @@ export function TeamPage({
     [activeTeam.characterIds, ownedById],
   );
   const activeTeamRoster = useMemo(() => buildOwnedRoster(activeTeamOwned), [activeTeamOwned]);
-
-  const ownedRoster = useMemo(() => buildOwnedRoster(ownedCharacters), [ownedCharacters]);
-  const mythologies = useMemo(() => Array.from(new Set(ownedRoster.map((c) => c.mythology))), [ownedRoster]);
-  const filteredSelector = ownedRoster
-    .filter((c) => c.name.toLowerCase().includes(search.trim().toLowerCase()))
-    .filter((c) => rarityFilter === 'all' || c.rarity === rarityFilter)
-    .filter((c) => mythologyFilter === 'all' || c.mythology === mythologyFilter)
-    .sort((a, b) => {
-      if (sortBy === 'rarity') return RARITY_ORDER[a.rarity] - RARITY_ORDER[b.rarity];
-      if (sortBy === 'level') return b.level - a.level;
-      return a.name.localeCompare(b.name);
-    });
 
   const teamPower = activeTeamRoster.reduce((sum, c) => sum + characterPower(c.stats), 0);
   const synergyPercent = Math.round((CONSTANTS.synergyByCount[String(activeTeamRoster.length)] ?? 0) * 100);
@@ -461,107 +440,14 @@ export function TeamPage({
           </div>
         </div>
 
-        {/* RIGHT COLUMN: character selector */}
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-2">
-            <label className="flex items-center gap-2 rounded-lg border border-void-600 bg-void-800/60 px-3 py-2">
-              <Icon name="user" size={13} className="shrink-0 text-white/40" />
-              <input
-                type="text"
-                placeholder="Buscar personagem..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-transparent text-xs text-white/90 placeholder:text-white/30 focus:outline-none"
-              />
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              <select
-                value={rarityFilter}
-                onChange={(e) => setRarityFilter(e.target.value as Rarity | 'all')}
-                className="min-w-0 rounded-lg border border-void-600 bg-void-800/60 px-2 py-2 text-[11px] text-white/80 focus:outline-none"
-              >
-                <option value="all">Raridade: todas</option>
-                {RARITIES.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={mythologyFilter}
-                onChange={(e) => setMythologyFilter(e.target.value)}
-                className="min-w-0 rounded-lg border border-void-600 bg-void-800/60 px-2 py-2 text-[11px] text-white/80 focus:outline-none"
-              >
-                <option value="all">Mitologia: todas</option>
-                {mythologies.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortKey)}
-                className="min-w-0 rounded-lg border border-void-600 bg-void-800/60 px-2 py-2 text-[11px] text-white/80 focus:outline-none"
-              >
-                <option value="rarity">Ordenar: Raridade</option>
-                <option value="level">Ordenar: Nível</option>
-                <option value="name">Ordenar: Nome</option>
-              </select>
-            </div>
-          </div>
-
-          {filteredSelector.length === 0 ? (
-            <p className="rounded-xl border border-void-600 bg-void-800/30 p-6 text-center text-xs text-white/40">Nenhum personagem encontrado.</p>
-          ) : (
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
-              {filteredSelector.map((c: RosterCharacter) => {
-                const inTeam = activeTeam.characterIds.includes(c.templateId);
-                const rarityColor = RARITY_COLOR[c.rarity];
-                const picking = pickingSlotIndex !== null;
-                return (
-                  <button
-                    key={c.templateId}
-                    draggable
-                    onDragStart={(e) => e.dataTransfer.setData('text/plain', c.templateId)}
-                    onClick={() => handleSelectorCardClick(c.templateId)}
-                    className={`group relative aspect-[3/4] overflow-hidden rounded-lg border text-left transition hover:brightness-110 ${
-                      picking ? 'ring-2 ring-code-400 ring-offset-1 ring-offset-void-950 animate-pulse cursor-copy' : ''
-                    }`}
-                    style={{ borderColor: rarityColor, boxShadow: `0 0 8px -4px ${rarityColor}99` }}
-                  >
-                    <div className="absolute inset-0" style={{ background: `linear-gradient(150deg, ${rarityColor}33, #0a0a12)` }}>
-                      {c.portraitUrl && <img src={c.portraitUrl} alt={c.name} className="h-full w-full object-cover" />}
-                    </div>
-                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-void-950 via-void-950/75 to-transparent" />
-                    <span className="absolute left-1 top-1 z-10 flex h-5 min-w-5 items-center justify-center rounded-full border border-white/40 bg-void-950 px-1 font-mono text-[10px] font-bold text-white">
-                      {c.level}
-                    </span>
-                    {inTeam && (
-                      <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-code-500/90 text-void-950">
-                        <Icon name="check-circle" size={10} />
-                      </span>
-                    )}
-                    <div className="absolute inset-x-1 bottom-6">
-                      <p className="truncate text-[10px] font-bold text-white">{c.name}</p>
-                      <p className="truncate text-[8px] text-white/50">{c.mythology}</p>
-                    </div>
-                    <div className="absolute inset-x-1 bottom-1 flex items-center justify-between gap-1">
-                      <span className="flex items-center gap-0.5 rounded-full border border-signal-red/30 bg-signal-red/20 px-1 py-0 text-[8px] font-bold text-signal-red">
-                        <Icon name="swords" size={7} />
-                        {Math.round(c.stats.atk)}
-                      </span>
-                      <span className="flex items-center gap-0.5 rounded-full border border-code-500/30 bg-code-500/20 px-1 py-0 text-[8px] font-bold text-code-300">
-                        <Icon name="heart" size={7} />
-                        {Math.round(c.stats.hp)}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        {/* RIGHT COLUMN: the same roster grid Upgrades uses */}
+        <CharacterSelectorPanel
+          ownedCharacters={ownedCharacters}
+          onSelect={handleSelectorCardClick}
+          isSelected={(id) => activeTeam.characterIds.includes(id)}
+          highlight={pickingSlotIndex !== null}
+          draggable
+        />
       </div>
 
       {attackModalOpen && <PvpAttackModal pvp={pvp} onRewardCredits={onRewardCredits} onBattleXp={onBattleXp} onToast={onToast} onClose={() => setAttackModalOpen(false)} />}

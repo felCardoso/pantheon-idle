@@ -1,5 +1,5 @@
 // AUTO-GENERATED from src/engine — DO NOT EDIT BY HAND.
-// Run `npm run sync:pvp-engine` after changing the engine.
+// Run `npm run sync:pvp-engine` after changing the source.
 // See scripts/sync-pvp-engine.mjs for why this copy exists.
 // Data-driven combat schema: characters, enemies and abilities are plain JSON
 // (see src/engine/data/**) interpreted at runtime by the ability engine. Adding

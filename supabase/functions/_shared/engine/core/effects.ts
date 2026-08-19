@@ -1,5 +1,5 @@
 // AUTO-GENERATED from src/engine — DO NOT EDIT BY HAND.
-// Run `npm run sync:pvp-engine` after changing the engine.
+// Run `npm run sync:pvp-engine` after changing the source.
 // See scripts/sync-pvp-engine.mjs for why this copy exists.
 import type { AbilityEffect, AbilityTrigger, BuffableAttribute, StatusType } from '../schema.ts';
 import type { Combatant } from './types.ts';
