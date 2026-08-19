@@ -38,7 +38,7 @@ A `service_role` ignora RLS e é usada apenas dentro de `app/api/**` (via `lib/s
 
 ### Banco
 
-Aplique as migrations de `supabase/migrations/` em ordem (`supabase db push`, ou colando no SQL Editor). São 23, numeradas e idempotentes onde possível.
+Aplique as migrations de `supabase/migrations/` em ordem (`supabase db push`, ou colando no SQL Editor). São 24, numeradas e idempotentes onde possível.
 
 ### Edge Functions
 
@@ -59,7 +59,7 @@ Aplique as migrations **antes** de publicar: a assinatura de `resolve_pvp_attack
 | `npm run dev` | Servidor de desenvolvimento |
 | `npm run build` | Build de produção |
 | `npm run lint` | `tsc --noEmit` + fronteira do engine + checagem da cópia do PvP |
-| `npm test` | Vitest (146 testes) |
+| `npm test` | Vitest (155 testes) |
 | `npm run battle` | Roda uma batalha real no terminal (`-- --boss` para o chefe) |
 | `npm run sync:pvp-engine` | Regenera a cópia Deno do engine |
 | `npm run deploy:functions` | Sincroniza o engine e publica a function do PvP |
