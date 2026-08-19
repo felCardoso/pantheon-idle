@@ -2,6 +2,7 @@ import { Icon } from '../common/Icon';
 import { AvatarCrop } from './AvatarCrop';
 import { buildCompendium } from '../../data/roster';
 import { DISPLAY_PORTRAIT_BY_TEMPLATE_ID } from '../../data/engineDisplay';
+import { useEscapeToClose } from '../../hooks/useEscapeToClose';
 
 interface AvatarPickerModalProps {
   ownedCharacterIds: string[];
@@ -11,6 +12,7 @@ interface AvatarPickerModalProps {
 }
 
 export function AvatarPickerModal({ ownedCharacterIds, currentAvatarCharacterId, onSelect, onClose }: AvatarPickerModalProps) {
+  useEscapeToClose(onClose);
   const ownedSet = new Set(ownedCharacterIds);
   const options = buildCompendium().filter((c) => ownedSet.has(c.templateId) && DISPLAY_PORTRAIT_BY_TEMPLATE_ID[c.templateId]);
 

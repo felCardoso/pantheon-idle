@@ -3,6 +3,7 @@ import { Icon } from '../common/Icon';
 import { pvpRankTierFor } from '../../data/pvpRank';
 import { PvpBattlePlayer } from '../battle/PvpBattlePlayer';
 import type { PvpAttackResult, PvpOpponent, UsePvpResult } from '../../hooks/usePvp';
+import { useEscapeToClose } from '../../hooks/useEscapeToClose';
 
 interface PvpAttackModalProps {
   pvp: UsePvpResult;
@@ -24,6 +25,9 @@ export function PvpAttackModal({ pvp, onRewardCredits, onToast, onClose }: PvpAt
   const [lastResult, setLastResult] = useState<{ opponent: PvpOpponent; result: PvpAttackResult } | null>(null);
   /** Non-null while the fight itself is playing (PvpBattleStage) — the rating/reward summary only reveals once the player continues past it. */
   const [playingBattle, setPlayingBattle] = useState<{ opponent: PvpOpponent; result: PvpAttackResult } | null>(null);
+
+  // Not while a fight is on screen: Escape should close this list, never skip a battle.
+  useEscapeToClose(onClose, !playingBattle);
 
   async function refreshOpponents() {
     setLoadingOpponents(true);

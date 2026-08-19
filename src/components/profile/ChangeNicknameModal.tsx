@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Icon } from '../common/Icon';
 import type { UpdateUsernameResult } from '../../hooks/useProfile';
+import { useEscapeToClose } from '../../hooks/useEscapeToClose';
 
 const NICKNAME_CHANGE_COST = 250;
 
@@ -13,6 +14,7 @@ interface ChangeNicknameModalProps {
 }
 
 export function ChangeNicknameModal({ currentUsername, tokens, onUpdateUsername, onSpendTokens, onClose }: ChangeNicknameModalProps) {
+  useEscapeToClose(onClose);
   const [name, setName] = useState(currentUsername ?? '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
