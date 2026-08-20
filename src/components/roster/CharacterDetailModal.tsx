@@ -3,14 +3,20 @@ import { Icon } from '../common/Icon';
 import { CharacterPortrait } from './CharacterPortrait';
 import { RosterChips } from './RosterChips';
 import { PASSIVE_UNLOCK_RARITY } from '../../data/abilityProgression';
+import { PASSIVE_UNLOCK_VERSION, VERSION_MIN, formatVersion } from '../../data/characterVersion';
 import { RARITY_RANK, type RosterCharacter } from '../../data/roster';
 import type { Rarity } from '../../types';
 
 interface CharacterDetailModalProps {
   character: RosterCharacter;
   owned: boolean;
-  /** The card's current best owned rarity, or null if not owned at all — determines whether the passive ability card below shows locked. Actual ability/passive leveling happens in the Upgrades page, not here. */
+  /** The card's current best owned rarity, or null if not owned at all — one of the passive's two unlock paths (see `version` below). Actual ability/passive leveling happens in the Upgrades page, not here. */
   ownedRarity: Rarity | null;
+  /** The card's current version (tenths — see characterVersion.ts), the passive's second unlock
+   * path. Omitted where the caller has no progression to read (e.g. GachaPage browsing the
+   * banner character) — the passive then shows locked unless rarity alone clears it, same as
+   * before this prop existed. */
+  version?: number;
   /** The player's equipped active ability id, if they've chosen one — undefined/not matching an activeOptions id falls back to activeOptions[0] (same default the engine itself applies, see loader.ts's resolveCombatantAbilities). */
   selectedAbilityId?: string | null;
   /** Persists a new equipped active ability. Omit to render the active-ability list read-only (e.g. browsing an unowned character) — no picker buttons, just the option's info. */
@@ -20,8 +26,13 @@ interface CharacterDetailModalProps {
 
 const MAX_STARS = 5;
 
-export function CharacterDetailModal({ character, owned, ownedRarity, selectedAbilityId, onSelectAbility, onClose }: CharacterDetailModalProps) {
-  const passiveUnlocked = !!ownedRarity && RARITY_RANK[ownedRarity] >= RARITY_RANK[PASSIVE_UNLOCK_RARITY];
+export function CharacterDetailModal({ character, owned, ownedRarity, version, selectedAbilityId, onSelectAbility, onClose }: CharacterDetailModalProps) {
+  // Two independent unlock paths (docs/combate.md §3): a Zero-Day copy, or reaching v2.0 at any
+  // rarity. Mirrors passiveMaxLevel's gate (abilityProgression.ts) without the level-count part,
+  // which this read-only card doesn't need.
+  const byRarity = !!ownedRarity && RARITY_RANK[ownedRarity] >= RARITY_RANK[PASSIVE_UNLOCK_RARITY];
+  const byVersion = (version ?? VERSION_MIN) >= PASSIVE_UNLOCK_VERSION;
+  const passiveUnlocked = byRarity || byVersion;
   const equippedId = character.activeOptions.some((a) => a.id === selectedAbilityId) ? selectedAbilityId : character.activeOptions[0]?.id;
 
   return (
@@ -132,13 +143,13 @@ export function CharacterDetailModal({ character, owned, ownedRarity, selectedAb
               const locked = !!character.passive && !passiveUnlocked;
               return (
                 <div
-                  title={locked ? 'Somente LTS+' : undefined}
+                  title={locked ? `Zero-Day, ou ${formatVersion(PASSIVE_UNLOCK_VERSION)} em qualquer raridade` : undefined}
                   className={`relative rounded-lg border border-void-600 bg-void-900/60 p-3 ${locked ? 'opacity-50' : ''}`}
                 >
                   {locked && (
                     <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full border border-void-500 bg-void-950/90 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white/60">
                       <Icon name="lock" size={10} />
-                      Somente LTS+
+                      Zero-Day ou {formatVersion(PASSIVE_UNLOCK_VERSION)}
                     </div>
                   )}
                   <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-arcane-300">

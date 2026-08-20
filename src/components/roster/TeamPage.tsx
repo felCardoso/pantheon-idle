@@ -457,6 +457,7 @@ export function TeamPage({
           character={detailCharacter}
           owned
           ownedRarity={ownedById.get(detailCharacter.templateId)?.rarity ?? null}
+          version={characterProgression.progression[detailCharacter.templateId]?.version}
           selectedAbilityId={characterProgression.progression[detailCharacter.templateId]?.selectedAbilityId}
           onSelectAbility={(abilityId) => characterProgression.setSelectedAbility(detailCharacter.templateId, abilityId)}
           onClose={() => setDetailCharacter(null)}

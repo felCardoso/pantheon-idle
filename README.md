@@ -38,7 +38,7 @@ A `service_role` ignora RLS e é usada apenas dentro de `app/api/**` (via `lib/s
 
 ### Banco
 
-Aplique as migrations de `supabase/migrations/` em ordem (`supabase db push`, ou colando no SQL Editor). São 25, numeradas e idempotentes onde possível.
+Aplique as migrations de `supabase/migrations/` em ordem (`supabase db push`, ou colando no SQL Editor). São 26, numeradas e idempotentes onde possível.
 
 ### Edge Functions
 
