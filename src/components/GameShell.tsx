@@ -300,6 +300,11 @@ function GameShellReady({
     setToast('Passiva melhorada!');
   }
 
+  async function handleEquipModule(moduleRowId: string, characterId: string | null) {
+    const ok = await playerModules.equip(moduleRowId, characterId);
+    if (!ok) setToast(playerModules.error ?? 'Não foi possível equipar o módulo.');
+  }
+
   async function handleSellFragment(characterId: string, rarity: Rarity, count = 1) {
     const result = await sellFragment(characterId, rarity, count);
     if (result) setBytesFromServer(result.bytes);
@@ -455,7 +460,7 @@ function GameShellReady({
               onUpgradeBench={handleUpgradeBench}
               onUpgradePassive={handleUpgradePassive}
               onUpgradeVersion={handleUpgradeVersion}
-              onEquipModule={playerModules.equip}
+              onEquipModule={handleEquipModule}
             />
           ) : activeMenuId === 'shop' ? (
             <ShopPage

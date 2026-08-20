@@ -16,8 +16,10 @@ export interface UsePlayerModulesResult {
   modules: OwnedModule[];
   loading: boolean;
   error: string | null;
-  /** Equips a copy on a character, replacing whatever occupied that slot. Pass null to unequip. */
-  equip: (moduleRowId: string, characterId: string | null) => Promise<void>;
+  /** Equips a copy on a character, replacing whatever occupied that slot. Pass null to unequip.
+   * Resolves false (and sets `error`) on failure, so a caller can toast it the same way every
+   * other upgrade/purchase handler in GameShell does. */
+  equip: (moduleRowId: string, characterId: string | null) => Promise<boolean>;
   /** Re-reads from the server — call after a capsule pull or a boss drop. */
   refresh: () => Promise<void>;
 }
@@ -83,10 +85,12 @@ export function usePlayerModules(userId: string | undefined): UsePlayerModulesRe
       try {
         await postApi('/api/modules/equip', { moduleRowId, characterId });
         setError(null);
+        return true;
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Não foi possível equipar o módulo.');
         // The optimistic guess was wrong about something — take the server's word for it.
         await load();
+        return false;
       }
     },
     [load],
