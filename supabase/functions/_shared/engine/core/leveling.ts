@@ -1,5 +1,5 @@
 // AUTO-GENERATED from src/engine — DO NOT EDIT BY HAND.
-// Run `npm run sync:pvp-engine` after changing the engine.
+// Run `npm run sync:pvp-engine` after changing the source.
 // See scripts/sync-pvp-engine.mjs for why this copy exists.
 /**
  * XP -> level curve for owned characters. Every character starts at level 0

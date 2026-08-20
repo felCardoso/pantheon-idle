@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { withUser, readJson } from '../../../../lib/route-helpers';
-import { BattleResolveError, parseResolveRequest, resolveBattleForUser } from '../../../../lib/battle-resolve';
+import { BattleResolveError, parseResolveRequest } from '../../../../lib/battle-request';
+import { resolveBattleForUser } from '../../../../lib/battle-resolve';
 
 /**
  * Runs one PvE battle server-side and returns its log for the client to replay.

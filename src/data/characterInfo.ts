@@ -45,7 +45,20 @@ export const CHARACTER_INFO: Record<string, CharacterInfo> = {
   // Folclore Brasileiro
   jurupari: {
     lore: 'Um processo antigo e pouco documentado; as infecções que espalha parecem se recusar a sair do sistema.',
-    abilityFlavor: {},
+    abilityFlavor: {
+      'jurupari-fragmentacao': {
+        name: 'Ritual Fragmentado',
+        description: 'Ao atacar, 40% de chance de aplicar Fragmentação no alvo.',
+      },
+      'jurupari-banco-vigilia': {
+        name: 'Vigília Ancestral',
+        description: 'Enquanto estiver no banco, concede +12% de Firewall ao Vanguarda aliado.',
+      },
+      'jurupari-passiva-lei': {
+        name: 'Lei do Silêncio',
+        description: 'Ao eliminar um inimigo, ganha +10% de Processamento pelo resto da batalha.',
+      },
+    },
     innateTrait: {
       name: null,
       description: 'Todo efeito de status aplicado por Jurupari.exe dura +1 rodada.',
@@ -58,6 +71,14 @@ export const CHARACTER_INFO: Record<string, CharacterInfo> = {
         name: 'Pé-pra-Trás',
         description: 'Ao ser atacado, 25% de chance de aplicar Lentidão no atacante.',
       },
+      'curupira-banco-rastro': {
+        name: 'Rastro Invertido',
+        description: 'Enquanto estiver no banco, concede +10% de Evasion ao Vanguarda aliado.',
+      },
+      'curupira-passiva-pes': {
+        name: 'Pés ao Contrário',
+        description: 'Ao esquivar de um ataque, ganha +8% de Ping por 4 rodadas.',
+      },
     },
   },
   caipora: {
@@ -67,11 +88,32 @@ export const CHARACTER_INFO: Record<string, CharacterInfo> = {
         name: 'Assobio da Mata',
         description: 'Ao atacar, aplica Enfraquecimento no alvo por 2 rodadas.',
       },
+      'caipora-banco-guarda': {
+        name: 'Guarda da Mata',
+        description: 'Enquanto estiver no banco, concede +10% de Processamento ao Vanguarda aliado.',
+      },
+      'caipora-passiva-caca': {
+        name: 'Chamado da Caça',
+        description: 'Ao atacar, 20% de chance de causar dano direto adicional equivalente a 30% do próprio ataque base.',
+      },
     },
   },
   saci: {
     lore: 'Aparece, desaparece, reaparece; brinca com a latência do sistema até confundir qualquer adversário.',
-    abilityFlavor: {},
+    abilityFlavor: {
+      'saci-redemoinho': {
+        name: 'Redemoinho',
+        description: 'Ao atacar, 35% de chance de aplicar Throttling no alvo por 4 rodadas.',
+      },
+      'saci-banco-assobio': {
+        name: 'Assobio Zombeteiro',
+        description: 'Enquanto estiver no banco, concede +12% de Ping ao Vanguarda aliado.',
+      },
+      'saci-passiva-uma-perna': {
+        name: 'Uma Perna Só',
+        description: 'Início de batalha: ganha +12% de Evasion pelo resto da luta.',
+      },
+    },
     innateTrait: {
       name: null,
       description: 'Início de batalha — sempre age primeiro, independente da iniciativa.',
@@ -86,6 +128,14 @@ export const CHARACTER_INFO: Record<string, CharacterInfo> = {
         name: 'Manto de Asgard',
         description: 'Início de batalha: todo o time recebe um escudo protetor.',
       },
+      'odin-banco-hlidskjalf': {
+        name: 'Trono de Hlidskjalf',
+        description: 'Enquanto estiver no banco, concede +12% de Processamento ao Vanguarda aliado.',
+      },
+      'odin-passiva-corvos': {
+        name: 'Huginn e Muninn',
+        description: 'Ao eliminar um inimigo, recupera 8% do próprio HP máximo.',
+      },
     },
   },
   freya: {
@@ -94,6 +144,14 @@ export const CHARACTER_INFO: Record<string, CharacterInfo> = {
       'freya-regen-team': {
         name: 'Bênção de Vanaheim',
         description: 'Início de batalha: todo o time recebe Regeneração.',
+      },
+      'freya-banco-folkvangr': {
+        name: 'Campos de Fólkvangr',
+        description: 'Enquanto estiver no banco, concede +11% de Firewall ao Vanguarda aliado.',
+      },
+      'freya-passiva-brisingamen': {
+        name: 'Colar de Brísingamen',
+        description: 'Ao receber cura, o Vanguarda aliado ganha +6% de Processamento por 4 rodadas.',
       },
     },
   },
@@ -104,6 +162,14 @@ export const CHARACTER_INFO: Record<string, CharacterInfo> = {
         name: 'Golpe do Trovão',
         description: 'Ao atacar, aplica Sangramento no alvo por 2 rodadas.',
       },
+      'thor-banco-megingjord': {
+        name: 'Cinto Megingjörð',
+        description: 'Enquanto estiver no banco, concede +14% de Processamento ao Vanguarda aliado.',
+      },
+      'thor-passiva-mjolnir': {
+        name: 'Mjölnir Retorna',
+        description: 'Ao acertar um golpe crítico, causa dano direto adicional equivalente a 35% do próprio ataque base.',
+      },
     },
   },
   ratatoskr: {
@@ -112,6 +178,14 @@ export const CHARACTER_INFO: Record<string, CharacterInfo> = {
       'ratatoskr-marcado': {
         name: 'Fofoca da Copa',
         description: 'Ao atacar, marca o alvo — o próximo golpe que ele receber será crítico garantido.',
+      },
+      'ratatoskr-banco-recado': {
+        name: 'Recado da Copa',
+        description: 'Enquanto estiver no banco, concede +14% de Ping ao Vanguarda aliado.',
+      },
+      'ratatoskr-passiva-fofoca': {
+        name: 'Chegada Ligeira',
+        description: 'Ao entrar na Vanguarda, ganha +12% de Ping pelo resto da batalha.',
       },
     },
   },
@@ -124,6 +198,14 @@ export const CHARACTER_INFO: Record<string, CharacterInfo> = {
         name: 'Raio Inaugural',
         description: 'Início de batalha: aplica Atordoamento em todos os inimigos.',
       },
+      'zeus-banco-egide': {
+        name: 'Égide do Olimpo',
+        description: 'Enquanto estiver no banco, concede +13% de Firewall ao Vanguarda aliado.',
+      },
+      'zeus-passiva-raio': {
+        name: 'Faísca Olímpica',
+        description: 'Ao atacar, 12% de chance de Atordoar o alvo por 1 rodada.',
+      },
     },
   },
   hades: {
@@ -132,6 +214,14 @@ export const CHARACTER_INFO: Record<string, CharacterInfo> = {
       'hades-self-shield': {
         name: 'Muralha do Submundo',
         description: 'Início de batalha: recebe um escudo protetor equivalente a 20% do próprio HP máximo.',
+      },
+      'hades-banco-obolo': {
+        name: 'Óbolo do Barqueiro',
+        description: 'Enquanto estiver no banco, concede +12% de ESP ao Vanguarda aliado.',
+      },
+      'hades-passiva-ceifa': {
+        name: 'Ceifa do Submundo',
+        description: 'Quando um aliado é eliminado, ganha +15% de Processamento pelo resto da batalha.',
       },
     },
   },
@@ -142,6 +232,14 @@ export const CHARACTER_INFO: Record<string, CharacterInfo> = {
         name: 'Estratégia Corrosiva',
         description: 'Ao atacar, aplica Corrosão no alvo por 2 rodadas.',
       },
+      'atena-banco-taticas': {
+        name: 'Táticas de Guerra',
+        description: 'Enquanto estiver no banco, concede +13% de Processamento ao Vanguarda aliado.',
+      },
+      'atena-passiva-estrategia': {
+        name: 'Estratégia Superior',
+        description: 'Início de batalha: ganha +10% de Firewall pelo resto da luta.',
+      },
     },
   },
   satiro: {
@@ -151,6 +249,14 @@ export const CHARACTER_INFO: Record<string, CharacterInfo> = {
         name: 'Zurro Venenoso',
         description: 'Ao atacar, aplica Veneno no alvo.',
       },
+      'satiro-banco-siringe': {
+        name: 'Siringe Inquieta',
+        description: 'Enquanto estiver no banco, concede +11% de Ping ao Vanguarda aliado.',
+      },
+      'satiro-passiva-embriaguez': {
+        name: 'Embriaguez Contagiosa',
+        description: 'Ao atacar, 15% de chance de aplicar Trojan no alvo.',
+      },
     },
   },
   medusa: {
@@ -159,6 +265,14 @@ export const CHARACTER_INFO: Record<string, CharacterInfo> = {
       'medusa-petrificar': {
         name: 'Olhar Petrificante',
         description: 'Ao atacar, 35% de chance de Atordoar o alvo por 1 rodada.',
+      },
+      'medusa-banco-olhar': {
+        name: 'Olhar de Esguelha',
+        description: 'Enquanto estiver no banco, concede +14% de ESP ao Vanguarda aliado.',
+      },
+      'medusa-passiva-escamas': {
+        name: 'Escamas de Górgona',
+        description: 'Ao sofrer dano, 25% de chance de reduzir o Ping do atacante em 8% por 3 rodadas.',
       },
     },
   },
@@ -170,6 +284,14 @@ export const CHARACTER_INFO: Record<string, CharacterInfo> = {
         description:
           'Ao atacar, aplica Enfraquecimento no alvo por 2 rodadas (adaptado — o motor não tem dano bônus/multiplicador por habilidade, só o ataque básico causa dano).',
       },
+      'hercules-banco-forca': {
+        name: 'Força de Doze Trabalhos',
+        description: 'Enquanto estiver no banco, concede +15% de Processamento ao Vanguarda aliado.',
+      },
+      'hercules-passiva-nemeia': {
+        name: 'Pele de Nemeia',
+        description: 'Ao cair abaixo de 50% de HP, recebe um escudo protetor equivalente a 15% do próprio HP máximo (uma vez por batalha).',
+      },
     },
   },
   minotauro: {
@@ -179,6 +301,14 @@ export const CHARACTER_INFO: Record<string, CharacterInfo> = {
         name: 'Provocar',
         description:
           'Início de batalha: concede escudo a todo o time (adaptado — o motor não tem um alvo "taunt" que redireciona ataques recebidos por um aliado).',
+      },
+      'minotauro-banco-labirinto': {
+        name: 'Eco do Labirinto',
+        description: 'Enquanto estiver no banco, concede +15% de Firewall ao Vanguarda aliado.',
+      },
+      'minotauro-passiva-furia': {
+        name: 'Fúria do Labirinto',
+        description: 'Ao sofrer dano, ganha +5% de Processamento por 4 rodadas.',
       },
     },
   },
@@ -190,6 +320,14 @@ export const CHARACTER_INFO: Record<string, CharacterInfo> = {
       'amaterasu-regen-team': {
         name: 'Luz Perpétua',
         description: 'Início de batalha: aplica Regeneração em todo o time.',
+      },
+      'amaterasu-banco-espelho': {
+        name: 'Espelho Yata',
+        description: 'Enquanto estiver no banco, concede +12% de Evasion ao Vanguarda aliado.',
+      },
+      'amaterasu-passiva-alvorada': {
+        name: 'Alvorada Eterna',
+        description: 'Ao entrar na Vanguarda, recupera 10% do próprio HP máximo.',
       },
     },
   },

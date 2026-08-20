@@ -1038,5 +1038,613 @@
         "durationSeconds": 6
       }
     ]
+  },
+  {
+    "id": "jurupari-fragmentacao",
+    "name": "Ritual Fragmentado",
+    "scope": "active",
+    "trigger": "onAttack",
+    "chance": 0.4,
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "fragmentation",
+        "magnitude": {
+          "kind": "percentOfBaseAtk",
+          "basePercent": 0.14
+        },
+        "durationSeconds": "default"
+      }
+    ]
+  },
+  {
+    "id": "saci-redemoinho",
+    "name": "Redemoinho",
+    "scope": "active",
+    "trigger": "onAttack",
+    "chance": 0.35,
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "throttling",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.18
+        },
+        "durationSeconds": 4
+      }
+    ]
+  },
+  {
+    "id": "jurupari-banco-vigilia",
+    "name": "Vigília Ancestral",
+    "scope": "bench",
+    "trigger": "constant",
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "ownVanguard",
+        "attribute": "def",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.12
+        },
+        "durationSeconds": "permanent"
+      }
+    ]
+  },
+  {
+    "id": "curupira-banco-rastro",
+    "name": "Rastro Invertido",
+    "scope": "bench",
+    "trigger": "constant",
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "ownVanguard",
+        "attribute": "esq",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.1
+        },
+        "durationSeconds": "permanent"
+      }
+    ]
+  },
+  {
+    "id": "caipora-banco-guarda",
+    "name": "Guarda da Mata",
+    "scope": "bench",
+    "trigger": "constant",
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "ownVanguard",
+        "attribute": "atk",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.1
+        },
+        "durationSeconds": "permanent"
+      }
+    ]
+  },
+  {
+    "id": "saci-banco-assobio",
+    "name": "Assobio Zombeteiro",
+    "scope": "bench",
+    "trigger": "constant",
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "ownVanguard",
+        "attribute": "vel",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.12
+        },
+        "durationSeconds": "permanent"
+      }
+    ]
+  },
+  {
+    "id": "odin-banco-hlidskjalf",
+    "name": "Trono de Hlidskjalf",
+    "scope": "bench",
+    "trigger": "constant",
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "ownVanguard",
+        "attribute": "atk",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.12
+        },
+        "durationSeconds": "permanent"
+      }
+    ]
+  },
+  {
+    "id": "freya-banco-folkvangr",
+    "name": "Campos de Fólkvangr",
+    "scope": "bench",
+    "trigger": "constant",
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "ownVanguard",
+        "attribute": "def",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.11
+        },
+        "durationSeconds": "permanent"
+      }
+    ]
+  },
+  {
+    "id": "thor-banco-megingjord",
+    "name": "Cinto Megingjörð",
+    "scope": "bench",
+    "trigger": "constant",
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "ownVanguard",
+        "attribute": "atk",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.14
+        },
+        "durationSeconds": "permanent"
+      }
+    ]
+  },
+  {
+    "id": "ratatoskr-banco-recado",
+    "name": "Recado da Copa",
+    "scope": "bench",
+    "trigger": "constant",
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "ownVanguard",
+        "attribute": "vel",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.14
+        },
+        "durationSeconds": "permanent"
+      }
+    ]
+  },
+  {
+    "id": "zeus-banco-egide",
+    "name": "Égide do Olimpo",
+    "scope": "bench",
+    "trigger": "constant",
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "ownVanguard",
+        "attribute": "def",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.13
+        },
+        "durationSeconds": "permanent"
+      }
+    ]
+  },
+  {
+    "id": "hades-banco-obolo",
+    "name": "Óbolo do Barqueiro",
+    "scope": "bench",
+    "trigger": "constant",
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "ownVanguard",
+        "attribute": "ice",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.12
+        },
+        "durationSeconds": "permanent"
+      }
+    ]
+  },
+  {
+    "id": "atena-banco-taticas",
+    "name": "Táticas de Guerra",
+    "scope": "bench",
+    "trigger": "constant",
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "ownVanguard",
+        "attribute": "atk",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.13
+        },
+        "durationSeconds": "permanent"
+      }
+    ]
+  },
+  {
+    "id": "satiro-banco-siringe",
+    "name": "Siringe Inquieta",
+    "scope": "bench",
+    "trigger": "constant",
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "ownVanguard",
+        "attribute": "vel",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.11
+        },
+        "durationSeconds": "permanent"
+      }
+    ]
+  },
+  {
+    "id": "medusa-banco-olhar",
+    "name": "Olhar de Esguelha",
+    "scope": "bench",
+    "trigger": "constant",
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "ownVanguard",
+        "attribute": "ice",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.14
+        },
+        "durationSeconds": "permanent"
+      }
+    ]
+  },
+  {
+    "id": "hercules-banco-forca",
+    "name": "Força de Doze Trabalhos",
+    "scope": "bench",
+    "trigger": "constant",
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "ownVanguard",
+        "attribute": "atk",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.15
+        },
+        "durationSeconds": "permanent"
+      }
+    ]
+  },
+  {
+    "id": "minotauro-banco-labirinto",
+    "name": "Eco do Labirinto",
+    "scope": "bench",
+    "trigger": "constant",
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "ownVanguard",
+        "attribute": "def",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.15
+        },
+        "durationSeconds": "permanent"
+      }
+    ]
+  },
+  {
+    "id": "amaterasu-banco-espelho",
+    "name": "Espelho Yata",
+    "scope": "bench",
+    "trigger": "constant",
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "ownVanguard",
+        "attribute": "esq",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.12
+        },
+        "durationSeconds": "permanent"
+      }
+    ]
+  },
+  {
+    "id": "jurupari-passiva-lei",
+    "name": "Lei do Silêncio",
+    "scope": "passive",
+    "trigger": "onKill",
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "self",
+        "attribute": "atk",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.1
+        },
+        "durationSeconds": "permanent"
+      }
+    ]
+  },
+  {
+    "id": "curupira-passiva-pes",
+    "name": "Pés ao Contrário",
+    "scope": "passive",
+    "trigger": "onDodge",
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "self",
+        "attribute": "vel",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.08
+        },
+        "durationSeconds": 4
+      }
+    ]
+  },
+  {
+    "id": "caipora-passiva-caca",
+    "name": "Chamado da Caça",
+    "scope": "passive",
+    "trigger": "onAttack",
+    "chance": 0.2,
+    "effects": [
+      {
+        "type": "directDamage",
+        "target": "defender",
+        "magnitude": {
+          "kind": "percentOfBaseAtk",
+          "basePercent": 0.3
+        }
+      }
+    ]
+  },
+  {
+    "id": "saci-passiva-uma-perna",
+    "name": "Uma Perna Só",
+    "scope": "passive",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "self",
+        "attribute": "esq",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.12
+        },
+        "durationSeconds": "permanent"
+      }
+    ]
+  },
+  {
+    "id": "odin-passiva-corvos",
+    "name": "Huginn e Muninn",
+    "scope": "passive",
+    "trigger": "onKill",
+    "effects": [
+      {
+        "type": "heal",
+        "target": "self",
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.08
+        }
+      }
+    ]
+  },
+  {
+    "id": "freya-passiva-brisingamen",
+    "name": "Colar de Brísingamen",
+    "scope": "passive",
+    "trigger": "onHealReceived",
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "ownVanguard",
+        "attribute": "atk",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.06
+        },
+        "durationSeconds": 4
+      }
+    ]
+  },
+  {
+    "id": "thor-passiva-mjolnir",
+    "name": "Mjölnir Retorna",
+    "scope": "passive",
+    "trigger": "onCriticalHit",
+    "effects": [
+      {
+        "type": "directDamage",
+        "target": "defender",
+        "magnitude": {
+          "kind": "percentOfBaseAtk",
+          "basePercent": 0.35
+        }
+      }
+    ]
+  },
+  {
+    "id": "ratatoskr-passiva-fofoca",
+    "name": "Chegada Ligeira",
+    "scope": "passive",
+    "trigger": "onVanguardEnter",
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "self",
+        "attribute": "vel",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.12
+        },
+        "durationSeconds": "permanent"
+      }
+    ]
+  },
+  {
+    "id": "zeus-passiva-raio",
+    "name": "Faísca Olímpica",
+    "scope": "passive",
+    "trigger": "onAttack",
+    "chance": 0.12,
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "crash",
+        "magnitude": {
+          "kind": "flat",
+          "value": 0
+        },
+        "durationSeconds": 1
+      }
+    ]
+  },
+  {
+    "id": "hades-passiva-ceifa",
+    "name": "Ceifa do Submundo",
+    "scope": "passive",
+    "trigger": "onAllyDeath",
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "self",
+        "attribute": "atk",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.15
+        },
+        "durationSeconds": "permanent"
+      }
+    ]
+  },
+  {
+    "id": "atena-passiva-estrategia",
+    "name": "Estratégia Superior",
+    "scope": "passive",
+    "trigger": "battleStart",
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "self",
+        "attribute": "def",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.1
+        },
+        "durationSeconds": "permanent"
+      }
+    ]
+  },
+  {
+    "id": "satiro-passiva-embriaguez",
+    "name": "Embriaguez Contagiosa",
+    "scope": "passive",
+    "trigger": "onAttack",
+    "chance": 0.15,
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "defender",
+        "status": "trojan",
+        "magnitude": {
+          "kind": "percentOfBaseAtk",
+          "basePercent": 0.08
+        },
+        "durationSeconds": "default"
+      }
+    ]
+  },
+  {
+    "id": "medusa-passiva-escamas",
+    "name": "Escamas de Górgona",
+    "scope": "passive",
+    "trigger": "onWounded",
+    "chance": 0.25,
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "attacker",
+        "attribute": "vel",
+        "magnitude": {
+          "kind": "percent",
+          "value": -0.08
+        },
+        "durationSeconds": 3
+      }
+    ]
+  },
+  {
+    "id": "hercules-passiva-nemeia",
+    "name": "Pele de Nemeia",
+    "scope": "passive",
+    "trigger": "onHalfHp",
+    "effects": [
+      {
+        "type": "grantShield",
+        "target": "self",
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.15
+        }
+      }
+    ]
+  },
+  {
+    "id": "minotauro-passiva-furia",
+    "name": "Fúria do Labirinto",
+    "scope": "passive",
+    "trigger": "onWounded",
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "self",
+        "attribute": "atk",
+        "magnitude": {
+          "kind": "percent",
+          "value": 0.05
+        },
+        "durationSeconds": 4
+      }
+    ]
+  },
+  {
+    "id": "amaterasu-passiva-alvorada",
+    "name": "Alvorada Eterna",
+    "scope": "passive",
+    "trigger": "onVanguardEnter",
+    "effects": [
+      {
+        "type": "heal",
+        "target": "self",
+        "magnitude": {
+          "kind": "percentOfMaxHp",
+          "percent": 0.1
+        }
+      }
+    ]
   }
 ]

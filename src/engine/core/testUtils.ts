@@ -1,6 +1,7 @@
 import type { RngLike } from './rng';
 import type { Combatant } from './types';
 import type { AbilityDefinition, BaseStats } from '../schema';
+import { NO_MODULE_BONUSES } from './modules';
 
 /** RNG that replays a fixed queue of next() values — for deterministic test scenarios. */
 export class ScriptedRng implements RngLike {
@@ -60,6 +61,9 @@ export function makeCombatant(overrides: Partial<Combatant> & { baseStats?: Part
     attackCooldownRemaining: overrides.attackCooldownRemaining ?? 0,
     abilityCooldownRemaining: overrides.abilityCooldownRemaining ?? {},
     isVanguard: overrides.isVanguard ?? true,
+    modules: overrides.modules ?? NO_MODULE_BONUSES,
+    revived: overrides.revived ?? false,
+    cleanseCooldownRemaining: overrides.cleanseCooldownRemaining ?? 0,
   };
 }
 

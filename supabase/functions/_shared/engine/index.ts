@@ -1,5 +1,5 @@
 // AUTO-GENERATED from src/engine — DO NOT EDIT BY HAND.
-// Run `npm run sync:pvp-engine` after changing the engine.
+// Run `npm run sync:pvp-engine` after changing the source.
 // See scripts/sync-pvp-engine.mjs for why this copy exists.
 /**
  * THE ENGINE'S PUBLIC API — the only surface the view layer may import.
@@ -46,7 +46,7 @@ export type {
   TargetSelector,
 } from './schema.ts';
 
-export { PASSIVE_UNLOCK_RARITY, RARITY_RANK, attackIntervalFor } from './schema.ts';
+export { PASSIVE_UNLOCK_RARITY, PASSIVE_UNLOCK_VERSION, RARITY_RANK, attackIntervalFor } from './schema.ts';
 
 // ---------------------------------------------------------------------------
 // Simulation — run a battle, then replay its log at the view's own pace.
@@ -55,6 +55,11 @@ export { runBattle } from './core/battle.ts';
 export type { BattleOptions, BattleResult } from './core/battle.ts';
 
 export type { AttackResult, BattleLogEntry, Combatant, StatusEffectInstance } from './core/types.ts';
+
+// Equipment bonuses — a flat bag of already-resolved numbers. The engine deliberately knows
+// nothing about runes, rarities or slots; src/data/modules.ts owns all of that and hands this in.
+export { NO_MODULE_BONUSES, mergeModuleBonuses } from './core/modules.ts';
+export type { ModuleBonuses } from './core/modules.ts';
 export { isAlive } from './core/types.ts';
 
 /**

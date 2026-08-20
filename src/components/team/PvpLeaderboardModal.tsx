@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Icon } from '../common/Icon';
 import { pvpRankTierFor } from '../../data/pvpRank';
 import type { MyPvpRank, PvpLeaderboardEntry, UsePvpResult } from '../../hooks/usePvp';
+import { useEscapeToClose } from '../../hooks/useEscapeToClose';
 
 interface PvpLeaderboardModalProps {
   pvp: UsePvpResult;
@@ -13,6 +14,7 @@ const LEADERBOARD_SIZE = 50;
 
 /** Global PvP ranking (docs/gdd.md §6) — top LEADERBOARD_SIZE players by rating, plus the caller's own position when they're outside that slice. */
 export function PvpLeaderboardModal({ pvp, userId, onClose }: PvpLeaderboardModalProps) {
+  useEscapeToClose(onClose);
   const [entries, setEntries] = useState<PvpLeaderboardEntry[]>([]);
   const [myRank, setMyRank] = useState<MyPvpRank | null>(null);
   const [loading, setLoading] = useState(true);

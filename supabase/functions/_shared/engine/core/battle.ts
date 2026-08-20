@@ -1,12 +1,13 @@
 // AUTO-GENERATED from src/engine — DO NOT EDIT BY HAND.
-// Run `npm run sync:pvp-engine` after changing the engine.
+// Run `npm run sync:pvp-engine` after changing the source.
 // See scripts/sync-pvp-engine.mjs for why this copy exists.
 import type { BattleLogEntry, Combatant } from './types.ts';
 import { Rng } from './rng.ts';
 import { CONSTANTS } from './loader.ts';
 import { attackIntervalFor } from '../schema.ts';
 import { resolveAttack } from './damage.ts';
-import { absorbIntoShield, detachBenchStatuses, effectiveIce, effectiveVel, isStunned, tickStatuses } from './statusEffects.ts';
+import { absorbIntoShield, detachBenchStatuses, dispelStatuses, effectiveIce, effectiveVel, isStunned, tickStatuses } from './statusEffects.ts';
+import { statusesOfKind } from './statusRegistry.ts';
 import {
   fireAbility,
   fireDeath as fireDeathTrigger,
@@ -151,8 +152,23 @@ export function runBattle(allies: Combatant[], enemies: Combatant[], options: Ba
     if (changed) refreshBenchBuffs(queue);
   }
 
+  /**
+   * Gives a downed unit its one module revive, if it has one unspent.
+   *
+   * Checked before ejection so the revive reads as "never left the fight" rather than the unit
+   * being replaced and then coming back — which the Relay & Bench queue has no way to express.
+   */
+  function tryModuleRevive(unit: Combatant): boolean {
+    if (unit.hp > 0 || unit.revived || unit.modules.reviveOncePercent <= 0) return false;
+    unit.revived = true;
+    unit.hp = Math.max(1, Math.round(unit.maxHp * unit.modules.reviveOncePercent));
+    pushLog({ at: now, kind: 'moduleRevive', unit: unit.name, hp: unit.hp });
+    return true;
+  }
+
   /** Ejects the dead, then re-seats each side's Vanguard. */
   function reconcile(): void {
+    for (const unit of [...allies, ...enemies]) tryModuleRevive(unit);
     for (const [queue, side] of [
       [allies, 'allies'],
       [enemies, 'enemies'],
@@ -266,6 +282,17 @@ export function runBattle(allies: Combatant[], enemies: Combatant[], options: Ba
   // ---- Simulation loop -----------------------------------------------------
   while (winner === null) {
     now = Math.round((now + tickSeconds) * 1000) / 1000;
+
+    // 0. Periodic cleanse (a Restore-style module). Vanguard only, per the rune's own text —
+    // a benched unit isn't taking the debuffs this is meant to answer.
+    for (const unit of allUnits) {
+      if (unit.hp <= 0 || !unit.isVanguard || unit.modules.cleanseIntervalSeconds == null) continue;
+      unit.cleanseCooldownRemaining -= tickSeconds;
+      if (unit.cleanseCooldownRemaining > 1e-9) continue;
+      unit.cleanseCooldownRemaining = unit.modules.cleanseIntervalSeconds;
+      const removed = dispelStatuses(unit, statusesOfKind('debuff'));
+      if (removed.length > 0) pushLog({ at: now, kind: 'moduleCleanse', unit: unit.name, statuses: removed });
+    }
 
     // 1. Status ticks (DOT/HOT pay out on whole-second boundaries).
     for (const unit of allUnits) {

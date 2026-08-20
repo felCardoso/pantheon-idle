@@ -37,13 +37,19 @@ export const SHOWCASE_CHARACTER_PRICE_CREDITS = 2000;
 /** Slot 0 is open to everyone; slots 1-2 require an active Root Access subscription. */
 export const SHOWCASE_FREE_SLOTS = 1;
 
-/** Mercado de Diagramas — rarer diagrams convert into more Bytes when sold for currency instead of traded. */
+/**
+ * Mercado de Diagramas — Bytes paid per diagram converted.
+ *
+ * Flat across rarities on purpose: rarity already decides *how many* diagrams a duplicate yields
+ * (1 Alpha up to 100 Zero-Day — see data/characterVersion.ts), so pricing each one higher too
+ * would compound the same axis twice and multiply the top-end payout a hundredfold.
+ */
 export const FRAGMENT_CONVERSION_BYTES_BY_RARITY: Record<import('../types').Rarity, number> = {
   Alpha: 5,
-  Beta: 10,
-  Stable: 25,
-  LTS: 50,
-  'Zero-Day': 100,
+  Beta: 5,
+  Stable: 5,
+  LTS: 5,
+  'Zero-Day': 5,
 };
 
 /** Banner Semanal hard pity (docs/gdd.md section 10) — guaranteed claim of the spotlighted character every this-many banner pulls. */
@@ -55,6 +61,12 @@ export const BANNER_PITY_MAX = 150;
  * PVP_ENCOUNTER_CHANCE. Rolled server-side in lib/battle-resolve.ts — the counter is a
  * player_progress column so the client can neither farm encounters nor dodge them.
  */
+/** `.rar` capsule (docs/gdd.md section 8) — the token price of a Módulo pull. The bundle is
+ * priced at 9x for 10, the same "one free" shape the character gacha uses. */
+export const MODULE_CAPSULE_COST_TOKENS = 60;
+export const MODULE_CAPSULE_BUNDLE = 10;
+export const MODULE_CAPSULE_BUNDLE_COST_TOKENS = MODULE_CAPSULE_COST_TOKENS * 9;
+
 export const PVP_ENCOUNTER_MIN_BATTLES = 3;
 export const PVP_ENCOUNTER_CHANCE = 0.25;
 

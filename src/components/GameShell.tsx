@@ -30,6 +30,8 @@ import { usePlayerTeams } from '../hooks/usePlayerTeams';
 import { useProfile, type UpdateUsernameResult } from '../hooks/useProfile';
 import { useCluster } from '../hooks/useCluster';
 import { usePvp, type PvpAttackResult } from '../hooks/usePvp';
+import { usePlayerModules } from '../hooks/usePlayerModules';
+import { MODULE_BY_ID } from '../data/modules';
 import { useMarket } from '../hooks/useMarket';
 import { useCharacterProgression } from '../hooks/useCharacterProgression';
 import type { ChatMessage, MenuItem, Rarity } from '../types';
@@ -56,6 +58,7 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
     claimStarterBoost,
     spendTokens,
     setBytesFromServer,
+    setTokensFromServer,
     setTeamVisibility,
     purchaseVip,
     claimDailyVipBonus,
@@ -64,7 +67,7 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
     setPvpTeamSlot,
     syncFromGachaResponse,
   } = usePlayerProgress(userId);
-  const { ownedCharacters, fragments, loading: ownedLoading, claimStarter, addXp, sellFragment, refreshFragments } = useOwnedCharacters(userId);
+  const { ownedCharacters, fragments, loading: ownedLoading, claimStarter, applyBattleXp, sellFragment, refreshFragments } = useOwnedCharacters(userId);
   const { username, avatarCharacterId, loading: profileLoading, updateUsername, updateAvatar } = useProfile(userId);
   const cluster = useCluster(userId);
   const pvp = usePvp(userId);
@@ -101,7 +104,7 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
       initialXp={progress.xp}
       ownedCharacters={ownedCharacters}
       fragments={fragments}
-      addXp={addXp}
+      applyBattleXp={applyBattleXp}
       sellFragment={sellFragment}
       refreshFragments={refreshFragments}
       starterBoostClaimed={starterBoostClaimed}
@@ -110,6 +113,7 @@ export function GameShell({ userId, onSignOut }: GameShellProps) {
       spendTokens={spendTokens}
       bytes={bytes}
       setBytesFromServer={setBytesFromServer}
+      setTokensFromServer={setTokensFromServer}
       bannerPity={bannerPity}
       syncFromGachaResponse={syncFromGachaResponse}
       characterProgression={characterProgression}
@@ -146,8 +150,8 @@ interface GameShellReadyProps {
   initialXp: number;
   ownedCharacters: OwnedCharacter[];
   fragments: FragmentStack[];
-  addXp: (amount: number) => void;
-  sellFragment: (characterId: string, rarity: Rarity) => Promise<{ grantedBytes: number; bytes: number } | null>;
+  applyBattleXp: (xpByCharacterId: Record<string, number>) => void;
+  sellFragment: (characterId: string, rarity: Rarity, count?: number) => Promise<{ grantedBytes: number; bytes: number } | null>;
   refreshFragments: () => Promise<void>;
   starterBoostClaimed: boolean;
   claimStarterBoost: () => Promise<number | null>;
@@ -155,6 +159,7 @@ interface GameShellReadyProps {
   spendTokens: (amount: number) => Promise<boolean>;
   bytes: number;
   setBytesFromServer: (bytes: number) => void;
+  setTokensFromServer: (tokens: number) => void;
   bannerPity: number;
   syncFromGachaResponse: (next: { tokens: number; bannerPity: number; bannerGuaranteed: boolean }) => void;
   characterProgression: ReturnType<typeof useCharacterProgression>;
@@ -193,7 +198,7 @@ function GameShellReady({
   initialXp,
   ownedCharacters,
   fragments,
-  addXp,
+  applyBattleXp,
   sellFragment,
   refreshFragments,
   starterBoostClaimed,
@@ -202,6 +207,7 @@ function GameShellReady({
   spendTokens,
   bytes,
   setBytesFromServer,
+  setTokensFromServer,
   bannerPity,
   syncFromGachaResponse,
   characterProgression,
@@ -227,6 +233,7 @@ function GameShellReady({
   const [profileOpen, setProfileOpen] = useState(false);
   const [stageOpen, setStageOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  const playerModules = usePlayerModules(userId);
   /** The rolled PvP encounter's resolved fight, once pvp.attack has run it. */
   const [encounterBattle, setEncounterBattle] = useState<{ opponentName: string; result: PvpAttackResult } | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
@@ -252,6 +259,27 @@ function GameShellReady({
   );
   const chatMessages = useMemo(() => [...CHAT_MESSAGES, ...battle.logFeed], [battle.logFeed]);
 
+  async function handleUpgradeBench(characterId: string) {
+    const nextCredits = await characterProgression.upgradeBench(characterId);
+    if (nextCredits === null) {
+      setToast(characterProgression.error ?? 'Não foi possível melhorar a habilidade de banco.');
+      return;
+    }
+    battle.setWallet(nextCredits, battle.xp);
+    setToast('Habilidade de banco melhorada!');
+  }
+
+  async function handleUpgradeVersion(characterId: string) {
+    const version = await characterProgression.upgradeVersion(characterId);
+    if (version === null) {
+      setToast(characterProgression.error ?? 'Não foi possível evoluir a versão.');
+      return;
+    }
+    // The route spent fragments, so the local inventory is now stale.
+    await refreshFragments();
+    setToast('Versão evoluída!');
+  }
+
   async function handleUpgradeAbility(characterId: string) {
     const nextCredits = await characterProgression.upgradeAbility(characterId);
     if (nextCredits === null) {
@@ -272,8 +300,13 @@ function GameShellReady({
     setToast('Passiva melhorada!');
   }
 
-  async function handleSellFragment(characterId: string, rarity: Rarity) {
-    const result = await sellFragment(characterId, rarity);
+  async function handleEquipModule(moduleRowId: string, characterId: string | null) {
+    const ok = await playerModules.equip(moduleRowId, characterId);
+    if (!ok) setToast(playerModules.error ?? 'Não foi possível equipar o módulo.');
+  }
+
+  async function handleSellFragment(characterId: string, rarity: Rarity, count = 1) {
+    const result = await sellFragment(characterId, rarity, count);
     if (result) setBytesFromServer(result.bytes);
     return result;
   }
@@ -293,16 +326,27 @@ function GameShellReady({
     [username, pvp.rating, battle.credits, battle.xp, tokens, bytes],
   );
 
-  // The server writes fase/estagio/credits/xp and every character's XP when it resolves a
-  // battle (lib/battle-resolve.ts), so there is nothing to persist from here any more — the
-  // client only mirrors what came back. Keeping the roster's XP display fresh is the one
-  // remaining job: apply the payout locally so the Team page doesn't lag a battle behind.
-  const prevBattleXpRef = useRef(initialXp);
+  // The server writes progress, the wallet and the fighters' XP when it resolves a battle
+  // (lib/battle-resolve.ts), so there is nothing to persist from here any more — the client only
+  // mirrors what came back, so the Team page doesn't lag a battle behind. Keyed by character id
+  // because only the fielded team earns XP; spreading one number across the roster would show
+  // levels the database doesn't have.
+  const lastXpByCharacterId = battle.lastXpByCharacterId;
   useEffect(() => {
-    const gained = battle.xp - prevBattleXpRef.current;
-    prevBattleXpRef.current = battle.xp;
-    if (gained > 0) addXp(gained);
-  }, [battle.xp, addXp]);
+    applyBattleXp(lastXpByCharacterId);
+  }, [lastXpByCharacterId, applyBattleXp]);
+
+  // Boss módulo drops. The server already inserted the rows (lib/battle-resolve.ts); this only
+  // tells the player it happened and re-reads the inventory so Melhorias sees the new rune
+  // without a reload.
+  const lastModulesEarned = battle.lastModulesEarned;
+  const refreshModules = playerModules.refresh;
+  useEffect(() => {
+    if (lastModulesEarned.length === 0) return;
+    const names = lastModulesEarned.map((m) => `${MODULE_BY_ID[m.moduleId]?.name ?? m.moduleId} [${m.rarity}]`).join(', ');
+    setToast(`Chefe derrotado — módulo obtido: ${names}`);
+    refreshModules();
+  }, [lastModulesEarned, refreshModules]);
 
   // Random PvP encounters (lib/battle-resolve.ts's rollPvpEncounter): the server decides a run
   // has bumped into another player, and the fight goes through the same authoritative
@@ -342,6 +386,9 @@ function GameShellReady({
     clearPvpEncounter();
     if (!finished) return;
     battle.setWallet(battle.credits + finished.result.rewardCredits, battle.xp);
+    // A won PvP fight levels the squad that fought it, same as PvE — mirror it locally so the
+    // roster screens don't lag behind the write the Edge Function already made.
+    applyBattleXp(finished.result.xpEarnedByCharacterId);
     setToast(
       finished.result.won
         ? `PvP: vitória contra ${finished.opponentName}! +${finished.result.rewardCredits} créditos, ${finished.result.ratingDelta >= 0 ? '+' : ''}${finished.result.ratingDelta} rating.`
@@ -396,6 +443,7 @@ function GameShellReady({
               onSetPvpTeamSlot={setPvpTeamSlot}
               pvp={pvp}
               onRewardCredits={battle.adjustCredits}
+              onBattleXp={applyBattleXp}
               onToast={setToast}
               characterProgression={characterProgression}
             />
@@ -404,10 +452,15 @@ function GameShellReady({
           ) : activeMenuId === 'forge' ? (
             <UpgradesPage
               ownedCharacters={ownedCharacters}
+              fragments={fragments}
               progression={characterProgression.progression}
               credits={battle.credits}
+              modules={playerModules.modules}
               onUpgradeAbility={handleUpgradeAbility}
+              onUpgradeBench={handleUpgradeBench}
               onUpgradePassive={handleUpgradePassive}
+              onUpgradeVersion={handleUpgradeVersion}
+              onEquipModule={handleEquipModule}
             />
           ) : activeMenuId === 'shop' ? (
             <ShopPage
@@ -436,6 +489,8 @@ function GameShellReady({
               onSetWallet={battle.setWallet}
               onSyncGachaState={syncFromGachaResponse}
               onNewCharacter={teams.autoAddToTeam1}
+              onModulesChanged={playerModules.refresh}
+              onSetTokens={setTokensFromServer}
             />
           ) : activeMenuId === 'guild' ? (
             <ClusterPage userId={userId} cluster={cluster} bandwidth={0} onToast={setToast} />
@@ -466,6 +521,9 @@ function GameShellReady({
               floaters={battle.floaters}
               activeAbilities={battle.activeAbilities}
               attackAnims={battle.attackAnims}
+              error={battle.error}
+              onRetry={battle.retryBattle}
+              loading={battle.loading}
             />
           )}
         </div>

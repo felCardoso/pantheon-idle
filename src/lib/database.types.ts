@@ -27,6 +27,8 @@ export interface Database {
           banner_guaranteed: boolean;
           recovery_wins_remaining: number | null;
           pve_battles_since_pvp: number;
+          current_fase: number | null;
+          current_estagio: number | null;
           last_claim_at: string;
           updated_at: string;
         };
@@ -54,6 +56,8 @@ export interface Database {
           banner_guaranteed?: boolean;
           recovery_wins_remaining?: number | null;
           pve_battles_since_pvp?: number;
+          current_fase?: number | null;
+          current_estagio?: number | null;
           last_claim_at?: string;
           updated_at?: string;
         };
@@ -81,6 +85,8 @@ export interface Database {
           banner_guaranteed?: boolean;
           recovery_wins_remaining?: number | null;
           pve_battles_since_pvp?: number;
+          current_fase?: number | null;
+          current_estagio?: number | null;
           last_claim_at?: string;
           updated_at?: string;
         };
@@ -115,21 +121,27 @@ export interface Database {
           user_id: string;
           character_id: string;
           ability_level: number;
+          bench_level: number;
           passive_level: number;
+          character_version: number;
           selected_ability_id: string | null;
         };
         Insert: {
           user_id: string;
           character_id: string;
           ability_level?: number;
+          bench_level?: number;
           passive_level?: number;
+          character_version?: number;
           selected_ability_id?: string | null;
         };
         Update: {
           user_id?: string;
           character_id?: string;
           ability_level?: number;
+          bench_level?: number;
           passive_level?: number;
+          character_version?: number;
           selected_ability_id?: string | null;
         };
         Relationships: [];
@@ -242,6 +254,36 @@ export interface Database {
           user_id?: string;
           text?: string;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      player_modules: {
+        Row: {
+          id: string;
+          user_id: string;
+          module_id: string;
+          rarity: string;
+          equipped_on: string | null;
+          slot: string;
+          acquired_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          module_id: string;
+          rarity: string;
+          equipped_on?: string | null;
+          slot: string;
+          acquired_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          module_id?: string;
+          rarity?: string;
+          equipped_on?: string | null;
+          slot?: string;
+          acquired_at?: string;
         };
         Relationships: [];
       };

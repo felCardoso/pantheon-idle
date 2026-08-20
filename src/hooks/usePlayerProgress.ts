@@ -94,6 +94,10 @@ export interface UsePlayerProgressResult {
   /** Same idea as syncFromGachaResponse, for /api/characters/sell-fragment's byte grant — see
    * useOwnedCharacters.ts's sellFragment. */
   setBytesFromServer: (bytes: number) => void;
+  /** Tokens alone, for routes that spend them without touching the banner (the `.rar` capsule).
+   * syncFromGachaResponse can't stand in: it would overwrite bannerPity/bannerGuaranteed with
+   * whatever the caller guessed, silently burning a pity guarantee. */
+  setTokensFromServer: (tokens: number) => void;
 }
 
 function isVipActive(vipExpiresAt: string | null): boolean {
@@ -337,6 +341,10 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
     setBytes(next);
   }, []);
 
+  const setTokensFromServer = useCallback((next: number) => {
+    setTokens(next);
+  }, []);
+
   return {
     progress,
     starterBoostClaimed,
@@ -363,5 +371,6 @@ export function usePlayerProgress(userId: string | undefined): UsePlayerProgress
     setPvpTeamSlot,
     syncFromGachaResponse,
     setBytesFromServer,
+    setTokensFromServer,
   };
 }

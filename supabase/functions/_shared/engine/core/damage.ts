@@ -1,5 +1,5 @@
 // AUTO-GENERATED from src/engine — DO NOT EDIT BY HAND.
-// Run `npm run sync:pvp-engine` after changing the engine.
+// Run `npm run sync:pvp-engine` after changing the source.
 // See scripts/sync-pvp-engine.mjs for why this copy exists.
 import type { RngLike } from './rng.ts';
 import type { AttackResult, Combatant } from './types.ts';
@@ -48,14 +48,21 @@ export function resolveAttack(
   // 3. Mitigação por Firewall (fração direta do dano físico ignorada, ex.: 0.15 = ignora 15%)
   let damage = rawDamage * (1 - effectiveDef(defender));
 
+  // 3b. Execute — an equipped module can pay out extra against a target already on its last legs
+  // (see core/modules.ts). Applied after mitigation so it scales what actually lands.
+  const execute = attacker.modules.executeDamagePercent;
+  if (execute > 0 && defender.maxHp > 0 && defender.hp / defender.maxHp < attacker.modules.executeThresholdPercent) {
+    damage *= 1 + execute;
+  }
+
   // 4. Crítico (Target guarantees it, and is consumed by the hit that uses it)
   let crit = isMarked(defender);
   if (crit) {
     consumeMark(defender);
   } else {
-    crit = rng.chance(CONSTANTS.critChanceBase);
+    crit = rng.chance(CONSTANTS.critChanceBase + attacker.modules.critChance);
   }
-  if (crit) damage *= CONSTANTS.critMultiplier;
+  if (crit) damage *= CONSTANTS.critMultiplier + attacker.modules.critDamage;
 
   const finalDamage = damage;
 

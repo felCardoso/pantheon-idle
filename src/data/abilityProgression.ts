@@ -1,4 +1,5 @@
 import { PASSIVE_UNLOCK_RARITY } from '../engine';
+import { PASSIVE_UNLOCK_VERSION } from './characterVersion';
 import type { Rarity } from '../types';
 
 /**
@@ -31,6 +32,24 @@ export const PASSIVE_MAX_LEVEL_BY_RARITY: Record<Rarity, number> = {
   'Zero-Day': 2,
 };
 
+/**
+ * The passive now unlocks on the **version** track, not rarity: a character reaching v2.0 can buy
+ * level 1, and a Zero-Day copy has it from the start (docs/combate.md §3 — "desbloqueada
+ * automaticamente apenas para personagens Zero-Day. Também pode ser desbloqueada através das
+ * melhorias de personagem, quando ele sobe para a v2.0").
+ *
+ * The two are alternatives, not requirements: either reaching v2.0 or owning Zero-Day opens it.
+ */
+export function passiveMaxLevel(rarity: Rarity, version: number): number {
+  const byVersion = version >= PASSIVE_UNLOCK_VERSION ? 2 : 0;
+  return Math.max(PASSIVE_MAX_LEVEL_BY_RARITY[rarity], byVersion);
+}
+
+/** Whether level 1 of the passive is free (Zero-Day) or has to be bought (v2.0 at lower rarity). */
+export function passiveLevelOneIsFree(rarity: Rarity): boolean {
+  return PASSIVE_MAX_LEVEL_BY_RARITY[rarity] > 0;
+}
+
 /** Lowest rarity that unlocks the passive ability at all. Defined in engine/schema.ts (loader.ts needs it too); re-exported here for existing UI call sites. */
 export { PASSIVE_UNLOCK_RARITY };
 
@@ -38,11 +57,15 @@ export { PASSIVE_UNLOCK_RARITY };
 export const ABILITY_UPGRADE_COST_CREDITS: Record<number, number> = {
   2: 5000,
   3: 15000,
-  4: 30000,
-  5: 50000,
+  4: 45000,
+  5: 100000,
 };
 
-/** Créditos cost to reach a given passive level. Level 1 is always free once LTS+ unlocks it. */
+/**
+ * Créditos to reach a given passive level. Level 1 is free for a Zero-Day copy and bought at
+ * 50.000 by anything that got there via v2.0 instead; level 2 costs 150.000 either way.
+ */
 export const PASSIVE_UPGRADE_COST_CREDITS: Record<number, number> = {
-  2: 50000,
+  1: 50000,
+  2: 150000,
 };

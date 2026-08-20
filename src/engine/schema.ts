@@ -29,12 +29,32 @@ export const RARITY_RANK: Record<Rarity, number> = { Alpha: 0, Beta: 1, Stable: 
  * rarity at load time (see resolveCombatantAbilities in loader.ts), so the
  * value lies dormant and becomes valid again if that character ever reaches
  * Zero-Day.
- *
- * Not implemented: §3's second unlock path ("através das melhorias de
- * personagem, quando ele sobe para a v2.0") — no character-versioning system
- * exists yet.
  */
 export const PASSIVE_UNLOCK_RARITY: Rarity = 'Zero-Day';
+
+/**
+ * §3's second unlock path: "também pode ser desbloqueada através das melhorias de personagem,
+ * quando ele sobe para a v2.0". Either path opens the passive — they are alternatives, not both.
+ *
+ * Versions are integers of tenths (10 = v1.0, 20 = v2.0) so this stays an ordinary comparison; see
+ * src/data/characterVersion.ts, which owns the costs and re-exports this constant.
+ */
+export const PASSIVE_UNLOCK_VERSION = 20;
+
+/**
+ * How much each ability level past the first adds to that ability's effect magnitudes.
+ *
+ * Levels 1-5 therefore run 1.00 / 1.15 / 1.30 / 1.45 / 1.60. Scaling magnitudes rather than
+ * chances or durations keeps an upgrade legible — a heal heals more, a debuff bites harder — and
+ * keeps it away from anything that could compound into a loop (a `chance` reaching 1, a duration
+ * outlasting its own reapplication).
+ */
+export const ABILITY_LEVEL_STEP = 0.15;
+
+/** Effect-magnitude multiplier for an ability at `level`. Level 1 (and anything below) is 1.0. */
+export function abilityPowerMultiplier(level: number): number {
+  return 1 + Math.max(0, level - 1) * ABILITY_LEVEL_STEP;
+}
 
 /**
  * The 8 named statuses from docs/combate.md v3.1 §4, plus the 5 generic

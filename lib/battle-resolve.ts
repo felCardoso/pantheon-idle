@@ -25,6 +25,9 @@ import {
   VIP_CREDIT_XP_BONUS_PERCENT,
 } from '../src/data/playerEconomy';
 import { supabaseAdmin } from './supabase-admin';
+import { bonusesFromModules, equippedByCharacter } from '../src/data/moduleBonuses';
+import { grantModules, rollModules, type GrantedModule } from './module-grants';
+import { BattleResolveError, type ResolveBattleRequest } from './battle-request';
 
 /**
  * Server-side PvE battle resolution.
@@ -46,13 +49,6 @@ const REWARDS: Record<'comuns' | 'boss', { win: { credits: number; xp: number };
   comuns: { win: { credits: 20, xp: 15 }, lossOrDraw: { credits: 5 } },
   boss: { win: { credits: 80, xp: 40 }, lossOrDraw: { credits: 10 } },
 };
-
-export interface ResolveBattleRequest {
-  mode: 'advance' | 'repeat';
-  retreatOnLoss: boolean;
-  /** Fight a specific already-unlocked stage (the world map) instead of the saved position. */
-  position?: WorldPosition;
-}
 
 /** An opponent the run just ran into — the client attacks them through the usual pvp-attack path. */
 export interface PvpEncounter {
@@ -78,32 +74,11 @@ export interface ResolveBattleResult {
   recoveryWinsRemaining: number | null;
   /** Non-null when this battle rolled a random PvP encounter — see rollPvpEncounter. */
   pvpEncounter: PvpEncounter | null;
-}
-
-export class BattleResolveError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-  ) {
-    super(message);
-  }
-}
-
-function isWorldPosition(value: unknown): value is WorldPosition {
-  const p = value as WorldPosition | undefined;
-  return !!p && Number.isInteger(p.fase) && Number.isInteger(p.estagio) && p.fase >= 1 && p.estagio >= 1;
-}
-
-export function parseResolveRequest(body: Record<string, unknown>): ResolveBattleRequest {
-  const mode = body.mode;
-  if (mode !== 'advance' && mode !== 'repeat') {
-    throw new BattleResolveError("mode must be 'advance' or 'repeat'", 400);
-  }
-  const position = body.position;
-  if (position !== undefined && !isWorldPosition(position)) {
-    throw new BattleResolveError('position must be { fase, estagio } of positive integers', 400);
-  }
-  return { mode, retreatOnLoss: body.retreatOnLoss === true, position: position as WorldPosition | undefined };
+  /** XP granted per character id — only the ones that fought. Lets the client update the roster
+   * display without refetching, and without inventing who earned what. */
+  xpEarnedByCharacterId: Record<string, number>;
+  /** Módulos dropped by this battle. Only a won boss fight ever pays one. */
+  modulesEarned: GrantedModule[];
 }
 
 /**
@@ -136,32 +111,49 @@ async function rollPvpEncounter(userId: string, battlesSinceLast: number): Promi
 }
 
 export async function resolveBattleForUser(userId: string, request: ResolveBattleRequest): Promise<ResolveBattleResult> {
-  const [{ data: progress, error: progressError }, { data: owned }, { data: abilityProgress }, { data: membership }] = await Promise.all([
+  // All five reads go out together. The team used to be fetched afterwards because picking the
+  // slot needs pve_team_slot — but a player has at most five team rows, so reading them all and
+  // picking in memory turns a second round trip into part of the first. Battles are the game's
+  // hottest path now that each one is a request.
+  const [
+    { data: progress, error: progressError },
+    { data: owned },
+    { data: abilityProgress },
+    { data: membership },
+    { data: teamRows },
+    { data: moduleRows },
+  ] = await Promise.all([
     supabaseAdmin
       .from('player_progress')
-      .select('fase, estagio, credits, xp, pve_team_slot, vip_expires_at, recovery_wins_remaining, pve_battles_since_pvp')
+      .select(
+        'fase, estagio, credits, xp, pve_team_slot, vip_expires_at, recovery_wins_remaining, pve_battles_since_pvp, current_fase, current_estagio',
+      )
       .eq('user_id', userId)
       .maybeSingle(),
     supabaseAdmin.from('player_characters').select('character_id, xp, rarity').eq('user_id', userId),
-    supabaseAdmin.from('character_ability_progress').select('character_id, selected_ability_id').eq('user_id', userId),
+    supabaseAdmin
+      .from('character_ability_progress')
+      .select('character_id, selected_ability_id, character_version, ability_level, bench_level, passive_level')
+      .eq('user_id', userId),
     supabaseAdmin.from('cluster_members').select('cluster_id').eq('user_id', userId).maybeSingle(),
+    supabaseAdmin.from('player_teams').select('slot, characters').eq('user_id', userId),
+    supabaseAdmin.from('player_modules').select('module_id, rarity, equipped_on').eq('user_id', userId).not('equipped_on', 'is', null),
   ]);
 
   if (progressError) throw new BattleResolveError(progressError.message, 500);
   if (!progress) throw new BattleResolveError('player_progress row not found — log into the game at least once first', 404);
 
-  const { data: teamRow } = await supabaseAdmin
-    .from('player_teams')
-    .select('characters')
-    .eq('user_id', userId)
-    .eq('slot', progress.pve_team_slot ?? 1)
-    .maybeSingle();
+  const teamRow = (teamRows ?? []).find((t) => t.slot === (progress.pve_team_slot ?? 1));
 
   // The saved fase/estagio is the *frontier* — the furthest point ever reached. A requested
   // position is only honoured if it is at or before it, so the map can replay an earlier stage
   // but nobody can skip ahead to the boss's larger payout.
   const frontier: WorldPosition = { fase: progress.fase, estagio: progress.estagio };
-  const position = request.position ?? frontier;
+  // Where the player actually is, which can sit behind the frontier after a retreat or a map
+  // jump. Falls back to the frontier for rows written before migration 0024.
+  const savedPosition: WorldPosition =
+    progress.current_fase && progress.current_estagio ? { fase: progress.current_fase, estagio: progress.current_estagio } : frontier;
+  const position = request.position ?? savedPosition;
   if (comparePositions(position, frontier) > 0) {
     throw new BattleResolveError('Position not unlocked yet.', 403);
   }
@@ -170,22 +162,42 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
   const selectedAbilityByCharacterId = Object.fromEntries(
     (abilityProgress ?? []).filter((p) => p.selected_ability_id).map((p) => [p.character_id, p.selected_ability_id as string]),
   );
+  // Version is the passive's second unlock path (engine/schema.ts's PASSIVE_UNLOCK_VERSION), so it
+  // has to reach the loader or a v2.0 character would pay for a passive that never fires.
+  const versionByCharacterId = Object.fromEntries((abilityProgress ?? []).map((p) => [p.character_id, p.character_version as number]));
+  // Bought ability levels. Without these the Upgrades screen sells nothing: the levels were being
+  // stored and charged for, then never handed to the engine.
+  const levelsByCharacterId = Object.fromEntries(
+    (abilityProgress ?? []).map((p) => [
+      p.character_id,
+      { active: p.ability_level as number, bench: p.bench_level as number, passive: p.passive_level as number },
+    ]),
+  );
 
   // The PvE team the player selected, falling back to whatever they own — mirrors GameShell's
   // own fallback for the window before a fresh account's teams finish initializing.
-  const teamIds = ((teamRow?.characters as unknown as string[] | null) ?? []).filter((id) => ownedById.has(id));
-  const roster = (teamIds.length > 0 ? teamIds : (owned ?? []).map((c) => c.character_id).slice(0, 5))
+  // Deduped on read as well as on write (app/api/teams/save): rows saved before that guard
+  // existed can still carry a repeated id, which would build two Combatants sharing an id and
+  // double-count the mythology synergy.
+  const teamIds = [...new Set(((teamRow?.characters as unknown as string[] | null) ?? []).filter((id) => ownedById.has(id)))];
+  const roster = (teamIds.length > 0 ? teamIds : [...new Set((owned ?? []).map((c) => c.character_id))].slice(0, 5))
     .map((id) => ownedById.get(id)!)
     .filter(Boolean);
   if (roster.length === 0) {
     throw new BattleResolveError('No characters to fight with.', 400);
   }
 
+  // Equipped runes become plain stat/behaviour totals here — the engine never learns what a rune is.
+  const modulesByCharacter = equippedByCharacter(moduleRows ?? []);
+
   const allies = loadCharactersByIds(
     roster.map((c) => ({
       id: c.character_id,
       xp: c.xp,
+      modules: bonusesFromModules(modulesByCharacter[c.character_id] ?? []),
       rarity: c.rarity as Parameters<typeof loadCharactersByIds>[0][number]['rarity'],
+      version: versionByCharacterId[c.character_id],
+      levels: levelsByCharacterId[c.character_id],
       selectedAbilityId: selectedAbilityByCharacterId[c.character_id],
     })),
   );
@@ -235,19 +247,40 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
       fase: next.frontier.fase,
       estagio: next.frontier.estagio,
       recovery_wins_remaining: next.recoveryWinsRemaining,
+      current_fase: next.position.fase,
+      current_estagio: next.position.estagio,
       pve_battles_since_pvp: pvpEncounter ? 0 : battlesSinceLastPvp,
     })
     .eq('user_id', userId);
   if (updateError) throw new BattleResolveError(updateError.message, 500);
 
-  // Every owned character fights together, so a win levels the whole roster — same rule the
-  // client used to apply, now applied where it can't be forged.
-  if (reward.xp > 0 && (owned ?? []).length > 0) {
+  // Only the characters that actually fought earn XP — the five fielded for this battle, bench
+  // included, since Relay & Bench has all of them in the fight. The whole collection used to
+  // level off every win, which meant a character sitting in the inventory gained exactly as much
+  // as the one carrying the run, and swapping your team cost nothing.
+  const xpEarnedByCharacterId: Record<string, number> = {};
+  if (reward.xp > 0) {
     const { error: xpError } = await supabaseAdmin.from('player_characters').upsert(
-      (owned ?? []).map((c) => ({ user_id: userId, character_id: c.character_id, xp: c.xp + reward.xp, rarity: c.rarity })),
+      roster.map((c) => ({ user_id: userId, character_id: c.character_id, xp: c.xp + reward.xp, rarity: c.rarity })),
       { onConflict: 'user_id,character_id' },
     );
     if (xpError) throw new BattleResolveError(xpError.message, 500);
+    for (const c of roster) xpEarnedByCharacterId[c.character_id] = reward.xp;
+  }
+
+  // Beating a world boss drops a rune. Bosses are the campaign's milestones and there are only
+  // six of them, so this is a rare, memorable payout rather than a grind faucet — hence the
+  // better grade table (see module-grants.ts).
+  let modulesEarned: GrantedModule[] = [];
+  if (won && boss) {
+    modulesEarned = rollModules(1, 'boss');
+    try {
+      await grantModules(userId, modulesEarned);
+    } catch {
+      // A failed rune grant must not void a hard-won boss kill: the credits, XP and progression
+      // above are already committed, so drop the drop and let the battle stand.
+      modulesEarned = [];
+    }
   }
 
   return {
@@ -265,5 +298,7 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
     frontier: next.frontier,
     recoveryWinsRemaining: next.recoveryWinsRemaining,
     pvpEncounter,
+    xpEarnedByCharacterId,
+    modulesEarned,
   };
 }

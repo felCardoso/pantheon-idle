@@ -1,12 +1,13 @@
 // AUTO-GENERATED from src/engine — DO NOT EDIT BY HAND.
-// Run `npm run sync:pvp-engine` after changing the engine.
+// Run `npm run sync:pvp-engine` after changing the source.
 // See scripts/sync-pvp-engine.mjs for why this copy exists.
-import { PASSIVE_UNLOCK_RARITY, RARITY_RANK } from '../schema.ts';
-import type { AbilityDefinition, CombatantData, Rarity } from '../schema.ts';
+import { PASSIVE_UNLOCK_RARITY, PASSIVE_UNLOCK_VERSION, RARITY_RANK, abilityPowerMultiplier } from '../schema.ts';
+import type { AbilityDefinition, AbilityEffect, CombatantData, Magnitude, Rarity } from '../schema.ts';
 import type { Combatant } from './types.ts';
 import { levelForXp, levelMultiplier } from './leveling.ts';
 import type { WorldId } from './progression.ts';
 import { ALL_ABILITIES, ALL_CHARACTER_DATA, CONSTANTS, WORLD_ENEMIES } from '../data/index.ts';
+import { NO_MODULE_BONUSES, type ModuleBonuses } from './modules.ts';
 
 // Re-exported so existing engine/UI call sites keep importing it from here.
 export { CONSTANTS };
@@ -77,6 +78,44 @@ export function benchOptionsFor(templateId: string): AbilityDefinition[] {
   return data ? resolveAbilities(data.benchOptions ?? []) : [];
 }
 
+/**
+ * Re-authors an ability at a given level.
+ *
+ * Levels are bought per scope (active / bench / passive) and until now stopped at the database —
+ * nothing carried them into a battle, so every upgrade a player paid for changed nothing. Scaling
+ * happens here, at load time, rather than inside the runtime: the definition a Combatant carries
+ * is already the levelled one, so no trigger path has to know levels exist.
+ *
+ * `triggeringDamage` is deliberately untouched — it re-uses the damage of the attack that caused
+ * the trigger, which is already scaled by everything that scales an attack.
+ */
+function scaleMagnitude(magnitude: Magnitude, multiplier: number): Magnitude {
+  switch (magnitude.kind) {
+    case 'flat':
+    case 'percent':
+      return { ...magnitude, value: magnitude.value * multiplier };
+    case 'percentOfMaxHp':
+      return { ...magnitude, percent: magnitude.percent * multiplier };
+    case 'percentOfBaseAtk':
+      return { ...magnitude, basePercent: magnitude.basePercent * multiplier };
+    case 'triggeringDamage':
+      return magnitude;
+  }
+}
+
+function atLevel(ability: AbilityDefinition, level: number): AbilityDefinition {
+  const multiplier = abilityPowerMultiplier(level);
+  if (multiplier === 1) return ability;
+  return {
+    ...ability,
+    // `dispel` is the one effect with no magnitude — it strips statuses, and there is no
+    // "more" of that to buy.
+    effects: ability.effects.map((effect): AbilityEffect =>
+      effect.type === 'dispel' ? effect : { ...effect, magnitude: scaleMagnitude(effect.magnitude, multiplier) },
+    ),
+  };
+}
+
 export interface ResolvedAbilities {
   active: AbilityDefinition[];
   bench: AbilityDefinition[];
@@ -94,7 +133,9 @@ export interface ResolvedAbilities {
  *
  * Allies get exactly one active and one bench ability — the player's
  * selection if it is genuinely one of that character's options, else the first
- * one — plus their passive only once `rarity` clears PASSIVE_UNLOCK_RARITY.
+ * one — plus their passive once *either* unlock path is clear: a rarity of
+ * PASSIVE_UNLOCK_RARITY or better, or a version of PASSIVE_UNLOCK_VERSION or
+ * higher (docs/combate.md §3 gives both, as alternatives).
  */
 function resolveCombatantAbilities(
   data: CombatantData,
@@ -102,6 +143,8 @@ function resolveCombatantAbilities(
   rarity?: Rarity,
   selectedAbilityId?: string,
   selectedBenchAbilityId?: string,
+  version?: number,
+  levels: AbilityLevels = {},
 ): ResolvedAbilities {
   if (!isAlly) {
     return {
@@ -115,18 +158,47 @@ function resolveCombatantAbilities(
   const benchOptions = data.benchOptions ?? [];
   const selectedBench =
     selectedBenchAbilityId && benchOptions.includes(selectedBenchAbilityId) ? selectedBenchAbilityId : benchOptions[0];
-  const passiveUnlocked = !!rarity && !!data.passiveAbilityId && RARITY_RANK[rarity] >= RARITY_RANK[PASSIVE_UNLOCK_RARITY];
+  const byRarity = !!rarity && RARITY_RANK[rarity] >= RARITY_RANK[PASSIVE_UNLOCK_RARITY];
+  const byVersion = (version ?? 0) >= PASSIVE_UNLOCK_VERSION;
+  const passiveUnlocked = !!data.passiveAbilityId && (byRarity || byVersion);
 
   return {
-    active: resolveAbilities(selectedActive ? [selectedActive] : []),
-    bench: resolveAbilities(selectedBench ? [selectedBench] : []),
-    passive: resolveAbilities(passiveUnlocked ? [data.passiveAbilityId!] : []),
+    active: resolveAbilities(selectedActive ? [selectedActive] : []).map((a) => atLevel(a, levels.active ?? 1)),
+    bench: resolveAbilities(selectedBench ? [selectedBench] : []).map((a) => atLevel(a, levels.bench ?? 1)),
+    passive: resolveAbilities(passiveUnlocked ? [data.passiveAbilityId!] : []).map((a) => atLevel(a, levels.passive ?? 1)),
   };
+}
+
+/** Per-scope ability levels, as bought on the Upgrades screen. Omitted = level 1 (unupgraded). */
+export interface AbilityLevels {
+  active?: number;
+  bench?: number;
+  passive?: number;
 }
 
 /** Mythological synergy bonus for a same-mythology team, per combate.md section 5. */
 function synergyBonusFor(teamSize: number): number {
   return CONSTANTS.synergyByCount[String(teamSize)] ?? 0;
+}
+
+/**
+ * Everything about a combatant that comes from the *player* rather than the character data —
+ * progression, ownership and gear.
+ *
+ * Grouped into an object rather than trailing positional parameters because level, rarity,
+ * version and the module bag are all optional and several are plain numbers: a mis-ordered
+ * argument would have type-checked cleanly and silently changed a battle's outcome.
+ */
+interface OwnerContext {
+  level?: number;
+  rarity?: Rarity;
+  /** Tenths — 10 = v1.0. See PASSIVE_UNLOCK_VERSION. */
+  version?: number;
+  selectedAbilityId?: string;
+  selectedBenchAbilityId?: string;
+  modules?: ModuleBonuses;
+  /** Bought ability levels, per scope. Omitted = level 1. */
+  levels?: AbilityLevels;
 }
 
 function buildCombatant(
@@ -135,14 +207,14 @@ function buildCombatant(
   synergyBonus: number,
   statMultiplier: number = 1,
   idSuffix?: string,
-  level: number = 0,
-  rarity?: Rarity,
-  selectedAbilityId?: string,
-  selectedBenchAbilityId?: string,
+  owner: OwnerContext = {},
 ): Combatant {
+  const { level = 0, rarity, version, selectedAbilityId, selectedBenchAbilityId, modules = NO_MODULE_BONUSES, levels } = owner;
+  // Equipment multiplies on top of synergy/level/difficulty rather than being folded into them,
+  // so a rune's "+5% de vida" reads as 5% of what the character already has.
   const scale = (1 + synergyBonus) * statMultiplier;
-  const hp = Math.round(data.baseStats.hp * scale);
-  const atk = Math.round(data.baseStats.atk * scale);
+  const hp = Math.round(data.baseStats.hp * scale * (1 + modules.maxHpPercent));
+  const atk = Math.round(data.baseStats.atk * scale * (1 + modules.attackPercent));
   // DEF/VEL/ESQ/ICE are never scaled — for allies because they're ability-granted build
   // choices rather than generic growing stats (schema.ts), and for enemies because scaling
   // them made world difficulty compound several times over instead of once.
@@ -156,15 +228,17 @@ function buildCombatant(
   // worlds at any level. DEF/VEL/ESQ now stay exactly as authored, so they read as that
   // enemy's archetype (a bulwark, a flurry attacker) and world difficulty comes from the
   // pools alone.
-  const def = data.baseStats.def;
+  // Module DEF/ICE/ESQ are added, not multiplied: they're fractions, and a character's own base
+  // is 0 for allies, so a multiplier would leave every defensive rune doing nothing.
+  const def = data.baseStats.def + modules.defense;
   // VEL is a rate, not a pool: it is NOT rounded (unlike the old INI, which was an
   // ordering key) because attackIntervalFor() reads it as a continuous multiplier —
   // rounding would collapse every enemy speed tier below 1.0 down to 0.
   const vel = data.baseStats.vel;
-  const esq = data.baseStats.esq;
-  const ice = data.baseStats.ice ?? 0;
+  const esq = data.baseStats.esq + modules.dodge;
+  const ice = (data.baseStats.ice ?? 0) + modules.thorns;
 
-  const abilities = resolveCombatantAbilities(data, isAlly, rarity, selectedAbilityId, selectedBenchAbilityId);
+  const abilities = resolveCombatantAbilities(data, isAlly, rarity, selectedAbilityId, selectedBenchAbilityId, version, levels);
 
   return {
     id: idSuffix ? `${data.id}#${idSuffix}` : data.id,
@@ -177,7 +251,7 @@ function buildCombatant(
     base: { hp, atk, def, vel, esq, ice },
     maxHp: hp,
     hp,
-    shield: 0,
+    shield: Math.round(hp * modules.initialShieldPercent),
     statuses: [],
     activeAbilities: abilities.active,
     benchAbilities: abilities.bench,
@@ -187,6 +261,9 @@ function buildCombatant(
     attackCooldownRemaining: 0,
     abilityCooldownRemaining: {},
     isVanguard: false,
+    modules,
+    revived: false,
+    cleanseCooldownRemaining: modules.cleanseIntervalSeconds ?? 0,
   };
 }
 
@@ -196,8 +273,15 @@ export interface OwnedCharacterEntry {
   xp: number;
   /** The card's current best owned rarity — gates whether its passive is active (see resolveCombatantAbilities). Omitted = passive locked, same as browsing an unowned character. */
   rarity?: Rarity;
+  /** Already-summed equipment bonuses for this character (see core/modules.ts). */
+  modules?: ModuleBonuses;
   /** The player's equipped active ability id — falls back to the character's first activeOptions entry if omitted or not actually one of its options. */
   selectedAbilityId?: string;
+  /** Bought ability levels, per scope (see AbilityLevels). Omitted = level 1 everywhere. */
+  levels?: AbilityLevels;
+  /** The card's version in tenths (10 = v1.0). Reaching PASSIVE_UNLOCK_VERSION unlocks the passive
+   * at any rarity — the second of the two paths in docs/combate.md §3. Omitted = v1.0. */
+  version?: number;
 }
 
 /**
@@ -211,10 +295,10 @@ export interface OwnedCharacterEntry {
  * once (no duplicate/star-up support yet).
  */
 export function loadCharactersByIds(entries: OwnedCharacterEntry[]): Combatant[] {
-  const dataByEntry = entries.map(({ id, xp, rarity, selectedAbilityId }) => {
+  const dataByEntry = entries.map(({ id, xp, rarity, version, selectedAbilityId, modules, levels }) => {
     const data = CHARACTER_REGISTRY[id];
     if (!data) throw new Error(`Unknown character id: ${id}`);
-    return { data, xp, rarity, selectedAbilityId };
+    return { data, xp, rarity, version, selectedAbilityId, modules, levels };
   });
 
   const countByMythology = new Map<string, number>();
@@ -223,11 +307,18 @@ export function loadCharactersByIds(entries: OwnedCharacterEntry[]): Combatant[]
     countByMythology.set(key, (countByMythology.get(key) ?? 0) + 1);
   }
 
-  return dataByEntry.map(({ data, xp, rarity, selectedAbilityId }) => {
+  return dataByEntry.map(({ data, xp, rarity, version, selectedAbilityId, modules, levels }) => {
     const key = data.mythology ?? 'Desconhecida';
     const synergyBonus = synergyBonusFor(countByMythology.get(key)!);
     const level = levelForXp(xp);
-    return buildCombatant(data, true, synergyBonus, levelMultiplier(level), undefined, level, rarity, selectedAbilityId);
+    return buildCombatant(data, true, synergyBonus, levelMultiplier(level), undefined, {
+      level,
+      rarity,
+      version,
+      selectedAbilityId,
+      modules,
+      levels,
+    });
   });
 }
 

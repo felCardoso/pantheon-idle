@@ -37,8 +37,19 @@ interface BattleSession extends WorldPosition {
   reward: Reward;
   creditsAfter: number;
   xpAfter: number;
+  /** XP this battle granted per character id — only the ones that fought. */
+  xpEarnedByCharacterId: Record<string, number>;
+  /** Módulos a boss kill dropped — empty for every other battle. */
+  modulesEarned: EarnedModule[];
   /** Where the next battle should be fought, per the server's progression rules. */
   nextPosition: WorldPosition;
+}
+
+/** One rune a boss dropped, as lib/module-grants.ts granted it. */
+export interface EarnedModule {
+  moduleId: string;
+  rarity: string;
+  slot: string;
 }
 
 /** The shape app/api/battle/resolve returns — mirrors ResolveBattleResult in lib/battle-resolve.ts. */
@@ -64,6 +75,8 @@ interface ResolveBattleResponse {
   frontier: WorldPosition;
   recoveryWinsRemaining: number | null;
   pvpEncounter: PvpEncounter | null;
+  xpEarnedByCharacterId: Record<string, number>;
+  modulesEarned: EarnedModule[];
 }
 
 function sessionFrom(response: ResolveBattleResponse): BattleSession {
@@ -80,6 +93,8 @@ function sessionFrom(response: ResolveBattleResponse): BattleSession {
     reward: response.reward,
     creditsAfter: response.credits,
     xpAfter: response.xp,
+    xpEarnedByCharacterId: response.xpEarnedByCharacterId,
+    modulesEarned: response.modulesEarned ?? [],
     nextPosition: response.nextPosition,
   };
 }
@@ -94,6 +109,7 @@ export interface Reward {
 const EMPTY_LOG: BattleLogEntry[] = [];
 const EMPTY_COMBATANTS: Combatant[] = [];
 const EMPTY_NAME_TO_ID: Record<string, string> = {};
+const EMPTY_MODULES: EarnedModule[] = [];
 
 let chatIdCounter = 0;
 
@@ -127,6 +143,8 @@ interface SessionState {
   totalXp: number;
   /** Credits/XP earned from this specific battle — set once it ends, shown on the winner overlay. */
   lastReward: Reward | null;
+  lastXpByCharacterId: Record<string, number>;
+  lastModulesEarned: EarnedModule[];
   /**
    * The player's real saved progress — the highest position ever reached.
    * Distinct from `session.fase/estagio` (what's currently on screen), and
@@ -155,6 +173,8 @@ function buildInitialSession(position: WorldPosition, initialCredits: number, in
     totalCredits: initialCredits,
     totalXp: initialXp,
     lastReward: null,
+    lastXpByCharacterId: {},
+    lastModulesEarned: EMPTY_MODULES,
     frontier: position,
     // Where the next requested battle should be fought — the saved position until the server
     // says otherwise.
@@ -174,6 +194,8 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
         totalCredits: state.totalCredits,
         totalXp: state.totalXp,
         lastReward: null,
+        lastXpByCharacterId: {},
+        lastModulesEarned: EMPTY_MODULES,
         frontier: action.frontier,
         nextPosition: action.session.nextPosition,
         recoveryWinsRemaining: action.recoveryWinsRemaining,
@@ -189,6 +211,8 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
         totalCredits: session.creditsAfter,
         totalXp: session.xpAfter,
         lastReward: session.reward,
+        lastXpByCharacterId: session.xpEarnedByCharacterId,
+        lastModulesEarned: session.modulesEarned,
       };
     }
     case 'adjustCredits':
@@ -229,6 +253,10 @@ export interface BattleSimulation {
   xp: number;
   /** Créditos/XP earned from the battle that just finished, for the winner overlay — null until one ends. */
   lastReward: Reward | null;
+  /** XP the finished battle granted, per character id — only the ones that fought. */
+  lastXpByCharacterId: Record<string, number>;
+  /** Módulos the finished battle dropped — non-empty only after a won boss fight. */
+  lastModulesEarned: EarnedModule[];
   playing: boolean;
   finished: boolean;
   winner: 'allies' | 'enemies' | 'draw' | null;
@@ -258,6 +286,11 @@ export interface BattleSimulation {
   playPosition: (position: WorldPosition) => void;
   /** Set when a battle request failed (offline, session expired, position not unlocked). */
   error: string | null;
+  /** Re-requests the battle that failed, keeping the current Avançar/Repetir mode. */
+  retryBattle: () => void;
+  /** True until the first battle comes back from the server — battles are a round trip now, so
+   * the board would otherwise render empty with no explanation. */
+  loading: boolean;
   /**
    * Non-null once the battle on screen has finished and it rolled a PvP encounter. Auto-advance
    * holds until `clearPvpEncounter` is called, so the PvP fight isn't cut off by the next PvE one.
@@ -326,12 +359,14 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     [retreatOnLoss],
   );
 
-  // First battle of the session.
+  // First battle of the session. No position is sent: the server resumes from the saved
+  // current position, which can sit behind the frontier after a retreat (migration 0024).
+  // Sending the frontier here would silently undo a retreat on every reload.
   const started = useRef(false);
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    requestBattle('advance', initialPosition);
+    requestBattle('advance');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -379,6 +414,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     [playPosition, state.session, state.nextPosition],
   );
 
+  const retryBattle = useCallback(() => requestBattle(mode, state.nextPosition), [requestBattle, mode, state.nextPosition]);
   const clearPvpEncounter = useCallback(() => setPendingEncounter(null), []);
   const adjustCredits = useCallback((delta: number) => dispatch({ type: 'adjustCredits', delta }), []);
   const setWallet = useCallback((credits: number, xp: number) => dispatch({ type: 'setWallet', credits, xp }), []);
@@ -410,6 +446,8 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     credits: state.totalCredits,
     xp: state.totalXp,
     lastReward: state.lastReward,
+    lastXpByCharacterId: state.lastXpByCharacterId,
+    lastModulesEarned: state.lastModulesEarned,
     playing,
     finished: replay.finished,
     winner: replay.winner,
@@ -427,6 +465,8 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     playStage,
     playPosition,
     error,
+    retryBattle,
+    loading: !state.session && !error,
     // Only surfaced once the PvE fight on screen is over — interrupting mid-battle would cut the
     // replay off halfway.
     pvpEncounter: replay.finished ? pendingEncounter : null,

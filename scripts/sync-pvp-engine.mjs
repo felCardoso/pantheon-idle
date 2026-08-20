@@ -22,8 +22,18 @@
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, statSync } from 'node:fs';
 import { join, relative, dirname, resolve } from 'node:path';
 
-const SRC = 'src/engine';
-const DEST = 'supabase/functions/_shared/engine';
+/**
+ * The trees mirrored into supabase/functions/_shared/.
+ *
+ * The engine goes over whole. src/data is *not* engine code and stays out, with two exceptions:
+ * the rune catalogue and the rune->ModuleBonuses bridge. PvP has to apply a player's equipped
+ * modules exactly as PvE does, and those two files are dependency-free and import nothing but the
+ * engine, so copying them is the same "identical by construction" trick rather than a new one.
+ */
+const TREES = [
+  { src: 'src/engine', dest: 'supabase/functions/_shared/engine' },
+  { src: 'src/data', dest: 'supabase/functions/_shared/data', only: ['modules.ts', 'moduleBonuses.ts'] },
+];
 const checkOnly = process.argv.includes('--check');
 
 /** Every file under `dir`, recursively, as paths relative to `base`. */
@@ -39,9 +49,9 @@ function walk(dir, base = dir) {
  * resolving it against the importing file so a directory import ('../data')
  * becomes '../data/index.ts' rather than the non-existent '../data.ts'.
  */
-function denoSpecifier(specifier, importingFile) {
+function denoSpecifier(specifier, importingFile, srcRoot) {
   if (specifier.endsWith('.ts') || specifier.endsWith('.json')) return specifier;
-  const absolute = resolve(dirname(join(SRC, importingFile)), specifier);
+  const absolute = resolve(dirname(join(srcRoot, importingFile)), specifier);
   if (existsSync(absolute) && statSync(absolute).isDirectory()) return `${specifier}/index.ts`;
   return `${specifier}.ts`;
 }
@@ -52,49 +62,71 @@ function denoSpecifier(specifier, importingFile) {
  * deliberately has none of (being dependency-free is what makes this copy
  * viable at all).
  */
-function toDeno(source, importingFile) {
+function toDeno(source, importingFile, srcRoot) {
   return source.replace(/(\bfrom\s+)(['"])(\.[^'"]+)\2(\s*with\s*\{[^}]*\})?/g, (_m, keyword, quote, specifier) => {
-    const next = denoSpecifier(specifier, importingFile);
+    const next = denoSpecifier(specifier, importingFile, srcRoot);
     const attribute = next.endsWith('.json') ? " with { type: 'json' }" : '';
     return `${keyword}${quote}${next}${quote}${attribute}`;
   });
 }
 
-const BANNER = `// AUTO-GENERATED from src/engine — DO NOT EDIT BY HAND.
-// Run \`npm run sync:pvp-engine\` after changing the engine.
+const banner = (srcRoot) => `// AUTO-GENERATED from ${srcRoot} — DO NOT EDIT BY HAND.
+// Run \`npm run sync:pvp-engine\` after changing the source.
 // See scripts/sync-pvp-engine.mjs for why this copy exists.
 `;
 
-// Tests and the CLI demo are development-only; the Edge Function needs neither.
-const files = walk(SRC)
-  .filter((f) => f.endsWith('.ts') || f.endsWith('.json'))
-  .filter((f) => !f.endsWith('.test.ts') && !f.startsWith('cli/') && !f.endsWith('testUtils.ts'));
+/** The generated contents of one tree, keyed by path relative to its dest. */
+function generate({ src, only }) {
+  // Tests and the CLI demo are development-only; the Edge Function needs neither.
+  const files = walk(src)
+    .filter((f) => f.endsWith('.ts') || f.endsWith('.json'))
+    .filter((f) => !f.endsWith('.test.ts') && !f.startsWith('cli/') && !f.endsWith('testUtils.ts'))
+    .filter((f) => !only || only.includes(f));
 
-const generated = new Map();
-for (const file of files) {
-  const raw = readFileSync(join(SRC, file), 'utf8');
-  generated.set(file, file.endsWith('.json') ? raw : BANNER + toDeno(raw, file));
+  if (only) {
+    const missing = only.filter((f) => !files.includes(f));
+    if (missing.length > 0) {
+      console.error(`sync-pvp-engine: ${src} is missing ${missing.join(', ')} — fix the \`only\` list in this script.`);
+      process.exit(1);
+    }
+  }
+
+  const generated = new Map();
+  for (const file of files) {
+    const raw = readFileSync(join(src, file), 'utf8');
+    generated.set(file, file.endsWith('.json') ? raw : banner(src) + toDeno(raw, file, src));
+  }
+  return generated;
 }
 
+const trees = TREES.map((tree) => ({ ...tree, generated: generate(tree) }));
+const total = trees.reduce((sum, t) => sum + t.generated.size, 0);
+
 if (checkOnly) {
-  const stale = [...generated].filter(([file, content]) => {
-    const target = join(DEST, file);
-    return !existsSync(target) || readFileSync(target, 'utf8') !== content;
-  });
+  const stale = trees.flatMap(({ dest, generated }) =>
+    [...generated]
+      .filter(([file, content]) => {
+        const target = join(dest, file);
+        return !existsSync(target) || readFileSync(target, 'utf8') !== content;
+      })
+      .map(([file]) => join(dest, file)),
+  );
   if (stale.length > 0) {
-    console.error(`PvP engine copy is out of date (${stale.length} file(s)). Run: npm run sync:pvp-engine`);
-    for (const [file] of stale) console.error(`  - ${file}`);
+    console.error(`PvP shared copy is out of date (${stale.length} file(s)). Run: npm run sync:pvp-engine`);
+    for (const file of stale) console.error(`  - ${file}`);
     process.exit(1);
   }
-  console.log(`PvP engine copy is up to date (${generated.size} files).`);
+  console.log(`PvP shared copy is up to date (${total} files).`);
   process.exit(0);
 }
 
-// Rebuilt from scratch so a file deleted in src/engine can't linger here.
-rmSync(DEST, { recursive: true, force: true });
-for (const [file, content] of generated) {
-  const target = join(DEST, file);
-  mkdirSync(dirname(target), { recursive: true });
-  writeFileSync(target, content);
+for (const { dest, generated } of trees) {
+  // Rebuilt from scratch so a file deleted at the source can't linger here.
+  rmSync(dest, { recursive: true, force: true });
+  for (const [file, content] of generated) {
+    const target = join(dest, file);
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, content);
+  }
 }
-console.log(`Synced ${generated.size} files -> ${DEST}`);
+console.log(`Synced ${total} files -> supabase/functions/_shared/`);

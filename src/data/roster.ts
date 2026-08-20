@@ -42,7 +42,7 @@ export interface RosterCharacter extends Omit<CharacterInfo, 'abilityFlavor' | '
   stats: BaseStats;
   /** Every candidate active ability the player can equip (docs/combate.md §5) — today always 0 or 1 per character until more are hand-authored (see docs/TUTORIAL_STATUS_HABILIDADES.md). */
   activeOptions: ResolvedAbilityInfo[];
-  /** The character's LTS+ passive, or null if not authored yet (no character has one today). */
+  /** The character's passive (unlocked at Zero-Day, or v2.0 at any rarity — see characterVersion.ts), or null if not authored. */
   passive: ResolvedAbilityInfo | null;
   /** Jurupari.exe's/Saci.exe's hardcoded engine trait — a read-only passive-styled card, not part of activeOptions/passive since it has no backing AbilityDefinition. Null for everyone else. */
   innateTrait: AbilityFlavor | null;

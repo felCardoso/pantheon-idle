@@ -10,6 +10,7 @@ import {
   worldIndexForFase,
   type WorldPosition,
 } from '../../engine';
+import { useEscapeToClose } from '../../hooks/useEscapeToClose';
 
 interface WorldMapModalProps {
   /** Where the battle view is currently pointed. */
@@ -33,6 +34,7 @@ function estagioCount(fase: number): number {
  * forward through them again. This is the whole graph.
  */
 export function WorldMapModal({ current, frontier, onSelect, onClose }: WorldMapModalProps) {
+  useEscapeToClose(onClose);
   const currentWorldIndex = worldIndexForFase(current.fase);
   const frontierWorldIndex = worldIndexForFase(frontier.fase);
   const [viewedWorld, setViewedWorld] = useState(currentWorldIndex);

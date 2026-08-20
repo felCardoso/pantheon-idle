@@ -1,5 +1,5 @@
 // AUTO-GENERATED from src/engine — DO NOT EDIT BY HAND.
-// Run `npm run sync:pvp-engine` after changing the engine.
+// Run `npm run sync:pvp-engine` after changing the source.
 // See scripts/sync-pvp-engine.mjs for why this copy exists.
 import type { BattleLogEntry, Combatant } from './types.ts';
 import type { StatusType } from '../schema.ts';
@@ -133,6 +133,24 @@ export function applyReplayEntry(state: ReplayState, entry: BattleLogEntry, name
       const prev = base.units[id];
       if (!prev) return base;
       return withUnit(base, id, { hp: Math.min(prev.maxHp, prev.hp + entry.amount) });
+    }
+
+    case 'moduleRevive': {
+      // The unit never leaves the queue, so the snapshot only needs its HP back — the engine
+      // already skipped the vanguardExit that would otherwise have ejected it.
+      const id = nameToId[entry.unit];
+      const prev = base.units[id];
+      if (!prev) return base;
+      return withUnit(base, id, { hp: Math.min(prev.maxHp, entry.hp) });
+    }
+
+    case 'moduleCleanse': {
+      const id = nameToId[entry.unit];
+      const prev = base.units[id];
+      if (!prev) return base;
+      const statuses = { ...prev.statuses };
+      for (const status of entry.statuses) delete statuses[status];
+      return withUnit(base, id, { statuses });
     }
 
     case 'shieldGranted': {

@@ -15,7 +15,13 @@
       "ice": 0
     },
     "statusDurationBonus": 1,
-    "activeOptions": []
+    "activeOptions": [
+      "jurupari-fragmentacao"
+    ],
+    "benchOptions": [
+      "jurupari-banco-vigilia"
+    ],
+    "passiveAbilityId": "jurupari-passiva-lei"
   },
   {
     "id": "curupira",
@@ -34,7 +40,11 @@
     },
     "activeOptions": [
       "curupira-lentidao-counter"
-    ]
+    ],
+    "benchOptions": [
+      "curupira-banco-rastro"
+    ],
+    "passiveAbilityId": "curupira-passiva-pes"
   },
   {
     "id": "caipora",
@@ -53,7 +63,11 @@
     },
     "activeOptions": [
       "caipora-enfraquecimento"
-    ]
+    ],
+    "benchOptions": [
+      "caipora-banco-guarda"
+    ],
+    "passiveAbilityId": "caipora-passiva-caca"
   },
   {
     "id": "saci",
@@ -70,7 +84,13 @@
       "esq": 0,
       "ice": 0
     },
-    "activeOptions": []
+    "activeOptions": [
+      "saci-redemoinho"
+    ],
+    "benchOptions": [
+      "saci-banco-assobio"
+    ],
+    "passiveAbilityId": "saci-passiva-uma-perna"
   },
   {
     "id": "odin",
@@ -89,7 +109,11 @@
     },
     "activeOptions": [
       "odin-shield-team"
-    ]
+    ],
+    "benchOptions": [
+      "odin-banco-hlidskjalf"
+    ],
+    "passiveAbilityId": "odin-passiva-corvos"
   },
   {
     "id": "freya",
@@ -108,7 +132,11 @@
     },
     "activeOptions": [
       "freya-regen-team"
-    ]
+    ],
+    "benchOptions": [
+      "freya-banco-folkvangr"
+    ],
+    "passiveAbilityId": "freya-passiva-brisingamen"
   },
   {
     "id": "thor",
@@ -127,7 +155,11 @@
     },
     "activeOptions": [
       "thor-sangramento"
-    ]
+    ],
+    "benchOptions": [
+      "thor-banco-megingjord"
+    ],
+    "passiveAbilityId": "thor-passiva-mjolnir"
   },
   {
     "id": "ratatoskr",
@@ -146,7 +178,11 @@
     },
     "activeOptions": [
       "ratatoskr-marcado"
-    ]
+    ],
+    "benchOptions": [
+      "ratatoskr-banco-recado"
+    ],
+    "passiveAbilityId": "ratatoskr-passiva-fofoca"
   },
   {
     "id": "zeus",
@@ -165,7 +201,11 @@
     },
     "activeOptions": [
       "zeus-atordoamento-team"
-    ]
+    ],
+    "benchOptions": [
+      "zeus-banco-egide"
+    ],
+    "passiveAbilityId": "zeus-passiva-raio"
   },
   {
     "id": "hades",
@@ -184,7 +224,11 @@
     },
     "activeOptions": [
       "hades-self-shield"
-    ]
+    ],
+    "benchOptions": [
+      "hades-banco-obolo"
+    ],
+    "passiveAbilityId": "hades-passiva-ceifa"
   },
   {
     "id": "atena",
@@ -203,7 +247,11 @@
     },
     "activeOptions": [
       "atena-corrosao"
-    ]
+    ],
+    "benchOptions": [
+      "atena-banco-taticas"
+    ],
+    "passiveAbilityId": "atena-passiva-estrategia"
   },
   {
     "id": "satiro",
@@ -222,7 +270,11 @@
     },
     "activeOptions": [
       "satiro-veneno"
-    ]
+    ],
+    "benchOptions": [
+      "satiro-banco-siringe"
+    ],
+    "passiveAbilityId": "satiro-passiva-embriaguez"
   },
   {
     "id": "medusa",
@@ -241,7 +293,11 @@
     },
     "activeOptions": [
       "medusa-petrificar"
-    ]
+    ],
+    "benchOptions": [
+      "medusa-banco-olhar"
+    ],
+    "passiveAbilityId": "medusa-passiva-escamas"
   },
   {
     "id": "hercules",
@@ -260,7 +316,11 @@
     },
     "activeOptions": [
       "hercules-impacto"
-    ]
+    ],
+    "benchOptions": [
+      "hercules-banco-forca"
+    ],
+    "passiveAbilityId": "hercules-passiva-nemeia"
   },
   {
     "id": "minotauro",
@@ -279,7 +339,11 @@
     },
     "activeOptions": [
       "minotauro-provocar"
-    ]
+    ],
+    "benchOptions": [
+      "minotauro-banco-labirinto"
+    ],
+    "passiveAbilityId": "minotauro-passiva-furia"
   },
   {
     "id": "amaterasu",
@@ -298,6 +362,10 @@
     },
     "activeOptions": [
       "amaterasu-regen-team"
-    ]
+    ],
+    "benchOptions": [
+      "amaterasu-banco-espelho"
+    ],
+    "passiveAbilityId": "amaterasu-passiva-alvorada"
   }
 ]

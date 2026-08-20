@@ -22,6 +22,11 @@ interface BattleStageProps {
   /** At most one per side — a concurrent ally + enemy cast renders as a clash (both banners share one dim backdrop). */
   activeAbilities: AbilityCastEvent[];
   attackAnims: AttackAnimEvent[];
+  /** Set when the last battle request failed — the run is stalled until it's retried. */
+  error: string | null;
+  onRetry: () => void;
+  /** True while the first battle is still on its way from the server. */
+  loading: boolean;
 }
 
 const WINNER_LABEL: Record<'allies' | 'enemies' | 'draw', string> = {
@@ -43,6 +48,9 @@ export function BattleStage({
   floaters,
   activeAbilities,
   attackAnims,
+  error,
+  onRetry,
+  loading,
 }: BattleStageProps) {
   const floatersFor = (unitId: string) => floaters.filter((f) => f.unitId === unitId);
   // Newest event per unit only — a unit can't be mid-swing twice at once, and a fresh id is what
@@ -133,7 +141,31 @@ export function BattleStage({
 
       <AbilityCastOverlay activeAbilities={activeAbilities} />
 
-      {finished && winner && (
+      {loading && (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-void-950/60 backdrop-blur-sm">
+          <Icon name="loader" size={26} className="animate-spin text-code-400" />
+          <p className="font-display text-xs font-bold uppercase tracking-wide text-white/60">Carregando batalha</p>
+        </div>
+      )}
+
+      {/* A failed battle request leaves nothing driving the loop, so it has to say so and offer
+          the way out — otherwise the screen just freezes on the last fight with no explanation. */}
+      {error && (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-void-950/80 p-6 text-center backdrop-blur-sm">
+          <Icon name="flag-off" size={28} className="text-signal-red" />
+          <p className="font-display text-sm font-bold uppercase tracking-wide text-signal-red">Batalha interrompida</p>
+          <p className="max-w-sm text-xs text-white/60">{error}</p>
+          <button
+            onClick={onRetry}
+            className="flex items-center gap-2 rounded-lg bg-code-500 px-5 py-2.5 font-display text-xs font-bold uppercase tracking-wide text-void-950 transition hover:bg-code-400"
+          >
+            <Icon name="rotate-ccw" size={15} />
+            Tentar de novo
+          </button>
+        </div>
+      )}
+
+      {finished && winner && !error && (
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-void-950/70 backdrop-blur-sm">
           <p
             className={`font-display text-2xl font-black uppercase tracking-widest sm:text-4xl ${

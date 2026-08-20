@@ -38,7 +38,7 @@ A `service_role` ignora RLS e é usada apenas dentro de `app/api/**` (via `lib/s
 
 ### Banco
 
-Aplique as migrations de `supabase/migrations/` em ordem (`supabase db push`, ou colando no SQL Editor). São 23, numeradas e idempotentes onde possível.
+Aplique as migrations de `supabase/migrations/` em ordem (`supabase db push`, ou colando no SQL Editor). São 26, numeradas e idempotentes onde possível.
 
 ### Edge Functions
 
@@ -59,7 +59,7 @@ Aplique as migrations **antes** de publicar: a assinatura de `resolve_pvp_attack
 | `npm run dev` | Servidor de desenvolvimento |
 | `npm run build` | Build de produção |
 | `npm run lint` | `tsc --noEmit` + fronteira do engine + checagem da cópia do PvP |
-| `npm test` | Vitest (146 testes) |
+| `npm test` | Vitest (191 testes) |
 | `npm run battle` | Roda uma batalha real no terminal (`-- --boss` para o chefe) |
 | `npm run sync:pvp-engine` | Regenera a cópia Deno do engine |
 | `npm run deploy:functions` | Sincroniza o engine e publica a function do PvP |
@@ -108,7 +108,7 @@ Edge Functions do Deno são publicadas como uma árvore autocontida e não conse
 Tempo real contínuo, times de até 5, alvo de ~30s por batalha.
 
 - **Vanguarda:** o primeiro personagem da fila. É o **único** que ataca, recebe dano e usa a habilidade ativa.
-- **Banco:** os demais, aguardando a vez. Por design eles buffam a Vanguarda com a habilidade de banco — mas nenhum personagem tem uma autorada ainda (ver *Habilidades* abaixo).
+- **Banco:** os demais, aguardando a vez. Eles buffam a Vanguarda com a habilidade de banco, que fica presa enquanto o dono estiver no banco e é desfeita na rotação — não tem timer.
 - **Rotação:** quando o HP da Vanguarda zera, o próximo da fila assume. A batalha acaba quando um lado perde todos os processos.
 
 A ordem dos slots na tela de Time **é** a fila de combate — o primeiro slot é a Vanguarda inicial, e arrastar um personagem para lá troca quem começa.
@@ -127,9 +127,27 @@ Personagens jogáveis começam com DEF/VEL/ESQ **em 0** — esses atributos são
 
 ### Habilidades
 
-Toda habilidade é **Gatilho × Efeito × Alvo**. A passiva destrava em **Zero-Day** (`PASSIVE_UNLOCK_RARITY` em `schema.ts`) — note que o GDD diz "LTS+"; o código é a fonte da verdade aqui, e os dois divergem.
+Toda habilidade é **Gatilho × Efeito × Alvo**, em três escopos: **ativa** (só na Vanguarda), **de banco** (só no banco, buffando a Vanguarda) e **passiva** (sempre, se destravada).
 
-O design (`docs/combate.md`) prevê 2 opções ativas e 2 de banco por personagem, com o jogador equipando 1 de cada. **O conteúdo autorado ainda não chegou lá:** hoje 14 dos 16 personagens têm 1 opção ativa, `jurupari` e `saci` têm 0, e nenhum tem opção de banco — então o seletor de habilidade existe mas quase não tem o que escolher, e habilidades de banco não disparam na prática. O motor já suporta as duas coisas; falta escrever os kits.
+A passiva tem **dois caminhos de destrave, alternativos**: possuir uma cópia **Zero-Day** (`PASSIVE_UNLOCK_RARITY`), ou levar o personagem até a **v2.0** (`PASSIVE_UNLOCK_VERSION`) — qualquer raridade serve. A cópia Zero-Day ganha o nível 1 de graça; quem chegou pela versão compra por 50.000 créditos.
+
+**Níveis de habilidade** são comprados por escopo na tela de Melhorias e multiplicam as magnitudes dos efeitos daquela habilidade: +15% por nível acima do primeiro, então 1→5 vai de 1,00 a 1,60. O escalonamento acontece no load, sobre uma **cópia** da definição — o registro de habilidades é um singleton de módulo, e escalar no lugar levantaria a habilidade para todo mundo na batalha.
+
+Cada um dos 16 personagens tem hoje 1 ativa, 1 de banco e 1 passiva autoradas. O design (`docs/combate.md`) prevê 2 opções ativas e 2 de banco, com o jogador equipando 1 de cada — o motor e o seletor já suportam, falta escrever as segundas opções.
+
+### Módulos (`.dll`)
+
+Runas equipáveis, quatro por personagem: **Principal**, **Ataque**, **Defesa** e **Suporte**, uma por slot. Cada módulo tem um grau — **S > A > B > C** — e o grau decide tanto a magnitude quanto **quantos** bônus o módulo concede (S: 3, A: 2, B e C: 1).
+
+O engine não sabe o que é uma runa. `src/data/modules.ts` é o catálogo, `src/data/moduleBonuses.ts` traduz o que está equipado num `ModuleBonuses` — um saco plano de números já resolvidos — e é só isso que atravessa a fronteira. PvE e PvP aplicam os mesmos módulos, pelo mesmo caminho.
+
+Duas fontes: a cápsula `.rar` em Invocações (paga em Tokens) e a derrota de um Chefe de Mundo, que sorteia de uma tabela sem grau C.
+
+### Versão do personagem (v1.0 → v2.0)
+
+Eixo separado da raridade: a **raridade** limita o nível máximo das habilidades, a **versão** destrava a passiva. Guardada como inteiro de décimos (10 = v1.0, 20 = v2.0) para que toda comparação seja de inteiros.
+
+Personagens repetidos viram fragmentos daquele personagem, pelo grau que caiu — 1 por Alpha, 5 por Beta, 20 por Stable, 50 por LTS, 100 por Zero-Day. Subir uma versão custa de 5 fragmentos (v1.1) a 100 (v1.9 → v2.0), 420 no total. Os fragmentos são um pool por personagem: a versão é por personagem, não por cópia, então puxar a mesma carta numa raridade maior não zera o trabalho já feito.
 
 ### Anti-batalha-infinita
 
@@ -152,6 +170,10 @@ O design (`docs/combate.md`) prevê 2 opções ativas e 2 de banco por personage
 **Escalonamento.** Dentro de uma fase, +5% por estágio (0/5/10/15/20%). Entre mundos, +12% na base — e esse número não é arbitrário: um personagem ganha +2% por nível e um time de mesma mitologia soma +32% de sinergia, então mesmo um roster nível 60 tem só ~2,9× do poder inicial. O passo por mundo precisa caber embaixo desse teto, ou a campanha fica invencível por mais que se grinde.
 
 Só os *pools* (HP/ATK) escalam com a dificuldade. DEF é uma fração de mitigação e VEL é uma taxa — escalar as duas junto fazia a dificuldade compor várias vezes por mundo. Elas ficam como escritas no JSON e definem o **arquétipo** do inimigo.
+
+**XP.** Só quem entrou na batalha ganha XP — os cinco escalados, banco incluído, já que no Relay & Bench todos estão na luta. Quem fica no inventário não sobe de nível, então trocar de time tem custo real.
+
+Cada modo alimenta o seu time: uma vitória de PvE paga o time de PvE, e uma vitória de PvP paga o time de PvP — o do atacante quando ele vence, o de defesa quando o ataque é repelido. Um time de defesa que divirja do de PvE sobe de nível defendendo, não pegando carona no grind.
 
 **Chefes** são calibrados individualmente (canhão de vidro, muralha, rajada, desgaste) e escalam apenas pela base do mundo, nunca pelo passo intra-fase. O mapa permite rejogar qualquer mundo, fase e onda já alcançados.
 
@@ -182,7 +204,7 @@ Toda escrita privilegiada passa por `app/api/**` com a `service_role`; o cliente
 Personagens e habilidades ficam em **um arquivo plano cada** — não há passo de registro, o loader carrega as listas inteiras:
 
 - `src/engine/data/characters.json` — 16 personagens
-- `src/engine/data/abilities.json` — 55 habilidades (aliados e inimigos)
+- `src/engine/data/abilities.json` — 89 habilidades (aliados e inimigos)
 - `src/engine/data/enemies/<mundo>.json` — inimigos comuns + chefe, por mundo (esses **são** escopados por mundo, porque cada um sorteia dos seus)
 
 O campo `mythology` do próprio personagem é o que agrupa o compêndio e calcula a sinergia. Depois de mexer no engine ou no conteúdo, rode `npm run sync:pvp-engine`.
@@ -191,7 +213,7 @@ Guia de autoria completo: [`docs/TUTORIAL_STATUS_HABILIDADES.md`](docs/TUTORIAL_
 
 ## Testes
 
-146 testes cobrindo o engine: batalha, dano, status, habilidades, progressão, nivelamento, replay e carregamento de conteúdo.
+191 testes cobrindo o engine (batalha, dano, status, habilidades, progressão, nivelamento, replay, carregamento de conteúdo) e as tabelas de dados que governam compras: módulos, versão e o portão da passiva.
 
 ```bash
 npm test

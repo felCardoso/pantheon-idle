@@ -20,6 +20,9 @@ export interface PvpAttackResult {
   log: BattleLogEntry[];
   attackers: Combatant[];
   defenders: Combatant[];
+  /** XP this battle granted to the caller's characters, per id. Empty when the attack was
+   * repelled — a loss pays the defender, whose roster this client has no business updating. */
+  xpEarnedByCharacterId: Record<string, number>;
 }
 
 /**
