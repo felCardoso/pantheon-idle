@@ -1,0 +1,78 @@
+[
+  {
+    "id": "turn-stun-all-enemies",
+    "name": "Sobrecarga de Rede",
+    "scope": "active",
+    "trigger": "onTurnStart",
+    "turnCooldownRounds": 2,
+    "effects": [
+      {
+        "type": "applyStatus",
+        "target": "allEnemies",
+        "status": "crash",
+        "magnitude": { "kind": "flat", "value": 0 },
+        "durationSeconds": 1
+      }
+    ]
+  },
+  {
+    "id": "turn-channeled-overload",
+    "name": "Explosão Retardada",
+    "scope": "active",
+    "trigger": "onTurnStart",
+    "channelRounds": 2,
+    "turnCooldownRounds": 3,
+    "effects": [
+      {
+        "type": "directDamage",
+        "target": "chosenTarget",
+        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.9 },
+        "breaksShield": true
+      }
+    ]
+  },
+  {
+    "id": "turn-passive-shield-empowered",
+    "name": "Sinergia de Blindagem",
+    "scope": "passive",
+    "trigger": "onAllyShieldReceived",
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "self",
+        "attribute": "atk",
+        "magnitude": { "kind": "percent", "value": 0.2 },
+        "durationSeconds": 3
+      }
+    ]
+  },
+  {
+    "id": "turn-shield-team",
+    "name": "Manto de Asgard",
+    "scope": "active",
+    "trigger": "onTurnStart",
+    "turnCooldownRounds": 3,
+    "effects": [
+      {
+        "type": "grantShield",
+        "target": "allAllies",
+        "magnitude": { "kind": "percentOfMaxHp", "percent": 0.12 }
+      }
+    ]
+  },
+  {
+    "id": "turn-support-empower-strike",
+    "name": "Reforço Tático",
+    "scope": "active",
+    "trigger": "onTurnStart",
+    "effects": [
+      {
+        "type": "buffAttribute",
+        "target": "chosenTarget",
+        "attribute": "atk",
+        "magnitude": { "kind": "percent", "value": 0.25 },
+        "durationSeconds": 1
+      }
+    ]
+  }
+]

@@ -116,3 +116,15 @@ export type { XpProgress } from './core/leveling';
 /** Exposed so callers can seed deterministic rolls (gacha, onboarding picks). */
 export { Rng } from './core/rng';
 export type { RngLike } from './core/rng';
+
+// ---------------------------------------------------------------------------
+// Turn engine — PvP only (src/engine/turn/**). The real-time engine above
+// (runBattle et al.) is untouched and still owns PvE; this is a separate
+// simulation loop for the interactive, formation-aware 5x5 turn-based PvP
+// mode, built on the same damage/status/ability machinery.
+// ---------------------------------------------------------------------------
+export { createTurnBattle, applyPlayerAction, pendingAllyUnit } from './turn/roundLoop';
+export type { TurnBattleState } from './turn/roundLoop';
+export { loadTurnCombatantsByIds } from './turn/loader';
+export type { ChargeState, Row, TurnAction, TurnBattleLogEntry, TurnCombatant, TurnPhase } from './turn/types';
+export type { TurnOwnedCharacterEntry } from './turn/schema';

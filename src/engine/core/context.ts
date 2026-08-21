@@ -26,6 +26,8 @@ export interface TriggerContext {
   attacker?: Combatant;
   /** onAttack / onCriticalHit: who self is attacking. */
   defender?: Combatant;
+  /** Turn engine only: whichever unit the acting player/AI explicitly picked for this action — backs the 'chosenTarget' TargetSelector. */
+  chosenTarget?: Combatant;
   /** The attack that caused this trigger, needed for the "triggeringDamage" magnitude. */
   attackResult?: AttackResult;
   /**

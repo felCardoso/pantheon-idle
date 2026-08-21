@@ -139,6 +139,8 @@ export type TargetSelector =
   | 'self'
   | 'attacker'
   | 'defender'
+  /** Turn engine only — whichever unit the acting player/AI explicitly picked for this action (src/engine/core/context.ts's TriggerContext.chosenTarget). */
+  | 'chosenTarget'
   /** The acting unit's own side's current Vanguard (index 0) — the only ally that can be damaged/healed in combat. */
   | 'ownVanguard'
   /** The opposing side's current Vanguard. */
@@ -169,6 +171,12 @@ export type TargetSelector =
  * Added for Relay & Bench:
  * - `onVanguardEnter` / `onVanguardExit` — a unit rotating into/out of the
  *   front. Bench abilities hook these to attach/detach their buffs.
+ *
+ * Added for the turn-based engine (src/engine/turn/**, PvP only — see docs/combate.md v3.1's
+ * real-time model above, which the turn engine does not use): `onRoundStart`/`onTurnStart`/
+ * `onTurnEnd`/`onChannelResolve`. These only ever fire from src/engine/turn/roundLoop.ts; the
+ * real-time engine (core/battle.ts) never emits them, so PvE kits are unaffected by their
+ * existence in this shared union.
  */
 export type AbilityTrigger =
   | 'battleStart' // Boot Sequence
@@ -195,7 +203,11 @@ export type AbilityTrigger =
   | 'onDodge' // Ghosting
   | 'onVanguardEnter' // rotated into the front
   | 'onVanguardExit' // rotated out of the front (ejected)
-  | 'onCriticalHit'; // engine-only, no doc equivalent
+  | 'onCriticalHit' // engine-only, no doc equivalent
+  | 'onRoundStart' // turn engine only — fires once per round, for every living unit
+  | 'onTurnStart' // turn engine only — fires when it becomes this unit's turn to act
+  | 'onTurnEnd' // turn engine only — fires right after this unit's turn resolves
+  | 'onChannelResolve'; // turn engine only — fires when a multi-round channel finishes
 
 /**
  * Where an ability may run (docs/combate.md v3.1 §3).
@@ -281,6 +293,22 @@ export interface AbilityDefinition {
   /** Probability in [0, 1] that the ability fires when its trigger fires. Omit for guaranteed (1). */
   chance?: number;
   effects: AbilityEffect[];
+  /**
+   * Turn engine only. When set, activating this ability doesn't run its effects immediately —
+   * the caster instead spends this many of its own turns "channeling" (src/engine/turn/types.ts's
+   * ChargeState), taking no other action, before the effects fire automatically on the turn the
+   * channel completes. Omit for an ability that resolves the instant it's activated (every
+   * ability today, real-time or turn-based).
+   */
+  channelRounds?: number;
+  /**
+   * Turn engine only. Rounds that must pass after this ability is activated before it can be
+   * activated again — enforced by reusing Combatant's abilityCooldownRemaining map (keyed by
+   * ability id), which the real-time engine keys in seconds and the turn engine keys in rounds;
+   * see src/engine/turn/abilityEngine.ts's isAbilityUsable. Omit for no cooldown (usable every
+   * turn the unit acts).
+   */
+  turnCooldownRounds?: number;
 }
 
 export interface CombatantData {

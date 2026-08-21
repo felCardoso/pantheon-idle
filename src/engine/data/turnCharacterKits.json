@@ -1,0 +1,7 @@
+[
+  { "characterId": "odin", "activeAbilityId": "turn-shield-team" },
+  { "characterId": "zeus", "activeAbilityId": "turn-stun-all-enemies" },
+  { "characterId": "saci", "activeAbilityId": "turn-channeled-overload" },
+  { "characterId": "curupira", "activeAbilityId": "turn-support-empower-strike" },
+  { "characterId": "freya", "passiveAbilityId": "turn-passive-shield-empowered" }
+]
