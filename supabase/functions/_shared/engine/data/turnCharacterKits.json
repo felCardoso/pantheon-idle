@@ -3,5 +3,45 @@
   { "characterId": "zeus", "activeAbilityId": "turn-stun-all-enemies" },
   { "characterId": "saci", "activeAbilityId": "turn-channeled-overload" },
   { "characterId": "curupira", "activeAbilityId": "turn-support-empower-strike" },
-  { "characterId": "freya", "passiveAbilityId": "turn-passive-shield-empowered" }
+  { "characterId": "freya", "passiveAbilityId": "turn-passive-shield-empowered" },
+
+  { "characterId": "jurupari", "activeAbilityId": "turn-jurupari-fragmentacao" },
+  { "characterId": "caipora", "activeAbilityId": "turn-caipora-enfraquecimento" },
+  { "characterId": "thor", "activeAbilityId": "turn-thor-sangramento" },
+  { "characterId": "ratatoskr", "activeAbilityId": "turn-ratatoskr-marcado" },
+  { "characterId": "hades", "activeAbilityId": "turn-hades-muralha" },
+  { "characterId": "atena", "activeAbilityId": "turn-atena-corrosao" },
+  { "characterId": "satiro", "activeAbilityId": "turn-satiro-veneno" },
+  { "characterId": "medusa", "activeAbilityId": "turn-medusa-petrificar" },
+  { "characterId": "hercules", "activeAbilityId": "turn-hercules-impacto" },
+  { "characterId": "minotauro", "activeAbilityId": "turn-minotauro-provocar" },
+  { "characterId": "amaterasu", "activeAbilityId": "turn-amaterasu-luz" },
+
+  { "characterId": "firewall-turret", "activeAbilityId": "turn-enemy-shield-self" },
+  { "characterId": "esqueleto-espartano", "activeAbilityId": "turn-enemy-shield-self" },
+  { "characterId": "guardiao-mata", "activeAbilityId": "turn-enemy-shield-self" },
+  { "characterId": "valquiria-corrompida", "activeAbilityId": "turn-enemy-shield-self" },
+  { "characterId": "samurai-corrompido", "activeAbilityId": "turn-enemy-shield-self" },
+  { "characterId": "chacal-guardiao", "activeAbilityId": "turn-enemy-shield-self" },
+
+  { "characterId": "script-kiddie", "activeAbilityId": "turn-enemy-lag-strike" },
+  { "characterId": "espirito-ancestral", "activeAbilityId": "turn-enemy-lag-strike" },
+  { "characterId": "draugr", "activeAbilityId": "turn-enemy-lag-strike" },
+  { "characterId": "yokai-menor", "activeAbilityId": "turn-enemy-lag-strike" },
+  { "characterId": "ciclope", "activeAbilityId": "turn-enemy-stun-strike" },
+  { "characterId": "mumia", "activeAbilityId": "turn-enemy-poison-strike" },
+
+  { "characterId": "corrupted-daemon", "activeAbilityId": "turn-enemy-bleed-dot-strike" },
+  { "characterId": "hidra-menor", "activeAbilityId": "turn-enemy-bleed-dot-strike" },
+  { "characterId": "tambor-guerra", "activeAbilityId": "turn-enemy-bleed-dot-strike" },
+  { "characterId": "lobo-selvagem", "activeAbilityId": "turn-enemy-bleed-dot-strike" },
+  { "characterId": "kappa", "activeAbilityId": "turn-enemy-poison-dot-strike" },
+  { "characterId": "serpente-nilo", "activeAbilityId": "turn-enemy-poison-dot-strike" },
+
+  { "characterId": "anhanga", "activeAbilityId": "turn-boss-anhanga" },
+  { "characterId": "typhon", "activeAbilityId": "turn-boss-typhon" },
+  { "characterId": "ogum", "activeAbilityId": "turn-boss-ogum" },
+  { "characterId": "fenrir", "activeAbilityId": "turn-boss-fenrir" },
+  { "characterId": "set", "activeAbilityId": "turn-boss-set" },
+  { "characterId": "yamata-no-orochi", "activeAbilityId": "turn-boss-orochi" }
 ]

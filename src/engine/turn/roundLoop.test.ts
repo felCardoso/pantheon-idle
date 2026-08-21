@@ -1,7 +1,33 @@
 import { describe, expect, it } from 'vitest';
 import { targetableRow } from './formation';
-import { applyPlayerAction, createTurnBattle, pendingAllyUnit } from './roundLoop';
+import { applyPlayerAction, createTurnBattle, pendingAllyUnit, runAutoTurnBattle } from './roundLoop';
 import { makeTurnAbility, makeTurnCombatant } from './testUtils';
+
+describe('DOT damage cascades like a basic attack', () => {
+  it('a DOT tick that crosses the 50% HP threshold fires the onHalfHp passive, same as a basic attack would', () => {
+    const shieldOnHalfHp = makeTurnAbility({
+      id: 'shield-on-half-hp',
+      scope: 'passive',
+      trigger: 'onHalfHp',
+      effects: [{ type: 'grantShield', target: 'self', magnitude: { kind: 'flat', value: 100 } }],
+    });
+    // hp 520/1000 with a 40/round leak DOT crosses the 500 (50%) threshold on the very first tick.
+    const ally = makeTurnCombatant({
+      name: 'Ally',
+      hp: 520,
+      maxHp: 1000,
+      passiveAbilities: [shieldOnHalfHp],
+      statuses: [{ status: 'leak', remainingSeconds: 5, value: 40 }],
+    });
+    const enemy = makeTurnCombatant({ name: 'Enemy', isAlly: false });
+
+    const state = createTurnBattle([ally], [enemy], 1);
+
+    expect(ally.hp).toBe(480);
+    expect(ally.shield).toBe(100);
+    expect(state.log).toContainEqual(expect.objectContaining({ kind: 'shieldGranted', target: 'Ally' }));
+  });
+});
 
 describe('stun', () => {
   it('a stunned unit skips exactly its next turn, and the stun is gone by the round after', () => {
@@ -114,5 +140,21 @@ describe('runBattle determinism', () => {
 
   it('a different seed produces a different log (sanity check that the seed is actually threaded through)', () => {
     expect(runScripted(1)).not.toEqual(runScripted(2));
+  });
+});
+
+describe('runAutoTurnBattle', () => {
+  it('plays both sides automatically and always returns a decided winner', () => {
+    const allies = [makeTurnCombatant({ id: 'a1', name: 'A1' }), makeTurnCombatant({ id: 'a2', name: 'A2' })];
+    const enemies = [makeTurnCombatant({ id: 'e1', name: 'E1', isAlly: false, hp: 200, maxHp: 200 })];
+    const state = runAutoTurnBattle(allies, enemies, 42);
+    expect(['allies', 'enemies', 'draw']).toContain(state.winner);
+    expect(pendingAllyUnit(state)).toBeNull(); // never left mid-decision
+  });
+
+  it('is deterministic given the same seed', () => {
+    const build = () => [makeTurnCombatant({ id: 'a1', name: 'A1' }), makeTurnCombatant({ id: 'a2', name: 'A2' })];
+    const enemy = () => [makeTurnCombatant({ id: 'e1', name: 'E1', isAlly: false })];
+    expect(runAutoTurnBattle(build(), enemy(), 7).log).toEqual(runAutoTurnBattle(build(), enemy(), 7).log);
   });
 });

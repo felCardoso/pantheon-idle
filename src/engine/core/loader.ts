@@ -100,7 +100,14 @@ function scaleMagnitude(magnitude: Magnitude, multiplier: number): Magnitude {
   }
 }
 
-function atLevel(ability: AbilityDefinition, level: number): AbilityDefinition {
+/**
+ * Re-authors `ability` at `level`, scaling every effect's magnitude by abilityPowerMultiplier.
+ * Exported so the turn-mode loader (src/engine/turn/loader.ts) can apply the same bought-level
+ * scaling to turn-mode active/passive abilities — a player who spent credits on ability levels
+ * (the Upgrades screen) shouldn't see that purchase go inert just because a fight resolves
+ * through the turn engine instead of the real-time one.
+ */
+export function atLevel(ability: AbilityDefinition, level: number): AbilityDefinition {
   const multiplier = abilityPowerMultiplier(level);
   if (multiplier === 1) return ability;
   return {

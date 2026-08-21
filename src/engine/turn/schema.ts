@@ -1,4 +1,5 @@
 import type { StatusDurationTable } from '../schema';
+import type { AbilityLevels } from '../core/loader';
 import type { ModuleBonuses } from '../core/modules';
 import type { Rarity } from '../schema';
 import type { Row } from './types';
@@ -29,5 +30,7 @@ export interface TurnOwnedCharacterEntry {
   /** Falls back to turnCharacterKits.json's entry for this character, if any, else basic-attack-only. */
   selectedAbilityId?: string;
   version?: number;
+  /** Bought ability levels (Upgrades screen) — applied to the turn-mode active/passive the same way core/loader.ts applies them in real-time (see turn/loader.ts's use of the shared atLevel). Omitted = level 1 everywhere. */
+  levels?: AbilityLevels;
   row: Row;
 }

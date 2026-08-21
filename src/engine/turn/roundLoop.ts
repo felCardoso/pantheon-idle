@@ -15,7 +15,7 @@ import {
   maybeFireHalfHp,
   maybeFireShieldBreak,
 } from './abilityEngine';
-import { decideEnemyAction, orderEnemyUnits } from './aiPolicy';
+import { decideAutoAction, orderEnemyUnits } from './aiPolicy';
 import { isLegalSingleTarget, targetableRow } from './formation';
 import { advanceOneRound, isStunned } from './statusClock';
 import { TURN_CONSTANTS } from '../data';
@@ -176,12 +176,22 @@ function enterPhase(state: TurnBattleState, side: 'allies' | 'enemies'): void {
       unit.abilityCooldownRemaining[id] = Math.max(0, unit.abilityCooldownRemaining[id] - 1);
     }
 
+    const hpBefore = unit.hp;
+    const shieldBefore = unit.shield;
     advanceOneRound(unit, state.round, (e) => pushLog(state, e));
     if (unit.hp <= 0) {
       pushLog(state, { at: state.round, kind: 'death', unit: unit.name });
       fireDeathFor(state, unit);
       continue;
     }
+    // Mirrors core/battle.ts's tick loop: a DOT tick (leak/trojan) is as much "getting wounded"
+    // as a basic attack landing, and can just as validly break a shield or cross the 50% HP
+    // threshold — onWounded/onShieldBreak/onHalfHp-reactive passives (e.g. Hércules's Pele de
+    // Nemeia, Minotauro's Fúria do Labirinto) need this to fire from DOT damage too, not just
+    // from performBasicAttack/directDamage's own cascades.
+    maybeFireShieldBreakFor(state, unit, shieldBefore);
+    if (unit.hp < hpBefore) fireOnWoundedFor(state, unit);
+    maybeFireHalfHpFor(state, unit);
 
     if (isStunned(unit)) {
       dispelStatuses(unit, ['crash']);
@@ -257,7 +267,7 @@ function runEnemyPhase(state: TurnBattleState): void {
 
   for (const unit of orderEnemyUnits(state.enemies.filter((u) => u.hp > 0 && !u.hasActedThisRound))) {
     if (unit.hp <= 0 || unit.hasActedThisRound) continue; // may have died or been stunned mid-phase by another unit's action
-    applyAction(state, unit, decideEnemyAction(unit, state.enemies, state.allies));
+    applyAction(state, unit, decideAutoAction(unit, state.enemies, state.allies));
     if (endIfDecided(state)) return;
   }
 
@@ -319,4 +329,32 @@ export function applyPlayerAction(state: TurnBattleState, unitId: string, action
 
   if (!pendingAllyUnit(state)) runEnemyPhase(state);
   return state;
+}
+
+/** Defensive upper bound on applyPlayerAction calls for one runAutoTurnBattle — the round cap already forces a winner well before this, so hitting it means a real engine bug, not a long fight. */
+const AUTO_BATTLE_MAX_ACTIONS = 500;
+
+/**
+ * Runs an entire turn-based battle start to finish with BOTH sides driven by decideAutoAction —
+ * PvE's default mode (docs/gdd.md section 5: idle-paced, "assiste" the fight rather than playing
+ * every round), and also handy for tests/tools that just want a finished battle. Mirrors
+ * core/battle.ts's runBattle in spirit: one call in, a decided TurnBattleState out.
+ */
+export function runAutoTurnBattle(
+  allies: TurnCombatant[],
+  enemies: TurnCombatant[],
+  seed: number,
+): TurnBattleState & { winner: 'allies' | 'enemies' | 'draw' } {
+  const state = createTurnBattle(allies, enemies, seed);
+  for (let i = 0; i < AUTO_BATTLE_MAX_ACTIONS && !state.winner; i++) {
+    const unit = pendingAllyUnit(state);
+    if (!unit) break;
+    applyPlayerAction(state, unit.id, decideAutoAction(unit, state.allies, state.enemies));
+  }
+  if (!state.winner) {
+    // Should be unreachable (advanceRound's round cap always forces a winner first), but never
+    // return an undecided battle to a PvE caller expecting a reward outcome.
+    state.winner = decideByRemainingHp(state.allies, state.enemies);
+  }
+  return state as TurnBattleState & { winner: 'allies' | 'enemies' | 'draw' };
 }

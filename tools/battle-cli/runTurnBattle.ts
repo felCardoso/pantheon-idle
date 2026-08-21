@@ -43,10 +43,17 @@ function lowestHpOf(pool: TurnCombatant[]): TurnCombatant | undefined {
   return alive.length === 0 ? undefined : alive.reduce((best, c) => (c.hp < best.hp ? c : best));
 }
 
-/** Mirrors src/engine/turn/aiPolicy.ts's isSupportAbility — a chosenTarget ability whose effect is heal/grantShield/buffAttribute/dispel is aimed at an ally, not an enemy. */
+/** Mirrors src/engine/turn/aiPolicy.ts's isSupportAbility — heal/grantShield/dispel, or a non-negative-magnitude buffAttribute, is aimed at an ally; a negative-magnitude buffAttribute (a stat debuff) and directDamage/applyStatus are aimed at an enemy. */
 function isSupportAbility(ability: TurnCombatant['activeAbilities'][number]): boolean {
-  const chosenTargetEffect = ability.effects.find((e) => e.target === 'chosenTarget');
-  return chosenTargetEffect?.type === 'heal' || chosenTargetEffect?.type === 'grantShield' || chosenTargetEffect?.type === 'buffAttribute' || chosenTargetEffect?.type === 'dispel';
+  const effect = ability.effects.find((e) => e.target === 'chosenTarget');
+  if (!effect) return false;
+  if (effect.type === 'heal' || effect.type === 'grantShield' || effect.type === 'dispel') return true;
+  if (effect.type === 'buffAttribute') {
+    const m = effect.magnitude;
+    if (m.kind === 'flat' || m.kind === 'percent') return m.value >= 0;
+    return true;
+  }
+  return false;
 }
 
 function decideScriptedAction(unit: TurnCombatant, allies: TurnCombatant[], enemies: TurnCombatant[]): TurnAction {

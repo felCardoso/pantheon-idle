@@ -5,16 +5,17 @@ import {
   difficultyMultiplier,
   enemyCountRange,
   isBossStage,
-  loadCharactersByIds,
-  loadWorldBoss,
-  loadWorldComuns,
+  loadTurnCombatantsByIds,
+  loadTurnWorldBoss,
+  loadTurnWorldComuns,
   resolveProgression,
   Rng,
-  runBattle,
+  runAutoTurnBattle,
   teamSizeMultiplier,
   worldIdForFase,
-  type BattleLogEntry,
-  type Combatant,
+  type Row,
+  type TurnBattleLogEntry,
+  type TurnCombatant,
   type WorldPosition,
 } from '../src/engine';
 import {
@@ -62,9 +63,9 @@ export interface ResolveBattleResult {
   position: WorldPosition;
   isBoss: boolean;
   winner: 'allies' | 'enemies' | 'draw';
-  log: BattleLogEntry[];
-  allies: Combatant[];
-  enemies: Combatant[];
+  log: TurnBattleLogEntry[];
+  allies: TurnCombatant[];
+  enemies: TurnCombatant[];
   reward: { credits: number; xp: number };
   /** Authoritative wallet and progress after this battle. */
   credits: number;
@@ -190,15 +191,21 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
   // Equipped runes become plain stat/behaviour totals here — the engine never learns what a rune is.
   const modulesByCharacter = equippedByCharacter(moduleRows ?? []);
 
-  const allies = loadCharactersByIds(
-    roster.map((c) => ({
+  // PvE has no per-character formation UI (unlike PvP's Team page editor) — split the roster
+  // evenly, front-loaded, as a sensible default: majority up front absorbing hits, the rest
+  // held back. See src/engine/turn/formation.ts for what row actually does in combat.
+  const rowForIndex = (index: number, total: number): Row => (index < Math.ceil(total / 2) ? 'front' : 'back');
+
+  const allies = loadTurnCombatantsByIds(
+    roster.map((c, i) => ({
       id: c.character_id,
       xp: c.xp,
       modules: bonusesFromModules(modulesByCharacter[c.character_id] ?? []),
-      rarity: c.rarity as Parameters<typeof loadCharactersByIds>[0][number]['rarity'],
+      rarity: c.rarity as Parameters<typeof loadTurnCombatantsByIds>[0][number]['rarity'],
       version: versionByCharacterId[c.character_id],
       levels: levelsByCharacterId[c.character_id],
       selectedAbilityId: selectedAbilityByCharacterId[c.character_id],
+      row: rowForIndex(i, roster.length),
     })),
   );
 
@@ -206,17 +213,19 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
   const boss = isBossStage(position);
   const worldId = worldIdForFase(position.fase);
   const sizeFactor = teamSizeMultiplier(allies.length);
-  let enemies: Combatant[];
+  let enemies: TurnCombatant[];
   if (boss) {
-    enemies = loadWorldBoss(worldId, sizeFactor * difficultyMultiplier({ fase: position.fase, estagio: 1 }));
+    enemies = loadTurnWorldBoss(worldId, sizeFactor * difficultyMultiplier({ fase: position.fase, estagio: 1 }));
   } else {
     const [min, max] = enemyCountRange(position.estagio);
     const compositionRng = new Rng(seed);
     const count = min + Math.floor(compositionRng.next() * (max - min + 1));
-    enemies = loadWorldComuns(worldId, count, difficultyMultiplier(position) * sizeFactor);
+    // Common waves cycle through exactly 3 archetype slots (see src/engine/data/enemies/*.json) —
+    // the first 2 slots (front) absorb hits, the 3rd (back) is only reachable once they're down.
+    enemies = loadTurnWorldComuns(worldId, count, difficultyMultiplier(position) * sizeFactor, (slot) => rowForIndex(slot, 3));
   }
 
-  const result = runBattle(allies, enemies, { seed });
+  const result = runAutoTurnBattle(allies, enemies, seed);
   const won = result.winner === 'allies';
 
   // Bonuses are read from the player's own rows, never sent by the client.

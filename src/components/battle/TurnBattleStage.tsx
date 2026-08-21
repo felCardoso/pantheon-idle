@@ -36,10 +36,17 @@ function legalRow(pool: TurnCombatant[]): TurnCombatant[] {
   return front.length > 0 ? front : alive.filter((c) => c.row === 'back');
 }
 
-/** Mirrors src/engine/turn/aiPolicy.ts's isSupportAbility — a chosenTarget ability whose effect is heal/grantShield/buffAttribute/dispel is aimed at an ally, not an enemy. */
+/** Mirrors src/engine/turn/aiPolicy.ts's isSupportAbility — a chosenTarget ability whose effect is heal/grantShield/dispel, or a buffAttribute with a non-negative magnitude, is aimed at an ally; a negative-magnitude buffAttribute (a stat debuff, e.g. a boss's def shred) and directDamage/applyStatus are aimed at an enemy. */
 function isSupportAbility(ability: TurnCombatant['activeAbilities'][number]): boolean {
   const effect = ability.effects.find((e) => e.target === 'chosenTarget');
-  return effect?.type === 'heal' || effect?.type === 'grantShield' || effect?.type === 'buffAttribute' || effect?.type === 'dispel';
+  if (!effect) return false;
+  if (effect.type === 'heal' || effect.type === 'grantShield' || effect.type === 'dispel') return true;
+  if (effect.type === 'buffAttribute') {
+    const m = effect.magnitude;
+    if (m.kind === 'flat' || m.kind === 'percent') return m.value >= 0;
+    return true;
+  }
+  return false;
 }
 
 type PendingChoice = { type: 'basicAttack' } | { type: 'ability' };

@@ -5,8 +5,9 @@ import type { AbilityDefinition, StatusType } from '../schema.ts';
 import type { AttackResult, Combatant } from '../core/types.ts';
 
 /**
- * Turn engine data model — PvP only (src/engine/index.ts's turn-mode export section). PvE stays
- * on the real-time engine (core/battle.ts) untouched; nothing here is imported by it.
+ * Turn engine data model (src/engine/index.ts's turn-mode export section) — shared by
+ * interactive PvP and auto-played PvE (see roundLoop.ts's runAutoTurnBattle). The legacy
+ * real-time engine (core/battle.ts) stays untouched alongside it.
  *
  * Rounds and phases, not real time: a round is an Ally Phase (the attacking player activates
  * each of their own living units, one at a time, in whatever order they choose) followed by an

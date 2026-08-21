@@ -74,5 +74,145 @@
         "durationSeconds": 1
       }
     ]
+  },
+
+  { "id": "turn-jurupari-fragmentacao", "name": "Ritual Fragmentado", "scope": "active", "trigger": "onTurnStart", "turnCooldownRounds": 2,
+    "effects": [
+      { "type": "directDamage", "target": "chosenTarget", "magnitude": { "kind": "percentOfBaseAtk", "basePercent": 0.7 } },
+      { "type": "applyStatus", "target": "chosenTarget", "status": "fragmentation", "magnitude": { "kind": "percentOfBaseAtk", "basePercent": 0.14 }, "durationSeconds": 2 }
+    ]
+  },
+  { "id": "turn-caipora-enfraquecimento", "name": "Assobio da Mata", "scope": "active", "trigger": "onTurnStart", "turnCooldownRounds": 2,
+    "effects": [
+      { "type": "directDamage", "target": "chosenTarget", "magnitude": { "kind": "percentOfBaseAtk", "basePercent": 0.6 } },
+      { "type": "applyStatus", "target": "chosenTarget", "status": "throttling", "magnitude": { "kind": "percent", "value": 0.2 }, "durationSeconds": 2 }
+    ]
+  },
+  { "id": "turn-thor-sangramento", "name": "Golpe do Trovão", "scope": "active", "trigger": "onTurnStart", "turnCooldownRounds": 2,
+    "effects": [
+      { "type": "directDamage", "target": "chosenTarget", "magnitude": { "kind": "percentOfBaseAtk", "basePercent": 0.8 } },
+      { "type": "applyStatus", "target": "chosenTarget", "status": "leak", "magnitude": { "kind": "percentOfBaseAtk", "basePercent": 0.2 }, "durationSeconds": 2 }
+    ]
+  },
+  { "id": "turn-ratatoskr-marcado", "name": "Fofoca da Copa", "scope": "active", "trigger": "onTurnStart", "turnCooldownRounds": 2,
+    "effects": [
+      { "type": "applyStatus", "target": "chosenTarget", "status": "target", "magnitude": { "kind": "flat", "value": 0 }, "durationSeconds": "default" }
+    ]
+  },
+  { "id": "turn-hades-muralha", "name": "Muralha do Submundo", "scope": "active", "trigger": "onTurnStart", "turnCooldownRounds": 3,
+    "effects": [
+      { "type": "grantShield", "target": "self", "magnitude": { "kind": "percentOfMaxHp", "percent": 0.25 } }
+    ]
+  },
+  { "id": "turn-atena-corrosao", "name": "Estratégia Corrosiva", "scope": "active", "trigger": "onTurnStart", "turnCooldownRounds": 2,
+    "effects": [
+      { "type": "directDamage", "target": "chosenTarget", "magnitude": { "kind": "percentOfBaseAtk", "basePercent": 0.5 } },
+      { "type": "buffAttribute", "target": "chosenTarget", "attribute": "def", "magnitude": { "kind": "percent", "value": -0.25 }, "durationSeconds": 2 }
+    ]
+  },
+  { "id": "turn-satiro-veneno", "name": "Zurro Venenoso", "scope": "active", "trigger": "onTurnStart", "turnCooldownRounds": 2,
+    "effects": [
+      { "type": "directDamage", "target": "chosenTarget", "magnitude": { "kind": "percentOfBaseAtk", "basePercent": 0.6 } },
+      { "type": "applyStatus", "target": "chosenTarget", "status": "trojan", "magnitude": { "kind": "percentOfBaseAtk", "basePercent": 0.2 }, "durationSeconds": 2 }
+    ]
+  },
+  { "id": "turn-medusa-petrificar", "name": "Olhar Petrificante", "scope": "active", "trigger": "onTurnStart", "turnCooldownRounds": 2,
+    "effects": [
+      { "type": "applyStatus", "target": "chosenTarget", "status": "crash", "magnitude": { "kind": "flat", "value": 0 }, "durationSeconds": 1 }
+    ]
+  },
+  { "id": "turn-hercules-impacto", "name": "Impacto", "scope": "active", "trigger": "onTurnStart", "turnCooldownRounds": 2,
+    "effects": [
+      { "type": "directDamage", "target": "chosenTarget", "magnitude": { "kind": "percentOfBaseAtk", "basePercent": 0.9 } },
+      { "type": "applyStatus", "target": "chosenTarget", "status": "throttling", "magnitude": { "kind": "percent", "value": 0.2 }, "durationSeconds": 2 }
+    ]
+  },
+  { "id": "turn-minotauro-provocar", "name": "Provocar", "scope": "active", "trigger": "onTurnStart", "turnCooldownRounds": 3,
+    "effects": [
+      { "type": "grantShield", "target": "allAllies", "magnitude": { "kind": "percentOfMaxHp", "percent": 0.1 } }
+    ]
+  },
+  { "id": "turn-amaterasu-luz", "name": "Luz Perpétua", "scope": "active", "trigger": "onTurnStart", "turnCooldownRounds": 3,
+    "effects": [
+      { "type": "applyStatus", "target": "allAllies", "status": "nanites", "magnitude": { "kind": "percentOfMaxHp", "percent": 0.05 }, "durationSeconds": 3 }
+    ]
+  },
+
+  { "id": "turn-enemy-shield-self", "name": "Escudo de Firewall", "scope": "active", "trigger": "onTurnStart", "turnCooldownRounds": 3,
+    "effects": [
+      { "type": "grantShield", "target": "self", "magnitude": { "kind": "percentOfMaxHp", "percent": 0.2 } }
+    ]
+  },
+  { "id": "turn-enemy-lag-strike", "name": "Pacote Malicioso", "scope": "active", "trigger": "onTurnStart", "turnCooldownRounds": 2,
+    "effects": [
+      { "type": "directDamage", "target": "chosenTarget", "magnitude": { "kind": "percentOfBaseAtk", "basePercent": 0.5 } },
+      { "type": "applyStatus", "target": "chosenTarget", "status": "lag", "magnitude": { "kind": "percent", "value": 0.2 }, "durationSeconds": 2 }
+    ]
+  },
+  { "id": "turn-enemy-stun-strike", "name": "Golpe Atordoante", "scope": "active", "trigger": "onTurnStart", "turnCooldownRounds": 2,
+    "effects": [
+      { "type": "directDamage", "target": "chosenTarget", "magnitude": { "kind": "percentOfBaseAtk", "basePercent": 0.5 } },
+      { "type": "applyStatus", "target": "chosenTarget", "status": "crash", "magnitude": { "kind": "flat", "value": 0 }, "durationSeconds": 1 }
+    ]
+  },
+  { "id": "turn-enemy-poison-strike", "name": "Picada Venenosa", "scope": "active", "trigger": "onTurnStart", "turnCooldownRounds": 2,
+    "effects": [
+      { "type": "directDamage", "target": "chosenTarget", "magnitude": { "kind": "percentOfBaseAtk", "basePercent": 0.5 } },
+      { "type": "applyStatus", "target": "chosenTarget", "status": "trojan", "magnitude": { "kind": "flat", "value": 15 }, "durationSeconds": 2 }
+    ]
+  },
+  { "id": "turn-enemy-bleed-dot-strike", "name": "Corte Profundo", "scope": "active", "trigger": "onTurnStart", "turnCooldownRounds": 2,
+    "effects": [
+      { "type": "directDamage", "target": "chosenTarget", "magnitude": { "kind": "percentOfBaseAtk", "basePercent": 0.6 } },
+      { "type": "applyStatus", "target": "chosenTarget", "status": "leak", "magnitude": { "kind": "flat", "value": 15 }, "durationSeconds": 2, "ignoresDef": true, "stacks": true }
+    ]
+  },
+  { "id": "turn-enemy-poison-dot-strike", "name": "Peçonha Corrosiva", "scope": "active", "trigger": "onTurnStart", "turnCooldownRounds": 2,
+    "effects": [
+      { "type": "directDamage", "target": "chosenTarget", "magnitude": { "kind": "percentOfBaseAtk", "basePercent": 0.6 } },
+      { "type": "applyStatus", "target": "chosenTarget", "status": "trojan", "magnitude": { "kind": "flat", "value": 15 }, "durationSeconds": 2, "stacks": true }
+    ]
+  },
+
+  { "id": "turn-boss-anhanga", "name": "Sussurro Corruptor", "scope": "active", "trigger": "onTurnStart", "turnCooldownRounds": 3,
+    "effects": [
+      { "type": "applyStatus", "target": "allEnemies", "status": "throttling", "magnitude": { "kind": "percent", "value": 0.15 }, "durationSeconds": 2 },
+      { "type": "heal", "target": "self", "magnitude": { "kind": "percentOfMaxHp", "percent": 0.1 } }
+    ]
+  },
+  { "id": "turn-boss-typhon", "name": "Rugido dos Cem Dragões", "scope": "active", "trigger": "onTurnStart", "turnCooldownRounds": 3,
+    "effects": [
+      { "type": "applyStatus", "target": "allEnemies", "status": "throttling", "magnitude": { "kind": "percent", "value": 0.15 }, "durationSeconds": 2 },
+      { "type": "heal", "target": "self", "magnitude": { "kind": "percentOfMaxHp", "percent": 0.1 } },
+      { "type": "buffAttribute", "target": "chosenTarget", "attribute": "def", "magnitude": { "kind": "percent", "value": -0.15 }, "durationSeconds": 2 }
+    ]
+  },
+  { "id": "turn-boss-ogum", "name": "Forja de Guerra", "scope": "active", "trigger": "onTurnStart", "turnCooldownRounds": 3,
+    "effects": [
+      { "type": "applyStatus", "target": "allEnemies", "status": "throttling", "magnitude": { "kind": "percent", "value": 0.15 }, "durationSeconds": 2 },
+      { "type": "heal", "target": "self", "magnitude": { "kind": "percentOfMaxHp", "percent": 0.1 } },
+      { "type": "applyStatus", "target": "chosenTarget", "status": "leak", "magnitude": { "kind": "flat", "value": 15 }, "durationSeconds": 2, "ignoresDef": true }
+    ]
+  },
+  { "id": "turn-boss-fenrir", "name": "Fome do Fim dos Tempos", "scope": "active", "trigger": "onTurnStart", "turnCooldownRounds": 3,
+    "effects": [
+      { "type": "applyStatus", "target": "allEnemies", "status": "throttling", "magnitude": { "kind": "percent", "value": 0.15 }, "durationSeconds": 2 },
+      { "type": "heal", "target": "self", "magnitude": { "kind": "percentOfMaxHp", "percent": 0.1 } },
+      { "type": "applyStatus", "target": "chosenTarget", "status": "leak", "magnitude": { "kind": "flat", "value": 15 }, "durationSeconds": 2, "ignoresDef": true }
+    ]
+  },
+  { "id": "turn-boss-set", "name": "Corrupção do Deserto", "scope": "active", "trigger": "onTurnStart", "turnCooldownRounds": 3,
+    "effects": [
+      { "type": "applyStatus", "target": "allEnemies", "status": "throttling", "magnitude": { "kind": "percent", "value": 0.15 }, "durationSeconds": 2 },
+      { "type": "heal", "target": "self", "magnitude": { "kind": "percentOfMaxHp", "percent": 0.1 } },
+      { "type": "buffAttribute", "target": "chosenTarget", "attribute": "def", "magnitude": { "kind": "percent", "value": -0.15 }, "durationSeconds": 2 }
+    ]
+  },
+  { "id": "turn-boss-orochi", "name": "Hálito Serpentino", "scope": "active", "trigger": "onTurnStart", "turnCooldownRounds": 3,
+    "effects": [
+      { "type": "applyStatus", "target": "allEnemies", "status": "trojan", "magnitude": { "kind": "flat", "value": 15 }, "durationSeconds": 2 },
+      { "type": "heal", "target": "self", "magnitude": { "kind": "percentOfMaxHp", "percent": 0.1 } },
+      { "type": "applyStatus", "target": "chosenTarget", "status": "throttling", "magnitude": { "kind": "percent", "value": 0.15 }, "durationSeconds": 2 }
+    ]
   }
 ]

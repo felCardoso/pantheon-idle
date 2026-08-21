@@ -6,14 +6,15 @@ import {
   localFaseNumber,
   worldIdForFase,
   worldIndexForFase,
-  type BattleLogEntry,
-  type Combatant,
+  type TurnBattleLogEntry,
+  type TurnCombatant,
   type WorldPosition,
 } from '../engine';
 import { postApi } from '../lib/apiClient';
 import { WORLD_DISPLAY_BY_ID } from '../data/engineDisplay';
-import { toBattleUnits } from '../data/battleUnits';
-import { useBattleReplay, type AbilityCastEvent, type AttackAnimEvent, type FloatingText } from './useBattleReplay';
+import { toTurnReplayBattleUnits } from '../data/turnBattleUnits';
+import { useTurnBattleReplay } from './useTurnBattleReplay';
+import type { AbilityCastEvent, AttackAnimEvent, FloatingText } from './useBattleReplay';
 import type { BattleUnit, ChatMessage, StageInfo } from '../types';
 
 export type { FloatingText, FloatingTextKind, AbilityCastEvent, AttackAnimEvent, AttackAnimTier } from './useBattleReplay';
@@ -29,9 +30,9 @@ export type { FloatingText, FloatingTextKind, AbilityCastEvent, AttackAnimEvent,
 interface BattleSession extends WorldPosition {
   seed: number;
   isBoss: boolean;
-  allies: Combatant[];
-  enemies: Combatant[];
-  log: BattleLogEntry[];
+  allies: TurnCombatant[];
+  enemies: TurnCombatant[];
+  log: TurnBattleLogEntry[];
   nameToId: Record<string, string>;
   winner: 'allies' | 'enemies' | 'draw';
   reward: Reward;
@@ -65,9 +66,9 @@ interface ResolveBattleResponse {
   position: WorldPosition;
   isBoss: boolean;
   winner: 'allies' | 'enemies' | 'draw';
-  log: BattleLogEntry[];
-  allies: Combatant[];
-  enemies: Combatant[];
+  log: TurnBattleLogEntry[];
+  allies: TurnCombatant[];
+  enemies: TurnCombatant[];
   reward: Reward;
   credits: number;
   xp: number;
@@ -104,10 +105,10 @@ export interface Reward {
   xp: number;
 }
 
-// Stable identities so useBattleReplay's memo/reset logic doesn't see a "new" empty battle on
+// Stable identities so useTurnBattleReplay's memo/reset logic doesn't see a "new" empty battle on
 // every render during the window before the first server response arrives.
-const EMPTY_LOG: BattleLogEntry[] = [];
-const EMPTY_COMBATANTS: Combatant[] = [];
+const EMPTY_LOG: TurnBattleLogEntry[] = [];
+const EMPTY_COMBATANTS: TurnCombatant[] = [];
 const EMPTY_NAME_TO_ID: Record<string, string> = {};
 const EMPTY_MODULES: EarnedModule[] = [];
 
@@ -311,7 +312,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
   const [pendingEncounter, setPendingEncounter] = useState<PvpEncounter | null>(null);
 
   const onBattleEnd = useCallback(() => dispatch({ type: 'battleEnd' }), []);
-  const replay = useBattleReplay({
+  const replay = useTurnBattleReplay({
     log: state.session?.log ?? EMPTY_LOG,
     allies: state.session?.allies ?? EMPTY_COMBATANTS,
     enemies: state.session?.enemies ?? EMPTY_COMBATANTS,
@@ -426,8 +427,8 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
   const stageWorldDisplay = WORLD_DISPLAY_BY_ID[stageWorldId];
 
   return {
-    allies: state.session ? toBattleUnits(state.session.allies, replay.replay, replay.replay.allyOrder, true) : [],
-    enemies: state.session ? toBattleUnits(state.session.enemies, replay.replay, replay.replay.enemyOrder, false) : [],
+    allies: state.session ? toTurnReplayBattleUnits(state.session.allies, replay.replay.units, true) : [],
+    enemies: state.session ? toTurnReplayBattleUnits(state.session.enemies, replay.replay.units, false) : [],
     stage: {
       worldId: stageWorldId,
       worldName: stageWorldDisplay.name,
@@ -437,7 +438,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
       // Each world's own last fase has a 6th slot for its boss, one past its 5 regular estágios.
       totalStages: localFaseNumber(viewedPosition.fase) === FASES_PER_WORLD ? ESTAGIOS_PER_FASE + 1 : ESTAGIOS_PER_FASE,
       isBoss: state.session?.isBoss ?? false,
-      round: Math.floor(replay.replay.now),
+      round: replay.replay.round,
     },
     logFeed: [...replay.abilityLogFeed, ...state.resultLogFeed],
     floaters: replay.floaters,
