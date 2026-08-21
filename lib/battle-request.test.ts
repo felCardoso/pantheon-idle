@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BattleResolveError, parseResolveRequest } from './battle-request';
+import { BattleResolveError, parseResolveRequest, parseTurnActRequest } from './battle-request';
 
 /**
  * This is the boundary where a request body from the browser becomes a typed instruction the
@@ -65,6 +65,36 @@ describe('parseResolveRequest', () => {
     } catch (err) {
       expect(err).toBeInstanceOf(BattleResolveError);
       expect((err as BattleResolveError).status).toBe(400);
+    }
+  });
+});
+
+/** app/api/battle/turn-act's request body — a manual PvE (or turn-based PvP) action. */
+describe('parseTurnActRequest', () => {
+  it('accepts a well-formed basicAttack and ability action', () => {
+    expect(parseTurnActRequest({ battleId: 'b1', unitId: 'u1', action: { type: 'basicAttack', targetId: 't1' } })).toEqual({
+      battleId: 'b1',
+      unitId: 'u1',
+      action: { type: 'basicAttack', targetId: 't1' },
+    });
+    expect(parseTurnActRequest({ battleId: 'b1', unitId: 'u1', action: { type: 'ability' } })).toEqual({
+      battleId: 'b1',
+      unitId: 'u1',
+      action: { type: 'ability' },
+    });
+  });
+
+  it('rejects a missing or empty battleId/unitId', () => {
+    const action = { type: 'basicAttack' };
+    for (const body of [{ unitId: 'u1', action }, { battleId: '', unitId: 'u1', action }, { battleId: 'b1', action }, { battleId: 'b1', unitId: '', action }]) {
+      expect(() => parseTurnActRequest(body as Record<string, unknown>)).toThrow(BattleResolveError);
+    }
+  });
+
+  it('rejects an action with an unknown type or a non-string targetId', () => {
+    const bad = [undefined, null, {}, { type: 'heal' }, { type: 'basicAttack', targetId: 42 }, 'basicAttack'];
+    for (const action of bad) {
+      expect(() => parseTurnActRequest({ battleId: 'b1', unitId: 'u1', action } as Record<string, unknown>)).toThrow(BattleResolveError);
     }
   });
 });

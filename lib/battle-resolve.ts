@@ -38,11 +38,19 @@ import { BattleResolveError, type ResolveBattleRequest } from './battle-request'
  * game was therefore self-reported, and because player_characters.xp feeds the attacker's stats
  * in PvP, inflated XP leaked into other players' matches too.
  *
- * The fix is the same shape PvP already uses (supabase/functions/pvp-attack): the server owns
- * the whole thing. It reads the roster, the team, the ability picks and the position from the
- * player's own rows, runs the same deterministic engine, decides the reward from its own table,
- * applies progression, and writes the result. The client supplies only *intent* — advance or
- * repeat, and optionally which already-unlocked stage to fight — and gets back a log to replay.
+ * The fix is the same shape PvP already uses: the server owns the whole thing. It reads the
+ * roster, the team, the ability picks and the position from the player's own rows, runs the same
+ * deterministic engine, decides the reward from its own table, applies progression, and writes
+ * the result. The client supplies only *intent* — advance or repeat, and optionally which
+ * already-unlocked stage to fight — and gets back a log to replay.
+ *
+ * Two ways a battle gets resolved, sharing everything below `buildPveBattleSetup`:
+ *  - auto (this file's `resolveBattleForUser`, the default): the whole fight runs in one call via
+ *    runAutoTurnBattle (both sides AI-controlled) — see app/api/battle/resolve.
+ *  - manual (app/api/battle/turn-start + turn-act): the player controls their own side action by
+ *    action, exactly like turn-based PvP's protocol — the in-progress state parks in
+ *    `pve_turn_battles` between calls (see those routes) and `finalizeBattleOutcome` below is
+ *    called once `applyPlayerAction` reports a winner, instead of right after runAutoTurnBattle.
  */
 
 /** Payouts per battle type. Server-owned: the client never says what it earned. */
@@ -83,6 +91,32 @@ export interface ResolveBattleResult {
 }
 
 /**
+ * Everything about a PvE fight that's decided before the first blow and stays fixed for its
+ * whole duration — frozen at `buildPveBattleSetup` time so a manual battle's turn-start/turn-act
+ * round trips (app/api/battle/turn-start, turn-act) resolve against the *original* position/
+ * frontier/mode, not whatever the player's row happens to say by the time they finish acting.
+ * Mirrors supabase/functions/pvp-turn-start's attackerRatingAtStart/defenderRatingAtStart snapshot
+ * pattern — same reason: the outcome must be judged by the state the fight actually started in.
+ */
+export interface PveBattleContext {
+  position: WorldPosition;
+  frontier: WorldPosition;
+  boss: boolean;
+  mode: 'advance' | 'repeat';
+  retreatOnLoss: boolean;
+  recoveryWinsRemaining: number | null;
+  /** The exact roster (id/xp/rarity) that fought — who gets paid XP at the end. */
+  roster: { character_id: string; xp: number; rarity: string | null }[];
+}
+
+export interface PveBattleSetup {
+  context: PveBattleContext;
+  allies: TurnCombatant[];
+  enemies: TurnCombatant[];
+  seed: number;
+}
+
+/**
  * Rolls whether the run bumps into another player, and picks who.
  *
  * PvP used to happen only when someone opened the opponent list and clicked Atacar, so most of
@@ -111,7 +145,12 @@ async function rollPvpEncounter(userId: string, battlesSinceLast: number): Promi
   return { userId: opponentId, username: profile?.username ?? 'Node', rating: opponentProgress?.pvp_rating ?? 1000 };
 }
 
-export async function resolveBattleForUser(userId: string, request: ResolveBattleRequest): Promise<ResolveBattleResult> {
+/**
+ * Reads the player's roster/team/abilities/modules/position and builds both sides of a PvE fight,
+ * ready to hand to either runAutoTurnBattle (instant resolve) or createTurnBattle (manual,
+ * app/api/battle/turn-start) — everything a fight needs to start, nothing about how it ends.
+ */
+export async function buildPveBattleSetup(userId: string, request: ResolveBattleRequest): Promise<PveBattleSetup> {
   // All five reads go out together. The team used to be fetched afterwards because picking the
   // slot needs pve_team_slot — but a player has at most five team rows, so reading them all and
   // picking in memory turns a second round trip into part of the first. Battles are the game's
@@ -120,15 +159,12 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
     { data: progress, error: progressError },
     { data: owned },
     { data: abilityProgress },
-    { data: membership },
     { data: teamRows },
     { data: moduleRows },
   ] = await Promise.all([
     supabaseAdmin
       .from('player_progress')
-      .select(
-        'fase, estagio, credits, xp, pve_team_slot, vip_expires_at, recovery_wins_remaining, pve_battles_since_pvp, current_fase, current_estagio',
-      )
+      .select('fase, estagio, pve_team_slot, recovery_wins_remaining, current_fase, current_estagio')
       .eq('user_id', userId)
       .maybeSingle(),
     supabaseAdmin.from('player_characters').select('character_id, xp, rarity').eq('user_id', userId),
@@ -136,7 +172,6 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
       .from('character_ability_progress')
       .select('character_id, selected_ability_id, character_version, ability_level, bench_level, passive_level')
       .eq('user_id', userId),
-    supabaseAdmin.from('cluster_members').select('cluster_id').eq('user_id', userId).maybeSingle(),
     supabaseAdmin.from('player_teams').select('slot, characters').eq('user_id', userId),
     supabaseAdmin.from('player_modules').select('module_id, rarity, equipped_on').eq('user_id', userId).not('equipped_on', 'is', null),
   ]);
@@ -225,8 +260,51 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
     enemies = loadTurnWorldComuns(worldId, count, difficultyMultiplier(position) * sizeFactor, (slot) => rowForIndex(slot, 3));
   }
 
-  const result = runAutoTurnBattle(allies, enemies, seed);
-  const won = result.winner === 'allies';
+  return {
+    context: {
+      position,
+      frontier,
+      boss,
+      mode: request.mode,
+      retreatOnLoss: request.retreatOnLoss,
+      recoveryWinsRemaining: progress.recovery_wins_remaining ?? null,
+      roster: roster.map((c) => ({ character_id: c.character_id, xp: c.xp, rarity: c.rarity })),
+    },
+    allies,
+    enemies,
+    seed,
+  };
+}
+
+/**
+ * The tail every finished PvE fight shares, whichever way it finished: decides the reward,
+ * applies progression, pays XP to the roster that fought, drops a boss's rune, rolls the next PvP
+ * encounter, and writes it all. `context` is the snapshot buildPveBattleSetup took when the fight
+ * started (see its doc comment for why); `allies`/`enemies` are the fight's final state, purely
+ * for the client to render the result screen from.
+ */
+export async function finalizeBattleOutcome(
+  userId: string,
+  context: PveBattleContext,
+  seed: number,
+  winner: 'allies' | 'enemies' | 'draw',
+  log: TurnBattleLogEntry[],
+  allies: TurnCombatant[],
+  enemies: TurnCombatant[],
+): Promise<ResolveBattleResult> {
+  const { position, frontier, boss, mode, retreatOnLoss, recoveryWinsRemaining, roster } = context;
+
+  const { data: progress, error: progressError } = await supabaseAdmin
+    .from('player_progress')
+    .select('credits, xp, vip_expires_at, pve_battles_since_pvp')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (progressError) throw new BattleResolveError(progressError.message, 500);
+  if (!progress) throw new BattleResolveError('player_progress row not found — log into the game at least once first', 404);
+
+  const { data: membership } = await supabaseAdmin.from('cluster_members').select('cluster_id').eq('user_id', userId).maybeSingle();
+
+  const won = winner === 'allies';
 
   // Bonuses are read from the player's own rows, never sent by the client.
   const bonusMultiplier =
@@ -235,10 +313,7 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
   const base = won ? table.win : { credits: table.lossOrDraw.credits, xp: 0 };
   const reward = { credits: Math.round(base.credits * bonusMultiplier), xp: Math.round(base.xp * bonusMultiplier) };
 
-  const next = resolveProgression(
-    { position, frontier, recoveryWinsRemaining: progress.recovery_wins_remaining ?? null },
-    { mode: request.mode, retreatOnLoss: request.retreatOnLoss, won },
-  );
+  const next = resolveProgression({ position, frontier, recoveryWinsRemaining }, { mode, retreatOnLoss, won });
 
   const credits = progress.credits + reward.credits;
   const xp = progress.xp + reward.xp;
@@ -270,7 +345,7 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
   const xpEarnedByCharacterId: Record<string, number> = {};
   if (reward.xp > 0) {
     const { error: xpError } = await supabaseAdmin.from('player_characters').upsert(
-      roster.map((c) => ({ user_id: userId, character_id: c.character_id, xp: c.xp + reward.xp, rarity: c.rarity })),
+      roster.map((c) => ({ user_id: userId, character_id: c.character_id, xp: c.xp + reward.xp, rarity: c.rarity ?? undefined })),
       { onConflict: 'user_id,character_id' },
     );
     if (xpError) throw new BattleResolveError(xpError.message, 500);
@@ -296,8 +371,8 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
     seed,
     position,
     isBoss: boss,
-    winner: result.winner,
-    log: result.log,
+    winner,
+    log,
     allies,
     enemies,
     reward,
@@ -310,4 +385,11 @@ export async function resolveBattleForUser(userId: string, request: ResolveBattl
     xpEarnedByCharacterId,
     modulesEarned,
   };
+}
+
+/** The default path: both sides AI-controlled, resolved in one call. See app/api/battle/resolve. */
+export async function resolveBattleForUser(userId: string, request: ResolveBattleRequest): Promise<ResolveBattleResult> {
+  const setup = await buildPveBattleSetup(userId, request);
+  const result = runAutoTurnBattle(setup.allies, setup.enemies, setup.seed);
+  return finalizeBattleOutcome(userId, setup.context, setup.seed, result.winner, result.log, setup.allies, setup.enemies);
 }

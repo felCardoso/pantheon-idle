@@ -21,6 +21,9 @@ interface StagePanelProps {
   onSelectStage: (estagio: number) => void;
   /** Opens the full campaign map (every world, fase and onda) — the strip below only covers the current fase. */
   onOpenMap: () => void;
+  /** Takes manual control of the current stage instead of the default auto-play. */
+  onPlayManually: () => void;
+  manualLoading: boolean;
 }
 
 export function StagePanel({
@@ -37,6 +40,8 @@ export function StagePanel({
   onRepeat,
   onSelectStage,
   onOpenMap,
+  onPlayManually,
+  manualLoading,
 }: StagePanelProps) {
   const position = { fase: stage.phase, estagio: stage.stage };
   const frontier = { fase: frontierFase, estagio: frontierEstagio };
@@ -168,6 +173,14 @@ export function StagePanel({
           >
             <Icon name="map" size={15} />
             Mapa
+          </button>
+          <button
+            onClick={onPlayManually}
+            disabled={manualLoading}
+            className="flex items-center justify-center gap-2 rounded-lg border border-signal-amber/40 py-2.5 font-display text-xs font-bold uppercase tracking-wide text-signal-amber transition hover:border-signal-amber hover:bg-signal-amber/10 disabled:opacity-50"
+          >
+            <Icon name={manualLoading ? 'loader' : 'crosshair'} size={15} className={manualLoading ? 'animate-spin' : undefined} />
+            Jogar manualmente
           </button>
           <button
             onClick={onToggleRetreatOnLoss}

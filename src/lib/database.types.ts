@@ -389,6 +389,30 @@ export interface Database {
         };
         Relationships: [];
       };
+      pve_turn_battles: {
+        Row: {
+          id: string;
+          user_id: string;
+          state: unknown;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          state: unknown;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          state?: unknown;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

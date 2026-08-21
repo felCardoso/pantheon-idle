@@ -6,6 +6,7 @@ import { ChatPanel } from './layout/ChatPanel';
 import { BattleStage } from './battle/BattleStage';
 import { WorldMapModal } from './battle/WorldMapModal';
 import { TurnBattleFlow } from './battle/TurnBattleFlow';
+import { TurnBattleStage } from './battle/TurnBattleStage';
 import { TeamPage } from './roster/TeamPage';
 import { CharactersPage } from './roster/CharactersPage';
 import { ShopPage } from './shop/ShopPage';
@@ -526,6 +527,8 @@ function GameShellReady({
             onRepeat={battle.repeatBattle}
             onSelectStage={battle.playStage}
             onOpenMap={() => setMapOpen(true)}
+            onPlayManually={battle.startManualBattle}
+            manualLoading={battle.manualBattleLoading}
           />
           <ChatPanel
             messages={chatMessages}
@@ -596,6 +599,23 @@ function GameShellReady({
           opponent={activeEncounter}
           onFinished={handleEncounterFinished}
           onFailed={handleEncounterFailed}
+        />
+      )}
+      {battle.manualBattle && (
+        <TurnBattleStage
+          attackerName="Você"
+          defenderName={battle.stage.worldName}
+          allies={battle.manualBattle.allies}
+          enemies={battle.manualBattle.enemies}
+          round={battle.manualBattle.round}
+          pendingAllyUnitId={battle.manualBattle.pendingAllyUnitId}
+          log={battle.manualBattle.log}
+          finished={false}
+          winner={null}
+          loading={battle.manualBattleLoading}
+          error={battle.manualBattleError}
+          onAct={battle.actManualBattle}
+          onContinue={() => {}}
         />
       )}
       <Toast message={toast} />
