@@ -12,7 +12,7 @@
     "battle:turn": "tsx tools/battle-cli/runTurnBattle.ts",
     "test": "vitest run",
     "sync:pvp-engine": "node scripts/sync-pvp-engine.mjs",
-    "deploy:functions": "npm run sync:pvp-engine && supabase functions deploy pvp-attack",
+    "deploy:functions": "npm run sync:pvp-engine && supabase functions deploy pvp-turn-start && supabase functions deploy pvp-turn-act",
     "check:boundary": "node scripts/check-engine-boundary.mjs"
   },
   "dependencies": {

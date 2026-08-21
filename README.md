@@ -38,7 +38,7 @@ A `service_role` ignora RLS e é usada apenas dentro de `app/api/**` (via `lib/s
 
 ### Banco
 
-Aplique as migrations de `supabase/migrations/` em ordem (`supabase db push`, ou colando no SQL Editor). São 26, numeradas e idempotentes onde possível.
+Aplique as migrations de `supabase/migrations/` em ordem (`supabase db push`, ou colando no SQL Editor). São 27, numeradas e idempotentes onde possível.
 
 ### Edge Functions
 
@@ -50,7 +50,7 @@ supabase link --project-ref <project-ref>
 npm run deploy:functions
 ```
 
-Aplique as migrations **antes** de publicar: a assinatura de `resolve_pvp_attack` mudou na 0020, e função e schema precisam andar juntos.
+Aplique as migrations **antes** de publicar: `pvp-turn-start`/`pvp-turn-act` dependem da coluna `formation` e da tabela `pvp_turn_battles` (migration 0027), e o schema precisa estar pronto antes das functions.
 
 ## Scripts
 
@@ -59,10 +59,11 @@ Aplique as migrations **antes** de publicar: a assinatura de `resolve_pvp_attack
 | `npm run dev` | Servidor de desenvolvimento |
 | `npm run build` | Build de produção |
 | `npm run lint` | `tsc --noEmit` + fronteira do engine + checagem da cópia do PvP |
-| `npm test` | Vitest (191 testes) |
+| `npm test` | Vitest |
 | `npm run battle` | Roda uma batalha real no terminal (`-- --boss` para o chefe) |
+| `npm run battle:turn` | Roda uma batalha por turnos (PvP) no terminal |
 | `npm run sync:pvp-engine` | Regenera a cópia Deno do engine |
-| `npm run deploy:functions` | Sincroniza o engine e publica a function do PvP |
+| `npm run deploy:functions` | Sincroniza o engine e publica as functions do PvP (`pvp-turn-start`, `pvp-turn-act`) |
 
 ## Arquitetura
 
@@ -73,17 +74,19 @@ lib/                    Helpers server-only (supabase-admin, auth, gacha)
 src/
   engine/               Motor de combate — puro, sem dependências
     index.ts            API pública: ÚNICO ponto de import permitido
-    core/               Interno: batalha, dano, status, habilidades, progressão
-    data/               Conteúdo: characters.json, abilities.json, enemies/, constants.json
+    core/               Interno: batalha real-time (PvE) — dano, status, habilidades, progressão
+    turn/               Interno: motor por turnos (PvP 5x5) — formação, rodadas, IA
+    data/               Conteúdo: characters.json, abilities.json, turnAbilities.json, enemies/, constants.json
   components/           UI React
   hooks/                Estado e orquestração (batalha, replay, PvP, economia)
   data/                 Camada de apresentação sobre o engine (cores, arte, textos)
   content/wiki/         Markdown da wiki in-game
 supabase/
   migrations/           Schema, RLS, funções security-definer
-  functions/pvp-attack/ Edge Function que resolve ataques PvP
-  functions/_shared/    Cópia GERADA do engine (não edite à mão)
-tools/battle-cli/       Harness de terminal
+  functions/pvp-turn-start/  Edge Function que inicia uma batalha de PvP por turnos
+  functions/pvp-turn-act/    Edge Function que aplica uma ação de turno
+  functions/_shared/    Cópia GERADA do engine (não edite à mão) + helpers Deno-only
+tools/battle-cli/       Harness de terminal (real-time e por turnos)
 docs/                   GDD, combate, mundos, personagens, monetização
 ```
 
@@ -183,7 +186,7 @@ Assíncrono: você ataca o time de defesa salvo por outro jogador, e o defensor 
 
 Há dois caminhos até uma luta: a lista de oponentes (botão Atacar) e **encontros aleatórios durante o grind de PvE**. Um run precisa passar `PVP_ENCOUNTER_MIN_BATTLES` (3) batalhas sem encontro para que um se torne possível; a partir daí cada batalha rola `PVP_ENCOUNTER_CHANCE` (25%). O sorteio e o contador ficam no servidor — um cliente que os controlasse poderia tanto farmar encontros quanto nunca disparar nenhum.
 
-**A batalha roda inteiramente no servidor** (`supabase/functions/pvp-attack`), com o mesmo engine determinístico do PvE. O resultado afeta o rating de uma pessoa real, então nada disso pode ser computado no navegador do atacante. O cliente só informa *quem* atacar; o roster do atacante é lido server-side das próprias linhas dele.
+**A batalha roda inteiramente no servidor** (`supabase/functions/pvp-turn-start` + `pvp-turn-act`), com o motor por turnos determinístico dedicado ao PvP (`src/engine/turn/**`). O resultado afeta o rating de uma pessoa real, então nem o RNG nem a legalidade de uma ação podem ser computados no navegador do atacante — cada ação enviada pelo cliente é só um *pedido*, validado e aplicado no servidor (`applyPlayerAction`), que devolve o estado confirmado a cada rodada. O cliente só informa *quem* atacar e qual ação tomar; o roster do atacante é lido server-side das próprias linhas dele.
 
 Rating por Elo com K=32. O commit do resultado passa pela `service_role` e a RPC é revogada de `authenticated` — sem isso, qualquer jogador logado poderia chamá-la do console e atribuir o próprio rating.
 

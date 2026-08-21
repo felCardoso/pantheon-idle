@@ -3,10 +3,9 @@ import { CharacterPortrait } from './CharacterPortrait';
 import { CharacterDetailModal } from './CharacterDetailModal';
 import { CharacterSelectorPanel } from './CharacterSelectorPanel';
 import { Icon } from '../common/Icon';
-import { PvpAttackModal } from '../team/PvpAttackModal';
 import { PvpLeaderboardModal } from '../team/PvpLeaderboardModal';
 import { buildOwnedRoster, characterPower, type RosterCharacter } from '../../data/roster';
-import { CONSTANTS } from '../../engine';
+import { CONSTANTS, type Row } from '../../engine';
 import type { OwnedCharacter } from '../../hooks/useOwnedCharacters';
 import type { TeamSlot, UsePlayerTeamsResult } from '../../hooks/usePlayerTeams';
 import { MAX_TEAM_MEMBERS } from '../../hooks/usePlayerTeams';
@@ -27,9 +26,6 @@ interface TeamPageProps {
   onSetPveTeamSlot: (slot: number) => void;
   onSetPvpTeamSlot: (slot: number) => void;
   pvp: UsePvpResult;
-  onRewardCredits: (amount: number) => void;
-  /** Mirrors a won PvP fight's XP into the roster display. */
-  onBattleXp: (xpByCharacterId: Record<string, number>) => void;
   onToast: (message: string) => void;
   characterProgression: UseCharacterProgressionResult;
 }
@@ -58,15 +54,12 @@ export function TeamPage({
   onSetPveTeamSlot,
   onSetPvpTeamSlot,
   pvp,
-  onRewardCredits,
-  onBattleXp,
   onToast,
   characterProgression,
 }: TeamPageProps) {
   const [activeSlot, setActiveSlot] = useState(1);
   const [renamingSlot, setRenamingSlot] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState('');
-  const [attackModalOpen, setAttackModalOpen] = useState(false);
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   /** Set by clicking an empty team slot — the next selector-card click (or drop) fills that exact position instead of toggling add/remove. */
   const [pickingSlotIndex, setPickingSlotIndex] = useState<number | null>(null);
@@ -93,11 +86,27 @@ export function TeamPage({
     () => selectedAbilityMapFrom(characterProgression.progression),
     [characterProgression.progression],
   );
+  // Row (front/back, src/engine/turn/formation.ts) for each current PvP-team member — defaults a
+  // member never explicitly toggled to 'front', keeps whatever the player already set otherwise.
+  const pvpFormation = useMemo(() => {
+    const next: Record<string, Row> = {};
+    for (const id of pvpTeam?.characterIds ?? []) next[id] = pvp.defenseFormation[id] ?? 'front';
+    return next;
+  }, [pvpTeam?.characterIds, pvp.defenseFormation]);
   useEffect(() => {
     if (!pvpTeam || pvpTeam.characterIds.length === 0) return;
-    pvp.setDefenseTeam(resolveTeamMembers(pvpTeam, ownedCharacters), selectedAbilityByCharacterId);
+    pvp.setDefenseTeam(resolveTeamMembers(pvpTeam, ownedCharacters), selectedAbilityByCharacterId, pvpFormation);
+    // pvpFormation deliberately excluded: setDefenseTeam changing pvp.defenseFormation would
+    // otherwise recompute pvpFormation and re-fire this effect in a loop. It only needs to react
+    // to membership/ability changes — toggleFormationRow below handles formation edits directly.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pvpTeamSlot, pvpTeam?.characterIds, ownedCharacters, selectedAbilityByCharacterId]);
+
+  async function toggleFormationRow(characterId: string) {
+    if (!pvpTeam) return;
+    const nextRow: Row = (pvpFormation[characterId] ?? 'front') === 'front' ? 'back' : 'front';
+    await pvp.setDefenseTeam(resolveTeamMembers(pvpTeam, ownedCharacters), selectedAbilityByCharacterId, { ...pvpFormation, [characterId]: nextRow });
+  }
 
   function handleSelectSlot(slot: number) {
     if (slot > effectiveUnlockedSlots) return;
@@ -397,13 +406,6 @@ export function TeamPage({
               </select>
             </label>
             <button
-              onClick={() => setAttackModalOpen(true)}
-              className="flex shrink-0 items-center gap-1.5 rounded-lg bg-signal-red/90 px-3 py-2 font-display text-[11px] font-bold uppercase tracking-wide text-void-950 transition hover:bg-signal-red"
-            >
-              <Icon name="crosshair" size={13} />
-              Buscar oponentes
-            </button>
-            <button
               onClick={() => setLeaderboardOpen(true)}
               className="flex shrink-0 items-center gap-1.5 rounded-lg border border-arcane-400/30 bg-arcane-900/30 px-3 py-2 font-display text-[11px] font-bold uppercase tracking-wide text-arcane-300 transition hover:border-arcane-400/60"
             >
@@ -411,6 +413,40 @@ export function TeamPage({
               Ranking
             </button>
           </div>
+
+          {/* Formation editor — only meaningful for the .cfg currently marked PvP, since
+              row (front/back) is what src/engine/turn/formation.ts reads for the turn-based PvP
+              battle a random encounter (docs/gdd.md §6) drops the player into. */}
+          {activeSlot === pvpTeamSlot && activeTeamRoster.length > 0 && (
+            <div className="rounded-xl border border-signal-red/25 bg-void-800/40 p-4">
+              <div className="mb-2 flex items-center gap-1.5">
+                <Icon name="crosshair" size={12} className="text-signal-red" />
+                <h2 className="font-display text-xs font-bold uppercase tracking-widest text-white/50">Formação (PvP)</h2>
+              </div>
+              <p className="mb-3 text-[11px] text-white/40">
+                A frente é o único alvo de ataques enquanto tiver alguém vivo — o fundo só é atingido quando a frente cai.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {activeTeamRoster.map((c) => {
+                  const row = pvpFormation[c.templateId] ?? 'front';
+                  return (
+                    <button
+                      key={c.templateId}
+                      onClick={() => toggleFormationRow(c.templateId)}
+                      className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] transition ${
+                        row === 'front'
+                          ? 'border-signal-amber/50 bg-signal-amber/10 text-signal-amber'
+                          : 'border-void-600 bg-void-800/60 text-white/50 hover:border-white/30'
+                      }`}
+                    >
+                      {c.name}
+                      <span className="font-display text-[9px] uppercase tracking-wide">{row === 'front' ? 'Frente' : 'Fundo'}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Synergy + order of action */}
           <div className="rounded-xl border border-void-600 bg-void-800/40 p-4">
@@ -450,7 +486,6 @@ export function TeamPage({
         />
       </div>
 
-      {attackModalOpen && <PvpAttackModal pvp={pvp} onRewardCredits={onRewardCredits} onBattleXp={onBattleXp} onToast={onToast} onClose={() => setAttackModalOpen(false)} />}
       {leaderboardOpen && <PvpLeaderboardModal pvp={pvp} userId={userId} onClose={() => setLeaderboardOpen(false)} />}
       {detailCharacter && (
         <CharacterDetailModal

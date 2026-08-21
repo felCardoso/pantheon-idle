@@ -291,16 +291,19 @@ export interface Database {
         Row: {
           user_id: string;
           characters: unknown;
+          formation: unknown;
           updated_at: string;
         };
         Insert: {
           user_id: string;
           characters?: unknown;
+          formation?: unknown;
           updated_at?: string;
         };
         Update: {
           user_id?: string;
           characters?: unknown;
+          formation?: unknown;
           updated_at?: string;
         };
         Relationships: [];
