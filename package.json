@@ -10,6 +10,7 @@
     "lint": "tsc --noEmit && node scripts/check-engine-boundary.mjs && node scripts/sync-pvp-engine.mjs --check",
     "battle": "tsx tools/battle-cli/runBattle.ts",
     "battle:turn": "tsx tools/battle-cli/runTurnBattle.ts",
+    "smoke:turn-battles": "tsx tools/smoke-test/turnBattles.ts",
     "test": "vitest run",
     "sync:pvp-engine": "node scripts/sync-pvp-engine.mjs",
     "deploy:functions": "npm run sync:pvp-engine && supabase functions deploy pvp-turn-start && supabase functions deploy pvp-turn-act",
