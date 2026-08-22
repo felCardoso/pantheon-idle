@@ -2,7 +2,7 @@
 // Run `npm run sync:pvp-engine` after changing the source.
 // See scripts/sync-pvp-engine.mjs for why this copy exists.
 import { PASSIVE_UNLOCK_RARITY, PASSIVE_UNLOCK_VERSION, RARITY_RANK, abilityPowerMultiplier } from '../schema.ts';
-import type { AbilityDefinition, AbilityEffect, CombatantData, Magnitude, Rarity } from '../schema.ts';
+import type { AbilityDefinition, AbilityEffect, BaseStats, CombatantData, Magnitude, Rarity } from '../schema.ts';
 import type { Combatant } from './types.ts';
 import { levelForXp, levelMultiplier } from './leveling.ts';
 import type { WorldId } from './progression.ts';
@@ -103,7 +103,14 @@ function scaleMagnitude(magnitude: Magnitude, multiplier: number): Magnitude {
   }
 }
 
-function atLevel(ability: AbilityDefinition, level: number): AbilityDefinition {
+/**
+ * Re-authors `ability` at `level`, scaling every effect's magnitude by abilityPowerMultiplier.
+ * Exported so the turn-mode loader (src/engine/turn/loader.ts) can apply the same bought-level
+ * scaling to turn-mode active/passive abilities — a player who spent credits on ability levels
+ * (the Upgrades screen) shouldn't see that purchase go inert just because a fight resolves
+ * through the turn engine instead of the real-time one.
+ */
+export function atLevel(ability: AbilityDefinition, level: number): AbilityDefinition {
   const multiplier = abilityPowerMultiplier(level);
   if (multiplier === 1) return ability;
   return {
@@ -158,15 +165,26 @@ function resolveCombatantAbilities(
   const benchOptions = data.benchOptions ?? [];
   const selectedBench =
     selectedBenchAbilityId && benchOptions.includes(selectedBenchAbilityId) ? selectedBenchAbilityId : benchOptions[0];
-  const byRarity = !!rarity && RARITY_RANK[rarity] >= RARITY_RANK[PASSIVE_UNLOCK_RARITY];
-  const byVersion = (version ?? 0) >= PASSIVE_UNLOCK_VERSION;
-  const passiveUnlocked = !!data.passiveAbilityId && (byRarity || byVersion);
+  const passiveUnlocked = resolvePassiveUnlock(data, rarity, version);
 
   return {
     active: resolveAbilities(selectedActive ? [selectedActive] : []).map((a) => atLevel(a, levels.active ?? 1)),
     bench: resolveAbilities(selectedBench ? [selectedBench] : []).map((a) => atLevel(a, levels.bench ?? 1)),
     passive: resolveAbilities(passiveUnlocked ? [data.passiveAbilityId!] : []).map((a) => atLevel(a, levels.passive ?? 1)),
   };
+}
+
+/**
+ * Whether a character's passive is unlocked — either of docs/combate.md §3's two paths: a
+ * rarity of PASSIVE_UNLOCK_RARITY or better, or a version of PASSIVE_UNLOCK_VERSION or higher.
+ *
+ * Exported so the turn-based loader (src/engine/turn/loader.ts) gates its own passives
+ * identically instead of re-deriving this check.
+ */
+export function resolvePassiveUnlock(data: CombatantData, rarity?: Rarity, version?: number): boolean {
+  const byRarity = !!rarity && RARITY_RANK[rarity] >= RARITY_RANK[PASSIVE_UNLOCK_RARITY];
+  const byVersion = (version ?? 0) >= PASSIVE_UNLOCK_VERSION;
+  return !!data.passiveAbilityId && (byRarity || byVersion);
 }
 
 /** Per-scope ability levels, as bought on the Upgrades screen. Omitted = level 1 (unupgraded). */
@@ -176,8 +194,13 @@ export interface AbilityLevels {
   passive?: number;
 }
 
-/** Mythological synergy bonus for a same-mythology team, per combate.md section 5. */
-function synergyBonusFor(teamSize: number): number {
+/**
+ * Mythological synergy bonus for a same-mythology team, per combate.md section 5.
+ *
+ * Exported so the turn-based engine's loader (src/engine/turn/loader.ts) can group its own
+ * rosters by mythology and apply the identical bonus, instead of duplicating this lookup.
+ */
+export function synergyBonusFor(teamSize: number): number {
   return CONSTANTS.synergyByCount[String(teamSize)] ?? 0;
 }
 
@@ -201,15 +224,21 @@ interface OwnerContext {
   levels?: AbilityLevels;
 }
 
-function buildCombatant(
+/**
+ * Computes a combatant's effective base stats (synergy + level/difficulty scale + module bonuses
+ * folded in) from raw character data — the stat-math half of buildCombatant, with no ability
+ * resolution or Combatant-shape concerns attached.
+ *
+ * Exported so the turn-based loader (src/engine/turn/loader.ts) applies the exact same synergy/
+ * module math instead of re-deriving it, even though it builds a different combatant shape
+ * (no attackCooldownRemaining/isVanguard/etc. — see src/engine/turn/types.ts).
+ */
+export function resolveCombatantBaseStats(
   data: CombatantData,
-  isAlly: boolean,
   synergyBonus: number,
-  statMultiplier: number = 1,
-  idSuffix?: string,
-  owner: OwnerContext = {},
-): Combatant {
-  const { level = 0, rarity, version, selectedAbilityId, selectedBenchAbilityId, modules = NO_MODULE_BONUSES, levels } = owner;
+  statMultiplier: number,
+  modules: ModuleBonuses,
+): BaseStats {
   // Equipment multiplies on top of synergy/level/difficulty rather than being folded into them,
   // so a rune's "+5% de vida" reads as 5% of what the character already has.
   const scale = (1 + synergyBonus) * statMultiplier;
@@ -237,6 +266,19 @@ function buildCombatant(
   const vel = data.baseStats.vel;
   const esq = data.baseStats.esq + modules.dodge;
   const ice = (data.baseStats.ice ?? 0) + modules.thorns;
+  return { hp, atk, def, vel, esq, ice };
+}
+
+function buildCombatant(
+  data: CombatantData,
+  isAlly: boolean,
+  synergyBonus: number,
+  statMultiplier: number = 1,
+  idSuffix?: string,
+  owner: OwnerContext = {},
+): Combatant {
+  const { level = 0, rarity, version, selectedAbilityId, selectedBenchAbilityId, modules = NO_MODULE_BONUSES, levels } = owner;
+  const { hp, atk, def, vel, esq, ice } = resolveCombatantBaseStats(data, synergyBonus, statMultiplier, modules);
 
   const abilities = resolveCombatantAbilities(data, isAlly, rarity, selectedAbilityId, selectedBenchAbilityId, version, levels);
 

@@ -35,4 +35,16 @@ export class Rng implements RngLike {
     if (items.length === 0) throw new Error('Rng.pick called with an empty array');
     return items[Math.floor(this.next() * items.length)];
   }
+
+  /** The mulberry32 state, for serializing a battle mid-simulation (e.g. across a server round-trip) and resuming it exactly via fromState. */
+  getState(): number {
+    return this.state;
+  }
+
+  /** Resumes an Rng from a state previously read via getState — next()'s sequence continues exactly where it left off. */
+  static fromState(state: number): Rng {
+    const rng = new Rng(0);
+    rng.state = state | 0;
+    return rng;
+  }
 }

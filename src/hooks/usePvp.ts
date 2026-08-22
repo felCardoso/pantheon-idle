@@ -2,48 +2,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { postApi } from '../lib/apiClient';
 import type { OwnedCharacter } from './useOwnedCharacters';
-import type { BattleLogEntry, Combatant } from '../engine';
 import type { Rarity } from '../types';
+import type { Row } from '../engine';
 
 export interface PvpOpponent {
   userId: string;
   username: string;
   rating: number;
-}
-
-export interface PvpAttackResult {
-  won: boolean;
-  ratingDelta: number;
-  newRating: number;
-  rewardCredits: number;
-  /** The fight itself, computed server-side (supabase/functions/pvp-attack) — feed straight into useBattleReplay to actually show it instead of just the outcome. */
-  log: BattleLogEntry[];
-  attackers: Combatant[];
-  defenders: Combatant[];
-  /** XP this battle granted to the caller's characters, per id. Empty when the attack was
-   * repelled — a loss pays the defender, whose roster this client has no business updating. */
-  xpEarnedByCharacterId: Record<string, number>;
-}
-
-/**
- * An attack can fail for reasons the player can act on (no defense team saved) and for reasons
- * only an operator can (the Edge Function isn't deployed to the project yet, so the browser only
- * ever sees an opaque CORS failure on a 404 preflight). Returning the reason instead of a bare
- * null keeps the UI from blaming the opponent's defense team for every possible failure.
- */
-export type PvpAttackOutcome = { ok: true; result: PvpAttackResult } | { ok: false; message: string };
-
-/**
- * `supabase.functions.invoke` surfaces a missing function as a generic network/CORS error, because
- * a 404 from the functions gateway carries no CORS headers for the browser to accept. Nothing in
- * the response distinguishes it, so match on the shape of the failure and name the likely cause.
- */
-function attackErrorMessage(error: { message?: string } | null): string {
-  const raw = error?.message ?? '';
-  if (/failed to (fetch|send)|networkerror|load failed/i.test(raw)) {
-    return 'Não foi possível falar com o servidor de PvP. A function `pvp-attack` pode não estar publicada no projeto Supabase (supabase functions deploy pvp-attack).';
-  }
-  return raw || 'O ataque falhou.';
 }
 
 /** One row of the global PvP leaderboard (supabase/migrations/0018_pvp_ranking.sql's get_pvp_leaderboard). */
@@ -73,18 +38,19 @@ export interface UsePvpResult {
   losses: number;
   /** The player's own saved defense squad — what an attacker actually fights. Empty until set. */
   defenseTeam: OwnedCharacter[];
-  /** `selectedAbilityByCharacterId` is saved into the snapshot alongside each character (docs/gdd.md §6: "defensor luta com o que salvou por último") — omit an id to snapshot activeOptions[0] for that character, same default the engine applies everywhere else. */
-  setDefenseTeam: (characters: OwnedCharacter[], selectedAbilityByCharacterId?: Record<string, string>) => Promise<void>;
-  findOpponents: () => Promise<PvpOpponent[]>;
+  /** Row (front/back) for each member of `defenseTeam`, by character id — missing entries default to 'front' (src/engine/turn/formation.ts). */
+  defenseFormation: Record<string, Row>;
   /**
-   * Runs a full attack against `opponent`'s saved defense team, entirely
-   * server-side via the `pvp-attack` Supabase Edge Function — the result
-   * affects a real opponent's rating, so the battle can't be computed (and
-   * trusted) in the attacker's own browser. The function fetches the
-   * attacker's roster itself from `player_characters`; nothing about the
-   * attacker's team is sent from the client.
+   * `selectedAbilityByCharacterId` is saved into the snapshot alongside each character
+   * (docs/gdd.md §6: "defensor luta com o que salvou por último") — omit an id to snapshot
+   * activeOptions[0] for that character, same default the engine applies everywhere else.
+   * `formation` omits an id to default it to 'front'.
    */
-  attack: (opponent: PvpOpponent) => Promise<PvpAttackOutcome>;
+  setDefenseTeam: (
+    characters: OwnedCharacter[],
+    selectedAbilityByCharacterId?: Record<string, string>,
+    formation?: Record<string, Row>,
+  ) => Promise<void>;
   /** Top `limit` (default 50, capped at 200 server-side) players by rating — supabase/migrations/0018_pvp_ranking.sql's get_pvp_leaderboard, security definer since player_progress's RLS only lets a client read its own row. */
   fetchLeaderboard: (limit?: number) => Promise<PvpLeaderboardEntry[]>;
   /** The caller's own position + total ranked player count — useful when they're not in the leaderboard's top-N slice. */
@@ -109,6 +75,7 @@ export function usePvp(userId: string | undefined): UsePvpResult {
   const [wins, setWins] = useState(0);
   const [losses, setLosses] = useState(0);
   const [defenseTeam, setDefenseTeamState] = useState<OwnedCharacter[]>([]);
+  const [defenseFormation, setDefenseFormationState] = useState<Record<string, Row>>({});
 
   useEffect(() => {
     if (!userId) {
@@ -117,6 +84,7 @@ export function usePvp(userId: string | undefined): UsePvpResult {
       setWins(0);
       setLosses(0);
       setDefenseTeamState([]);
+      setDefenseFormationState({});
       setLoading(false);
       return;
     }
@@ -126,7 +94,7 @@ export function usePvp(userId: string | undefined): UsePvpResult {
     (async () => {
       const [{ data: progress, error: progressError }, { data: defense }] = await Promise.all([
         supabase.from('player_progress').select('pvp_rating, pvp_peak_rating, pvp_wins, pvp_losses').eq('user_id', userId).maybeSingle(),
-        supabase.from('pvp_defense_teams').select('characters').eq('user_id', userId).maybeSingle(),
+        supabase.from('pvp_defense_teams').select('characters, formation').eq('user_id', userId).maybeSingle(),
       ]);
       if (cancelled) return;
       if (progressError) setError(progressError.message);
@@ -140,6 +108,7 @@ export function usePvp(userId: string | undefined): UsePvpResult {
         const snapshot = defense.characters as unknown as DefenseSnapshotCharacter[];
         setDefenseTeamState(snapshot.map((c) => ({ characterId: c.characterId, xp: c.xp, rarity: c.rarity ?? SNAPSHOT_FALLBACK_RARITY })));
       }
+      setDefenseFormationState((defense?.formation as unknown as Record<string, Row>) ?? {});
       setLoading(false);
     })();
     return () => {
@@ -148,62 +117,18 @@ export function usePvp(userId: string | undefined): UsePvpResult {
   }, [userId]);
 
   const setDefenseTeam = useCallback(
-    async (characters: OwnedCharacter[], selectedAbilityByCharacterId: Record<string, string> = {}) => {
+    async (characters: OwnedCharacter[], selectedAbilityByCharacterId: Record<string, string> = {}, formation: Record<string, Row> = {}) => {
       if (!userId) return;
       setDefenseTeamState(characters);
+      setDefenseFormationState(formation);
       try {
         // xp/rarity aren't sent — /api/pvp/defense-team re-reads them from player_characters
         // itself, so a forged snapshot can't hand a defense team fabricated stats.
-        await postApi('/api/pvp/defense-team', { characterIds: characters.map((c) => c.characterId), selectedAbilityByCharacterId });
+        await postApi('/api/pvp/defense-team', { characterIds: characters.map((c) => c.characterId), selectedAbilityByCharacterId, formation });
         setError(null);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to save defense team');
       }
-    },
-    [userId],
-  );
-
-  const findOpponents = useCallback(async (): Promise<PvpOpponent[]> => {
-    if (!userId) return [];
-    const { data: defenses } = await supabase.from('pvp_defense_teams').select('user_id').neq('user_id', userId).limit(50);
-    const candidateIds = (defenses ?? []).map((d) => d.user_id);
-    if (candidateIds.length === 0) return [];
-
-    // player_progress's own RLS only lets a client read its own row, so
-    // ratings for other candidates come from a security-definer RPC —
-    // see supabase/migrations/0018_pvp_ranking.sql's get_pvp_ratings.
-    const [{ data: ratings }, { data: profiles }] = await Promise.all([
-      supabase.rpc('get_pvp_ratings', { p_user_ids: candidateIds }),
-      supabase.from('profiles').select('user_id, username').in('user_id', candidateIds),
-    ]);
-    const ratingByUser = Object.fromEntries((ratings ?? []).map((r) => [r.user_id, r.pvp_rating]));
-    const nameByUser = Object.fromEntries((profiles ?? []).map((p) => [p.user_id, p.username]));
-
-    return candidateIds
-      .map((id) => ({ userId: id, username: nameByUser[id] ?? 'Node', rating: ratingByUser[id] ?? 1000 }))
-      .sort((a, b) => Math.abs(a.rating - rating) - Math.abs(b.rating - rating))
-      .slice(0, 10);
-  }, [userId, rating]);
-
-  const attack = useCallback(
-    async (opponent: PvpOpponent): Promise<PvpAttackOutcome> => {
-      if (!userId) return { ok: false, message: 'Sessão expirada — entre novamente para atacar.' };
-
-      const { data, error: invokeError } = await supabase.functions.invoke<PvpAttackResult>('pvp-attack', {
-        body: { defenderId: opponent.userId },
-      });
-      if (invokeError || !data) {
-        const message = attackErrorMessage(invokeError);
-        setError(message);
-        return { ok: false, message };
-      }
-
-      setRating(data.newRating);
-      setPeakRating((p) => Math.max(p, data.newRating));
-      if (data.won) setWins((w) => w + 1);
-      else setLosses((l) => l + 1);
-
-      return { ok: true, result: data };
     },
     [userId],
   );
@@ -243,9 +168,8 @@ export function usePvp(userId: string | undefined): UsePvpResult {
     wins,
     losses,
     defenseTeam,
+    defenseFormation,
     setDefenseTeam,
-    findOpponents,
-    attack,
     fetchLeaderboard,
     fetchMyRank,
   };

@@ -1,0 +1,18 @@
+{
+  "statusDefaultDurations": {
+    "leak": 2,
+    "trojan": 2,
+    "crash": 1,
+    "fragmentation": 2,
+    "nanites": 2,
+    "throttling": 2,
+    "lag": 2,
+    "target": null,
+    "buffAtk": 2,
+    "buffDef": 2,
+    "buffVel": 2,
+    "buffEsq": 2,
+    "buffIce": 2
+  },
+  "roundCap": 20
+}

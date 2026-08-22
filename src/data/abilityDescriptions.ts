@@ -11,6 +11,7 @@ const TARGET_LABEL: Record<TargetSelector, string> = {
   self: 'em si mesmo',
   attacker: 'no atacante',
   defender: 'no defensor',
+  chosenTarget: 'no alvo escolhido',
   ownVanguard: 'no Vanguard aliado',
   enemyVanguard: 'no Vanguard inimigo',
   allEnemies: 'em todos os inimigos',

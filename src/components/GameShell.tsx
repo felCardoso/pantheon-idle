@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { TopBar } from './layout/TopBar';
 import { SideMenu } from './layout/SideMenu';
 import { StagePanel } from './layout/StagePanel';
 import { ChatPanel } from './layout/ChatPanel';
 import { BattleStage } from './battle/BattleStage';
 import { WorldMapModal } from './battle/WorldMapModal';
-import { PvpBattlePlayer } from './battle/PvpBattlePlayer';
+import { TurnBattleFlow } from './battle/TurnBattleFlow';
+import { TurnBattleStage } from './battle/TurnBattleStage';
 import { TeamPage } from './roster/TeamPage';
 import { CharactersPage } from './roster/CharactersPage';
 import { ShopPage } from './shop/ShopPage';
@@ -23,13 +24,14 @@ import { PLAYER_STATE } from '../data/mock/player';
 import { pvpRankTierFor } from '../data/pvpRank';
 import { MENU_ITEMS } from '../data/mock/menu';
 import { CHAT_MESSAGES } from '../data/mock/chat';
-import { useBattleSimulation } from '../hooks/useBattleSimulation';
+import { useBattleSimulation, type PvpEncounter } from '../hooks/useBattleSimulation';
 import { usePlayerProgress, type TeamVisibility } from '../hooks/usePlayerProgress';
 import { useOwnedCharacters, type FragmentStack, type OwnedCharacter } from '../hooks/useOwnedCharacters';
 import { usePlayerTeams } from '../hooks/usePlayerTeams';
 import { useProfile, type UpdateUsernameResult } from '../hooks/useProfile';
 import { useCluster } from '../hooks/useCluster';
-import { usePvp, type PvpAttackResult } from '../hooks/usePvp';
+import { usePvp } from '../hooks/usePvp';
+import type { TurnBattleOutcome } from '../hooks/usePvpTurnBattle';
 import { usePlayerModules } from '../hooks/usePlayerModules';
 import { MODULE_BY_ID } from '../data/modules';
 import { useMarket } from '../hooks/useMarket';
@@ -234,8 +236,8 @@ function GameShellReady({
   const [stageOpen, setStageOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const playerModules = usePlayerModules(userId);
-  /** The rolled PvP encounter's resolved fight, once pvp.attack has run it. */
-  const [encounterBattle, setEncounterBattle] = useState<{ opponentName: string; result: PvpAttackResult } | null>(null);
+  /** The rolled PvP encounter, once it's been handed off to the interactive turn battle screen. */
+  const [activeEncounter, setActiveEncounter] = useState<PvpEncounter | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -349,51 +351,35 @@ function GameShellReady({
   }, [lastModulesEarned, refreshModules]);
 
   // Random PvP encounters (lib/battle-resolve.ts's rollPvpEncounter): the server decides a run
-  // has bumped into another player, and the fight goes through the same authoritative
-  // pvp-attack path as the opponent list's Atacar button.
+  // has bumped into another player. PvP only ever happens this way now — there's no opponent
+  // list to attack from on demand — so the grind pauses and the interactive turn battle screen
+  // (TurnBattleFlow) opens directly, with no accept/decline prompt.
   const encounter = battle.pvpEncounter;
   const clearPvpEncounter = battle.clearPvpEncounter;
-  // `pvp` is a fresh object every render, so the effect below re-runs constantly; without this
-  // guard a second attack could fire while the first is still in flight, charging the player
-  // two rating changes for one encounter.
-  const encounterInFlightRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!encounter || encounterBattle) return;
-    if (encounterInFlightRef.current === encounter.userId) return;
-    encounterInFlightRef.current = encounter.userId;
-    let cancelled = false;
-    (async () => {
-      const outcome = await pvp.attack(encounter);
-      if (cancelled) return;
-      if (!outcome.ok) {
-        // Nothing to show — drop the encounter and let the grind carry on.
-        setToast(outcome.message);
-        encounterInFlightRef.current = null;
-        clearPvpEncounter();
-        return;
-      }
-      setEncounterBattle({ opponentName: encounter.username, result: outcome.result });
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [encounter, encounterBattle, pvp, clearPvpEncounter]);
+    if (!encounter || activeEncounter) return;
+    setActiveEncounter(encounter);
+  }, [encounter, activeEncounter]);
 
-  function handleEncounterContinue() {
-    const finished = encounterBattle;
-    setEncounterBattle(null);
-    encounterInFlightRef.current = null;
+  function handleEncounterFinished(outcome: TurnBattleOutcome) {
+    const opponentName = activeEncounter?.username ?? 'oponente';
+    setActiveEncounter(null);
     clearPvpEncounter();
-    if (!finished) return;
-    battle.setWallet(battle.credits + finished.result.rewardCredits, battle.xp);
+    battle.setWallet(battle.credits + outcome.rewardCredits, battle.xp);
     // A won PvP fight levels the squad that fought it, same as PvE — mirror it locally so the
     // roster screens don't lag behind the write the Edge Function already made.
-    applyBattleXp(finished.result.xpEarnedByCharacterId);
+    applyBattleXp(outcome.xpEarnedByCharacterId);
     setToast(
-      finished.result.won
-        ? `PvP: vitória contra ${finished.opponentName}! +${finished.result.rewardCredits} créditos, ${finished.result.ratingDelta >= 0 ? '+' : ''}${finished.result.ratingDelta} rating.`
-        : `PvP: derrota para ${finished.opponentName}. ${finished.result.ratingDelta >= 0 ? '+' : ''}${finished.result.ratingDelta} rating.`,
+      outcome.won
+        ? `PvP: vitória contra ${opponentName}! +${outcome.rewardCredits} créditos, ${outcome.ratingDelta >= 0 ? '+' : ''}${outcome.ratingDelta} rating.`
+        : `PvP: derrota para ${opponentName}. ${outcome.ratingDelta >= 0 ? '+' : ''}${outcome.ratingDelta} rating.`,
     );
+  }
+
+  function handleEncounterFailed(message: string) {
+    setActiveEncounter(null);
+    clearPvpEncounter();
+    setToast(message);
   }
 
   useEffect(() => {
@@ -442,8 +428,6 @@ function GameShellReady({
               onSetPveTeamSlot={setPveTeamSlot}
               onSetPvpTeamSlot={setPvpTeamSlot}
               pvp={pvp}
-              onRewardCredits={battle.adjustCredits}
-              onBattleXp={applyBattleXp}
               onToast={setToast}
               characterProgression={characterProgression}
             />
@@ -543,6 +527,8 @@ function GameShellReady({
             onRepeat={battle.repeatBattle}
             onSelectStage={battle.playStage}
             onOpenMap={() => setMapOpen(true)}
+            onPlayManually={battle.startManualBattle}
+            manualLoading={battle.manualBattleLoading}
           />
           <ChatPanel
             messages={chatMessages}
@@ -606,12 +592,30 @@ function GameShellReady({
           onClose={() => setMapOpen(false)}
         />
       )}
-      {encounterBattle && (
-        <PvpBattlePlayer
-          key={encounterBattle.opponentName + encounterBattle.result.newRating}
-          opponentName={encounterBattle.opponentName}
-          result={encounterBattle.result}
-          onContinue={handleEncounterContinue}
+      {activeEncounter && (
+        <TurnBattleFlow
+          key={activeEncounter.userId}
+          attackerName="Você"
+          opponent={activeEncounter}
+          onFinished={handleEncounterFinished}
+          onFailed={handleEncounterFailed}
+        />
+      )}
+      {battle.manualBattle && (
+        <TurnBattleStage
+          attackerName="Você"
+          defenderName={battle.stage.worldName}
+          allies={battle.manualBattle.allies}
+          enemies={battle.manualBattle.enemies}
+          round={battle.manualBattle.round}
+          pendingAllyUnitId={battle.manualBattle.pendingAllyUnitId}
+          log={battle.manualBattle.log}
+          finished={false}
+          winner={null}
+          loading={battle.manualBattleLoading}
+          error={battle.manualBattleError}
+          onAct={battle.actManualBattle}
+          onContinue={() => {}}
         />
       )}
       <Toast message={toast} />

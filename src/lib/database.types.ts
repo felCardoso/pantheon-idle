@@ -291,16 +291,19 @@ export interface Database {
         Row: {
           user_id: string;
           characters: unknown;
+          formation: unknown;
           updated_at: string;
         };
         Insert: {
           user_id: string;
           characters?: unknown;
+          formation?: unknown;
           updated_at?: string;
         };
         Update: {
           user_id?: string;
           characters?: unknown;
+          formation?: unknown;
           updated_at?: string;
         };
         Relationships: [];
@@ -383,6 +386,30 @@ export interface Database {
           price_credits?: number;
           rarity?: string;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      pve_turn_battles: {
+        Row: {
+          id: string;
+          user_id: string;
+          state: unknown;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          state: unknown;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          state?: unknown;
+          created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };

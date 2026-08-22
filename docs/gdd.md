@@ -73,9 +73,11 @@ Detalhamento completo (atributos, elementos, efeitos de status, gatilhos de habi
 
 ## 6. PvP
 
-- **Assíncrono**: o jogador ataca o time de defesa salvo por outro jogador, simulado pelo servidor (sempre em tempo real, sem aceleração)
+- **5x5 por turnos, interativo**: motor dedicado (`src/engine/turn/**`, ver docs/combate.md), separado do tempo real do PvE — formação (linha de frente/fundo), rodadas em fase aliada/inimiga, o jogador escolhe a ação de cada personagem vivo no seu turno
+- **Assíncrono**: o time defendido é o time de defesa salvo por outro jogador; o defensor nunca precisa estar online — o lado dele é jogado por uma IA determinística
+- **Só automático**: não há lista de oponentes para escolher e atacar quando quiser — o encontro dispara sozinho durante o grind de PvE (a cada N batalhas sem PvP, uma chance por batalha de cair num oponente), e a tela interativa abre direto, sem opção de recusar
+- Resolvido inteiramente no servidor (Edge Functions), rodada a rodada — o cliente só propõe uma ação por vez, o servidor confirma ou rejeita
 - Ranking/liga por temporadas, com recompensas por faixa
-- **Fase 2:** sistema de replay para assistir combates
 
 ## 7. Progressão
 

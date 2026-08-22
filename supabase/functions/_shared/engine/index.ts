@@ -119,3 +119,17 @@ export type { XpProgress } from './core/leveling.ts';
 /** Exposed so callers can seed deterministic rolls (gacha, onboarding picks). */
 export { Rng } from './core/rng.ts';
 export type { RngLike } from './core/rng.ts';
+
+// ---------------------------------------------------------------------------
+// Turn engine (src/engine/turn/**) — the formation-aware, round-based combat
+// loop. Drives both the interactive 5x5 PvP mode (player-chosen actions each
+// round) and PvE (auto-played both sides via runAutoTurnBattle), built on the
+// same damage/status/ability machinery as the legacy real-time engine above.
+// ---------------------------------------------------------------------------
+export { createTurnBattle, applyPlayerAction, pendingAllyUnit, runAutoTurnBattle } from './turn/roundLoop.ts';
+export type { TurnBattleState } from './turn/roundLoop.ts';
+export { loadTurnCombatantsByIds, loadTurnWorldBoss, loadTurnWorldComuns } from './turn/loader.ts';
+export type { ChargeState, Row, TurnAction, TurnBattleLogEntry, TurnCombatant, TurnPhase } from './turn/types.ts';
+export type { TurnOwnedCharacterEntry } from './turn/schema.ts';
+export { applyTurnReplayEntry, createInitialTurnReplayState } from './turn/replay.ts';
+export type { TurnReplayState } from './turn/replay.ts';

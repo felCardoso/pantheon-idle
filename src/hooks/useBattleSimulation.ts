@@ -6,14 +6,17 @@ import {
   localFaseNumber,
   worldIdForFase,
   worldIndexForFase,
-  type BattleLogEntry,
-  type Combatant,
+  type TurnAction,
+  type TurnBattleLogEntry,
+  type TurnCombatant,
+  type TurnPhase,
   type WorldPosition,
 } from '../engine';
 import { postApi } from '../lib/apiClient';
 import { WORLD_DISPLAY_BY_ID } from '../data/engineDisplay';
-import { toBattleUnits } from '../data/battleUnits';
-import { useBattleReplay, type AbilityCastEvent, type AttackAnimEvent, type FloatingText } from './useBattleReplay';
+import { toTurnReplayBattleUnits } from '../data/turnBattleUnits';
+import { useTurnBattleReplay } from './useTurnBattleReplay';
+import type { AbilityCastEvent, AttackAnimEvent, FloatingText } from './useBattleReplay';
 import type { BattleUnit, ChatMessage, StageInfo } from '../types';
 
 export type { FloatingText, FloatingTextKind, AbilityCastEvent, AttackAnimEvent, AttackAnimTier } from './useBattleReplay';
@@ -29,9 +32,9 @@ export type { FloatingText, FloatingTextKind, AbilityCastEvent, AttackAnimEvent,
 interface BattleSession extends WorldPosition {
   seed: number;
   isBoss: boolean;
-  allies: Combatant[];
-  enemies: Combatant[];
-  log: BattleLogEntry[];
+  allies: TurnCombatant[];
+  enemies: TurnCombatant[];
+  log: TurnBattleLogEntry[];
   nameToId: Record<string, string>;
   winner: 'allies' | 'enemies' | 'draw';
   reward: Reward;
@@ -65,9 +68,9 @@ interface ResolveBattleResponse {
   position: WorldPosition;
   isBoss: boolean;
   winner: 'allies' | 'enemies' | 'draw';
-  log: BattleLogEntry[];
-  allies: Combatant[];
-  enemies: Combatant[];
+  log: TurnBattleLogEntry[];
+  allies: TurnCombatant[];
+  enemies: TurnCombatant[];
   reward: Reward;
   credits: number;
   xp: number;
@@ -77,6 +80,35 @@ interface ResolveBattleResponse {
   pvpEncounter: PvpEncounter | null;
   xpEarnedByCharacterId: Record<string, number>;
   modulesEarned: EarnedModule[];
+}
+
+/**
+ * app/api/battle/turn-start / app/api/battle/turn-act's response — either the battle is still
+ * going (the player's own side, mid-fight) or it just finished, in which case the rest of the
+ * fields are exactly ResolveBattleResponse's (see lib/pve-turn-battle.ts's TurnBattleStepResult,
+ * which this mirrors).
+ */
+type TurnBattleStepResponse =
+  | {
+      battleId: string;
+      allies: TurnCombatant[];
+      enemies: TurnCombatant[];
+      round: number;
+      phase: TurnPhase;
+      pendingAllyUnitId: string | null;
+      log: TurnBattleLogEntry[];
+      finished: false;
+    }
+  | ({ battleId: string | null; finished: true } & ResolveBattleResponse);
+
+/** A manual PvE battle in progress — the player controls their own side action by action, exactly like turn-based PvP (see src/components/battle/TurnBattleStage.tsx, reused as-is for this). */
+export interface ManualBattleState {
+  battleId: string;
+  allies: TurnCombatant[];
+  enemies: TurnCombatant[];
+  round: number;
+  pendingAllyUnitId: string | null;
+  log: TurnBattleLogEntry[];
 }
 
 function sessionFrom(response: ResolveBattleResponse): BattleSession {
@@ -104,10 +136,10 @@ export interface Reward {
   xp: number;
 }
 
-// Stable identities so useBattleReplay's memo/reset logic doesn't see a "new" empty battle on
+// Stable identities so useTurnBattleReplay's memo/reset logic doesn't see a "new" empty battle on
 // every render during the window before the first server response arrives.
-const EMPTY_LOG: BattleLogEntry[] = [];
-const EMPTY_COMBATANTS: Combatant[] = [];
+const EMPTY_LOG: TurnBattleLogEntry[] = [];
+const EMPTY_COMBATANTS: TurnCombatant[] = [];
 const EMPTY_NAME_TO_ID: Record<string, string> = {};
 const EMPTY_MODULES: EarnedModule[] = [];
 
@@ -297,6 +329,20 @@ export interface BattleSimulation {
    */
   pvpEncounter: PvpEncounter | null;
   clearPvpEncounter: () => void;
+  /**
+   * Non-null while the player has taken manual control of the current stage instead of the
+   * default auto-play — see app/api/battle/turn-start/turn-act. While set, `allies`/`enemies`/
+   * `stage`/etc above keep showing the *previous* finished battle's replay; the caller should
+   * render TurnBattleStage from this instead until it clears.
+   */
+  manualBattle: ManualBattleState | null;
+  /** True while a turn-start/turn-act request is in flight. */
+  manualBattleLoading: boolean;
+  manualBattleError: string | null;
+  /** Starts a manually-controlled battle at the current position, replacing the next auto-played one. A no-op if a manual battle is already in progress or the first battle hasn't loaded yet. */
+  startManualBattle: () => void;
+  /** Submits one action for the manual battle's currently-pending ally unit. */
+  actManualBattle: (unitId: string, action: TurnAction) => void;
 }
 
 export function useBattleSimulation(options: UseBattleSimulationOptions): BattleSimulation {
@@ -309,9 +355,12 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
   const [state, dispatch] = useReducer(sessionReducer, undefined, () => buildInitialSession(initialPosition, initialCredits, initialXp));
   const [error, setError] = useState<string | null>(null);
   const [pendingEncounter, setPendingEncounter] = useState<PvpEncounter | null>(null);
+  const [manualBattle, setManualBattle] = useState<ManualBattleState | null>(null);
+  const [manualLoading, setManualLoading] = useState(false);
+  const [manualError, setManualError] = useState<string | null>(null);
 
   const onBattleEnd = useCallback(() => dispatch({ type: 'battleEnd' }), []);
-  const replay = useBattleReplay({
+  const replay = useTurnBattleReplay({
     log: state.session?.log ?? EMPTY_LOG,
     allies: state.session?.allies ?? EMPTY_COMBATANTS,
     enemies: state.session?.enemies ?? EMPTY_COMBATANTS,
@@ -321,6 +370,19 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     tickMs,
     onBattleEnd,
   });
+
+  /** Feeds a just-resolved battle (however it was resolved — auto or manually played) into the session, so its result is revealed by the same replay/summary/wallet pipeline either way. */
+  const applyResolvedBattle = useCallback((response: ResolveBattleResponse) => {
+    setError(null);
+    setPendingEncounter(response.pvpEncounter);
+    dispatch({
+      type: 'reset',
+      session: sessionFrom(response),
+      frontier: response.frontier,
+      recoveryWinsRemaining: response.recoveryWinsRemaining,
+    });
+    setPlaying(true);
+  }, []);
 
   /**
    * Asks the server for the next battle. The client sends only intent — advance or repeat, and
@@ -341,22 +403,71 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
           retreatOnLoss,
           position,
         });
-        setError(null);
-        setPendingEncounter(response.pvpEncounter);
-        dispatch({
-          type: 'reset',
-          session: sessionFrom(response),
-          frontier: response.frontier,
-          recoveryWinsRemaining: response.recoveryWinsRemaining,
-        });
-        setPlaying(true);
+        applyResolvedBattle(response);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Não foi possível iniciar a batalha.');
       } finally {
         inFlightRef.current = false;
       }
     },
-    [retreatOnLoss],
+    [retreatOnLoss, applyResolvedBattle],
+  );
+
+  /**
+   * Manual PvE: same round-trip protocol turn-based PvP uses (start, then act once per player
+   * decision), running against app/api/battle/turn-start/turn-act instead of auto-playing both
+   * sides in one call. Once the server reports the battle finished, its result is exactly a
+   * ResolveBattleResponse — fed through applyResolvedBattle exactly like the auto path, so the
+   * finished fight gets the same recap replay, wallet update and Log tab summary either way.
+   */
+  const manualInFlightRef = useRef(false);
+  const startManualBattle = useCallback(async () => {
+    if (manualInFlightRef.current || manualBattle || !state.session) return;
+    manualInFlightRef.current = true;
+    setManualLoading(true);
+    setManualError(null);
+    try {
+      const response = await postApi<TurnBattleStepResponse>('/api/battle/turn-start', {
+        mode,
+        retreatOnLoss,
+        position: state.nextPosition,
+      });
+      if (response.finished) applyResolvedBattle(response);
+      else setManualBattle(response);
+    } catch (err) {
+      setManualError(err instanceof Error ? err.message : 'Não foi possível iniciar a batalha manual.');
+    } finally {
+      manualInFlightRef.current = false;
+      setManualLoading(false);
+    }
+  }, [manualBattle, state.session, state.nextPosition, mode, retreatOnLoss, applyResolvedBattle]);
+
+  const actManualBattle = useCallback(
+    async (unitId: string, action: TurnAction) => {
+      if (manualInFlightRef.current || !manualBattle) return;
+      manualInFlightRef.current = true;
+      setManualLoading(true);
+      setManualError(null);
+      try {
+        const response = await postApi<TurnBattleStepResponse>('/api/battle/turn-act', {
+          battleId: manualBattle.battleId,
+          unitId,
+          action,
+        });
+        if (response.finished) {
+          setManualBattle(null);
+          applyResolvedBattle(response);
+        } else {
+          setManualBattle(response);
+        }
+      } catch (err) {
+        setManualError(err instanceof Error ? err.message : 'Ação inválida.');
+      } finally {
+        manualInFlightRef.current = false;
+        setManualLoading(false);
+      }
+    },
+    [manualBattle, applyResolvedBattle],
   );
 
   // First battle of the session. No position is sent: the server resumes from the saved
@@ -375,14 +486,14 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
   useEffect(() => {
     if (!replay.finished || !playing || !state.session) return;
     // A rolled PvP encounter interrupts the grind: hold the next PvE battle until the shell has
-    // played it out and cleared it.
-    if (pendingEncounter) return;
+    // played it out and cleared it. A manual battle in progress holds it the same way.
+    if (pendingEncounter || manualBattle) return;
     const nextPosition = state.nextPosition;
     const timer = setTimeout(() => {
       requestBattle(mode, nextPosition);
     }, autoAdvanceDelayMs);
     return () => clearTimeout(timer);
-  }, [replay.finished, playing, state.session, state.nextPosition, mode, autoAdvanceDelayMs, requestBattle, pendingEncounter]);
+  }, [replay.finished, playing, state.session, state.nextPosition, mode, autoAdvanceDelayMs, requestBattle, pendingEncounter, manualBattle]);
 
   const startNewBattle = useCallback(() => {
     // Already advancing — the auto-advance effect is already driving this, so a redundant click
@@ -426,8 +537,8 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
   const stageWorldDisplay = WORLD_DISPLAY_BY_ID[stageWorldId];
 
   return {
-    allies: state.session ? toBattleUnits(state.session.allies, replay.replay, replay.replay.allyOrder, true) : [],
-    enemies: state.session ? toBattleUnits(state.session.enemies, replay.replay, replay.replay.enemyOrder, false) : [],
+    allies: state.session ? toTurnReplayBattleUnits(state.session.allies, replay.replay.units, true) : [],
+    enemies: state.session ? toTurnReplayBattleUnits(state.session.enemies, replay.replay.units, false) : [],
     stage: {
       worldId: stageWorldId,
       worldName: stageWorldDisplay.name,
@@ -437,7 +548,7 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
       // Each world's own last fase has a 6th slot for its boss, one past its 5 regular estágios.
       totalStages: localFaseNumber(viewedPosition.fase) === FASES_PER_WORLD ? ESTAGIOS_PER_FASE + 1 : ESTAGIOS_PER_FASE,
       isBoss: state.session?.isBoss ?? false,
-      round: Math.floor(replay.replay.now),
+      round: replay.replay.round,
     },
     logFeed: [...replay.abilityLogFeed, ...state.resultLogFeed],
     floaters: replay.floaters,
@@ -471,5 +582,10 @@ export function useBattleSimulation(options: UseBattleSimulationOptions): Battle
     // replay off halfway.
     pvpEncounter: replay.finished ? pendingEncounter : null,
     clearPvpEncounter,
+    manualBattle,
+    manualBattleLoading: manualLoading,
+    manualBattleError: manualError,
+    startManualBattle,
+    actManualBattle,
   };
 }

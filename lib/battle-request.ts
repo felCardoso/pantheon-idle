@@ -1,4 +1,4 @@
-import type { WorldPosition } from '../src/engine';
+import type { TurnAction, WorldPosition } from '../src/engine';
 
 /**
  * Parsing and validation for app/api/battle/resolve's request body.
@@ -42,4 +42,27 @@ export function parseResolveRequest(body: Record<string, unknown>): ResolveBattl
   // Anything other than an explicit `true` means off — the flag only ever makes the run harder,
   // so defaulting a malformed value to false is the safe direction.
   return { mode, retreatOnLoss: body.retreatOnLoss === true, position };
+}
+
+/** app/api/battle/turn-act's request body — one player action against an in-progress manual PvE battle (app/api/battle/turn-start). */
+export interface TurnActRequest {
+  battleId: string;
+  unitId: string;
+  action: TurnAction;
+}
+
+function isTurnAction(value: unknown): value is TurnAction {
+  if (typeof value !== 'object' || value === null) return false;
+  const { type, targetId } = value as Partial<TurnAction>;
+  if (type !== 'basicAttack' && type !== 'ability') return false;
+  if (targetId !== undefined && typeof targetId !== 'string') return false;
+  return true;
+}
+
+export function parseTurnActRequest(body: Record<string, unknown>): TurnActRequest {
+  const { battleId, unitId, action } = body;
+  if (typeof battleId !== 'string' || !battleId) throw new BattleResolveError('battleId is required', 400);
+  if (typeof unitId !== 'string' || !unitId) throw new BattleResolveError('unitId is required', 400);
+  if (!isTurnAction(action)) throw new BattleResolveError('A valid action is required', 400);
+  return { battleId, unitId, action };
 }
